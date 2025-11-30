@@ -22,7 +22,7 @@ export function ActionToolbar({
             <div className="flex gap-2 text-xs text-zinc-500 uppercase tracking-wider items-center mr-4 border-r border-zinc-200 pr-4 h-6">
                 <span className="font-semibold text-zinc-900">Ep {currentEpKey}</span>
                 <span>{totalClips} Clips</span>
-                <span>{readyClips} Ready</span>
+                <span>{selectedCount} Selected</span>
             </div>
             <Button
                 size="sm"
@@ -38,7 +38,7 @@ export function ActionToolbar({
                 size="sm"
                 onClick={onDownloadSelected}
                 disabled={selectedCount === 0}
-                className="h-8 px-3 text-xs"
+                className="h-8 px-3 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary"
             >
                 <span className="material-symbols-outlined !text-sm mr-2">download</span>
                 Download

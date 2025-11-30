@@ -90,7 +90,7 @@ export function ClipRow({
                     onCheckedChange={() => onSelect(clip.id)}
                 />
             </TableCell>
-            <TableCell className="align-top font-mono text-stone-500 text-xs py-3">
+            <TableCell className="align-top font-sans text-stone-500 text-xs py-3">
                 {clip.scene}
             </TableCell>
             <TableCell className="align-top w-1/6 py-3">
@@ -181,7 +181,7 @@ export function ClipRow({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => onGenerate(clip)}
-                                className="h-8 px-2 text-xs"
+                                className="h-8 px-2 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary"
                             >
                                 Gen
                             </Button>
