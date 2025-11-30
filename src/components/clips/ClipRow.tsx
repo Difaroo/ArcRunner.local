@@ -74,7 +74,7 @@ export function ClipRow({
         return (
             <div
                 onClick={handleStartEdit}
-                className={`cursor-pointer hover:bg-zinc-100 p-1 rounded -m-1 transition ${className} ${!clip[field] ? 'text-zinc-400 italic' : ''}`}
+                className={`cursor-pointer hover:bg-stone-800 p-1 rounded -m-1 transition ${className} ${!clip[field] ? 'text-stone-500 italic' : ''}`}
                 title="Click to edit"
             >
                 {clip[field] || '-'}
@@ -83,40 +83,40 @@ export function ClipRow({
     }
 
     return (
-        <TableRow className={`group hover:bg-zinc-50 transition-colors ${isSelected ? 'bg-zinc-50' : ''}`}>
+        <TableRow className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''}`}>
             <TableCell className="w-10 text-center align-top py-3">
                 <Checkbox
                     checked={isSelected}
                     onCheckedChange={() => onSelect(clip.id)}
                 />
             </TableCell>
-            <TableCell className="align-top font-mono text-zinc-500 text-xs py-3">
+            <TableCell className="align-top font-mono text-stone-500 text-xs py-3">
                 {clip.scene}
             </TableCell>
             <TableCell className="align-top w-1/6 py-3">
-                {renderCell('title', "font-medium text-zinc-900 block")}
+                {renderCell('title', "font-medium text-white block")}
             </TableCell>
             <TableCell className="align-top w-32 py-3">
-                {renderCell('character', "text-zinc-700")}
+                {renderCell('character', "text-white")}
             </TableCell>
             <TableCell className="align-top w-32 py-3">
-                {renderCell('location', "text-zinc-700")}
+                {renderCell('location', "text-white")}
             </TableCell>
-            <TableCell className="align-top text-zinc-600 text-xs w-32 py-3">
+            <TableCell className="align-top text-white text-xs w-32 py-3">
                 <div className="mb-2">
-                    <span className="text-zinc-400 uppercase tracking-wider text-[10px] block mb-0.5 font-semibold">Style</span>
+                    <span className="text-stone-500 uppercase tracking-wider text-[10px] block mb-0.5 font-semibold">Style</span>
                     {renderCell('style')}
                 </div>
                 <div>
-                    <span className="text-zinc-400 uppercase tracking-wider text-[10px] block mb-0.5 font-semibold">Camera</span>
+                    <span className="text-stone-500 uppercase tracking-wider text-[10px] block mb-0.5 font-semibold">Camera</span>
                     {renderCell('camera')}
                 </div>
             </TableCell>
-            <TableCell className="align-top text-zinc-600 text-xs w-1/3 py-3">
+            <TableCell className="align-top text-white w-1/3 py-3">
                 {renderCell('action', "leading-relaxed")}
             </TableCell>
-            <TableCell className="align-top text-zinc-600 text-xs w-1/6 py-3">
-                {renderCell('dialog', "italic text-zinc-500")}
+            <TableCell className="align-top text-white w-1/6 py-3">
+                {renderCell('dialog', "text-white")}
             </TableCell>
             <TableCell className="align-top py-3">
                 {clip.refImageUrls && clip.refImageUrls.length > 5 && !clip.refImageUrls.startsWith('`') ? (
@@ -169,7 +169,7 @@ export function ClipRow({
                                 variant="outline"
                                 size="icon"
                                 onClick={() => onPlay(clip.resultUrl!)}
-                                className="h-8 w-8"
+                                className="h-8 w-8 border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary"
                                 title="Play"
                             >
                                 <span className="material-symbols-outlined !text-lg">play_arrow</span>
