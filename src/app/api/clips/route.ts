@@ -1,17 +1,35 @@
 import { NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
 
+export interface Clip {
+    id: string;
+    scene: string;
+    title: string;
+    character: string;
+    location: string;
+    style: string;
+    camera: string;
+    action: string;
+    dialog: string;
+    refImageUrls: string;
+    status: string;
+    resultUrl?: string;
+    episode?: string;
+}
+
 export async function GET() {
     try {
         console.log('API /api/clips called');
-        // Fetch data from 'CLIPS' and 'LIBRARY' sheets
-        const [clipsRows, libraryRows] = await Promise.all([
+        // Fetch data from 'CLIPS', 'LIBRARY', and 'EPISODES' sheets
+        const [clipsRows, libraryRows, episodesRows] = await Promise.all([
             getSheetData('CLIPS!A2:Z'),
-            getSheetData('LIBRARY!A2:F')
+            getSheetData('LIBRARY!A2:F'),
+            getSheetData('EPISODES!A2:C')
         ]);
 
         console.log('Clips fetched:', clipsRows ? clipsRows.length : 'null');
         console.log('Library fetched:', libraryRows ? libraryRows.length : 'null');
+        console.log('Episodes fetched:', episodesRows ? episodesRows.length : 'null');
 
         if (!clipsRows) {
             return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 });
@@ -39,12 +57,27 @@ export async function GET() {
             });
         }
 
+        // Build Episode Map: Number -> Title
+        const episodeTitles: Record<string, string> = {};
+        if (episodesRows) {
+            episodesRows.forEach(row => {
+                // Column A: Series (Index 0) - Ignored for now
+                const epNum = row[1]; // Column B: Episode Number
+                const title = row[2]; // Column C: Title
+                if (epNum && title) {
+                    episodeTitles[epNum] = title;
+                }
+            });
+        }
+
         // Map rows to Clip objects
         const clips = clipsRows
-            .filter((row) => row[0] !== 'Scene #') // Filter out header row
+            .filter((row) => row[0] !== 'Scene #' && row[0]) // Filter out header row AND empty scene numbers
             .map((row, index) => {
                 const character = row[3] || '';
                 const location = row[5] || '';
+                const style = row[6] || '';
+                const camera = row[7] || '';
 
                 // 1. Get Clip-specific refs
                 const rawRefs = row[10] || '';
@@ -74,25 +107,24 @@ export async function GET() {
                 return {
                     id: index.toString(),
                     scene: row[0] || '',         // Column A (Scene #)
-                    status: row[1] || 'Pending', // Column B
+                    status: row[1] || '', // Column B
                     title: row[2] || '',         // Column C (Title)
                     character: row[3] || '',     // Column D
                     location: row[5] || '',      // Column F
-                    style: row[6] || '',         // Column G
-                    camera: row[7] || '',        // Column H
+                    style: style,                // Column G
+                    camera: camera,              // Column H
                     action: row[8] || '',        // Column I
                     dialog: row[9] || '',        // Column J
                     refImageUrls: processedRefs, // Column K + Library
-                    // Validate Result URL (Column S)
-                    // It might contain prompt text due to data corruption.
-                    // Only accept if it starts with http or is a short Task ID.
-                    resultUrl: (row[18] && (row[18].startsWith('http') || row[18].length < 100))
-                        ? convertDriveUrl(row[18])
+                    // Validate Result URL (Column T - Index 19)
+                    resultUrl: (row[19] && (row[19].startsWith('http') || row[19].length < 100))
+                        ? convertDriveUrl(row[19])
                         : '',
+                    episode: row[25] || '1', // Column Z (Index 25) - Default to '1'
                 };
             });
 
-        return NextResponse.json({ clips });
+        return NextResponse.json({ clips, episodeTitles });
     } catch (error: any) {
         console.error('API Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

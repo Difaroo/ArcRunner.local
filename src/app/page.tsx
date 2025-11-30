@@ -1,27 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Clip } from './api/clips/route';
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { ClipTable } from "@/components/clips/ClipTable"
+import { EpisodeTabs } from "@/components/clips/EpisodeTabs"
+import { ActionToolbar } from "@/components/clips/ActionToolbar"
 
-interface Clip {
-  id: string;
-  scene: string;
-  status: string;
-  title: string;
-  character: string;
-  location: string;
-  action: string;
-  dialog: string;
-  refImageUrls: string;
-  resultUrl: string;
-}
+
 
 export default function Home() {
   const [clips, setClips] = useState<Clip[]>([]);
+  const [episodeTitles, setEpisodeTitles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentEpisode, setCurrentEpisode] = useState(1);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<Partial<Clip>>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch('/api/clips')
@@ -29,30 +29,105 @@ export default function Home() {
       .then((data) => {
         if (data.error) throw new Error(data.error);
         setClips(data.clips);
+        if (data.episodeTitles) setEpisodeTitles(data.episodeTitles);
+
+        // Auto-select clips with empty status (ready for re-render)
+        const emptyStatusIds = data.clips
+          .filter((c: Clip) => {
+            const isEmpty = !c.status || c.status.trim() === '';
+            return isEmpty;
+          })
+          .map((c: Clip) => c.id);
+
+        if (emptyStatusIds.length > 0) {
+          setSelectedIds(prev => {
+            const next = new Set(prev);
+            emptyStatusIds.forEach((id: string) => next.add(id));
+            return next;
+          });
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
+  // --- Editing Logic ---
+  const startEditing = (clip: Clip) => {
+    if (editingId === clip.id) return; // Already editing this one
+    setEditingId(clip.id);
+    setEditValues({ ...clip });
+  };
+
+  const handleEditChange = (field: keyof Clip, value: string) => {
+    setEditValues(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async (clipId: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/update_clip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rowIndex: clipId, // id is the index
+          updates: editValues
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to save');
+
+      // Update local state
+      setClips(prev => prev.map(c => c.id === clipId ? { ...c, ...editValues } : c));
+      setEditingId(null);
+      setEditValues({});
+
+    } catch (err) {
+      console.error('Save error:', err);
+      alert('Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditValues({});
+  };
+
+
   // --- Episode Logic ---
-  // Detect episodes by looking for Scene "1" resets or large gaps?
-  // For now, let's assume a simple heuristic: If scene number < previous scene number, it's a new episode.
+  // Group clips by their explicit 'episode' field.
   const episodes: Clip[][] = [];
-  let currentEp: Clip[] = [];
-  let lastSceneNum = -1;
+  const episodeMap = new Map<string, Clip[]>();
 
   clips.forEach(clip => {
-    const sceneNum = parseInt(clip.scene) || 999;
-    if (sceneNum < lastSceneNum && currentEp.length > 0) {
-      episodes.push(currentEp);
-      currentEp = [];
+    const ep = clip.episode || '1';
+    if (!episodeMap.has(ep)) {
+      episodeMap.set(ep, []);
     }
-    currentEp.push(clip);
-    lastSceneNum = sceneNum;
+    episodeMap.get(ep)?.push(clip);
   });
-  if (currentEp.length > 0) episodes.push(currentEp);
 
+  // Combine keys from both clips and the EPISODES sheet
+  const allEpKeys = new Set([...Array.from(episodeMap.keys()), ...Object.keys(episodeTitles)]);
+
+  // Convert to array, sorted by episode number (numeric)
+  const sortedEpKeys = Array.from(allEpKeys).sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, '')) || 0;
+    const numB = parseInt(b.replace(/\D/g, '')) || 0;
+    return numA - numB;
+  });
+
+  sortedEpKeys.forEach(key => {
+    episodes.push(episodeMap.get(key) || []);
+  });
+
+  // Note: activeClips might be empty if the episode exists in titles but has no clips yet
+  // We need to be careful with indexing 'episodes' array if we rely on sortedEpKeys order
+  // The 'episodes' array is pushed in the same order as sortedEpKeys, so index matches.
   const activeClips = episodes[currentEpisode - 1] || [];
+  const currentEpKey = sortedEpKeys[currentEpisode - 1] || '1';
+  const currentEpTitle = episodeTitles[currentEpKey] ? `: ${episodeTitles[currentEpKey]}` : '';
 
   // --- Selection Logic ---
   const toggleSelect = (id: string) => {
@@ -159,10 +234,10 @@ export default function Home() {
   const [currentPlayIndex, setCurrentPlayIndex] = useState<number>(-1);
 
   const handlePlayAll = () => {
-    const validClips = clips.filter(c => c.status === 'Done' && c.resultUrl && c.resultUrl.startsWith('http'));
+    const validClips = activeClips.filter(c => c.status === 'Done' && c.resultUrl && c.resultUrl.startsWith('http'));
     if (validClips.length === 0) return;
 
-    const urls = validClips.map(c => c.resultUrl);
+    const urls = validClips.map(c => c.resultUrl as string);
     setPlaylist(urls);
     setCurrentPlayIndex(0);
     setPlayingVideoUrl(urls[0]);
@@ -182,18 +257,16 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] text-white font-sans" style={{ padding: '10px 40px 40px 40px' }}>
-      {/* Video Player Modal */}
+    <div className="flex h-screen w-full flex-col bg-background font-display text-foreground">
+      {/* Custom Video Player Modal */}
       {playingVideoUrl && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => { setPlayingVideoUrl(null); setPlaylist([]); }}>
-          <div className="relative w-full max-w-5xl aspect-video bg-black rounded-lg shadow-2xl overflow-hidden border border-gray-800" onClick={e => e.stopPropagation()}>
+          <div className="relative w-[90vw] max-w-5xl aspect-video bg-black border border-zinc-800 shadow-2xl rounded-lg overflow-hidden" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => { setPlayingVideoUrl(null); setPlaylist([]); }}
-              className="absolute top-4 right-4 z-10 text-white/50 hover:text-white bg-black/50 hover:bg-black/80 rounded-full p-2 transition"
+              className="absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <span className="material-symbols-outlined">close</span>
             </button>
             <video
               src={playingVideoUrl}
@@ -203,7 +276,7 @@ export default function Home() {
               onEnded={handleVideoEnded}
             />
             {playlist.length > 0 && (
-              <div className="absolute bottom-4 left-4 bg-black/50 text-white text-xs px-2 py-1 rounded">
+              <div className="absolute bottom-4 left-4 bg-black/50 text-white text-xs px-2 py-1 rounded pointer-events-none">
                 Playing {currentPlayIndex + 1} of {playlist.length}
               </div>
             )}
@@ -211,193 +284,99 @@ export default function Home() {
         </div>
       )}
 
-      <header className="flex justify-between items-start mb-8 sticky top-0 bg-[#1a1a1a] z-10 py-4 border-b border-gray-800">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-1">ArcRunner <span className="text-blue-500 text-sm align-top">v0.2</span></h1>
-
-          {/* Episode Tabs */}
-          <div className="flex space-x-1 bg-black/30 p-1 rounded mb-2 inline-flex">
-            {episodes.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => { setCurrentEpisode(i + 1); setSelectedIds(new Set()); }}
-                className={`px-3 py-1 text-sm font-medium rounded transition font-light ${currentEpisode === i + 1
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                Ep {i + 1}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex space-x-4 text-xs text-gray-400 uppercase tracking-widest">
-            <span>Ep {currentEpisode}</span>
-            <span>•</span>
-            <span>{clips.length} Clips</span>
-            <span>•</span>
-            <span>{clips.filter(c => c.status === 'Done').length} Ready</span>
-          </div>
-          <div className="mt-4 flex space-x-2">
-            <button
-              onClick={handlePlayAll}
-              disabled={clips.filter(c => c.status === 'Done').length === 0}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold uppercase tracking-wider rounded shadow transition flex items-center space-x-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-              </svg>
-              <span>Play All ({clips.filter(c => c.status === 'Done').length})</span>
-            </button>
-          </div>
+      {/* Header */}
+      <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.3.0</span>
         </div>
 
-        <div className="flex flex-col items-end space-y-4">
-          <span className="text-sm text-gray-400 font-light">
-            {selectedIds.size} selected
-          </span>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={handleGenerateSelected}
-              disabled={selectedIds.size === 0}
-              className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold uppercase tracking-wider rounded shadow transition"
-            >
-              Generate Selected
-            </button>
-            <button
-              onClick={handleDownloadSelected}
-              disabled={selectedIds.size === 0}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold uppercase tracking-wider rounded shadow transition"
-            >
-              Download
-            </button>
-            <button
-              onClick={() => window.location.href = '/ingest'}
-              className="px-4 py-2 bg-blue-600/20 text-blue-400 text-xs font-bold uppercase tracking-wider rounded hover:bg-blue-600/30 transition border border-blue-600/50"
-            >
-              Import Script
-            </button>
-            <button
-              onClick={() => {
-                setLoading(true);
-                fetch('/api/clips')
-                  .then((res) => res.json())
-                  .then((data) => {
-                    if (data.error) throw new Error(data.error);
-                    setClips(data.clips);
-                  })
-                  .catch((err) => setError(err.message))
-                  .finally(() => setLoading(false));
-              }}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded shadow transition border border-gray-700"
-            >
-              Refresh Status
-            </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Status</span>
+            <div className={`w-2 h-2 rounded-full ${loading ? 'bg-yellow-500 animate-pulse' : error ? 'bg-destructive' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}></div>
+            <span className="font-medium text-foreground">{loading ? 'Syncing...' : error ? 'Error' : 'Connected'}</span>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => window.location.reload()}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            title="Refresh Data"
+          >
+            <span className="material-symbols-outlined !text-lg">refresh</span>
+          </Button>
         </div>
       </header>
 
-      <main>
+      {/* Navigation & Toolbar */}
+      <div className="flex flex-col border-b border-border/40 bg-background/50 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-6">
+          <EpisodeTabs
+            episodeKeys={sortedEpKeys}
+            currentEpisode={currentEpisode}
+            episodeTitles={episodeTitles}
+            onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedIds(new Set()); }}
+          />
+          <ActionToolbar
+            currentEpKey={currentEpKey}
+            totalClips={activeClips.length}
+            readyClips={activeClips.filter(c => c.status === 'Done').length}
+            selectedCount={selectedIds.size}
+            onGenerateSelected={handleGenerateSelected}
+            onDownloadSelected={handleDownloadSelected}
+          />
+        </div>
+      </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mx-6 mt-6 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md flex items-center">
+          <span className="material-symbols-outlined mr-2">error</span>
+          {error}
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto bg-background p-6">
         {loading ? (
-          <div className="text-center py-20 text-gray-500 animate-pulse font-light">Loading clips...</div>
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground animate-pulse">
+            <span className="material-symbols-outlined text-4xl mb-2">sync</span>
+            <span className="font-light">Loading clips...</span>
+          </div>
         ) : error ? (
-          <div className="text-center py-20 text-red-400 font-light">Error: {error}</div>
+          <div className="flex flex-col items-center justify-center h-64 text-destructive">
+            <span className="material-symbols-outlined text-4xl mb-2">error_outline</span>
+            <span className="font-light">Error loading data</span>
+          </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-800 bg-[#111]">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead className="bg-white text-black uppercase text-xs sticky top-0 z-20">
-                <tr>
-                  <th className="p-3 w-10 text-center border-b border-gray-300">
-                    <input
-                      type="checkbox"
-                      onChange={toggleSelectAll}
-                      checked={activeClips.length > 0 && selectedIds.size === activeClips.length}
-                      className="appearance-none w-4 h-4 border border-gray-400 rounded bg-transparent checked:bg-blue-500 checked:border-blue-500 cursor-pointer relative"
-                    />
-                  </th>
-                  <th className="p-3 w-16 border-b border-gray-300 text-left text-black font-light" style={{ fontWeight: 300, color: 'black', textAlign: 'left', fontSize: '12px' }}>Scn</th>
-                  <th className="p-3 min-w-[500px] border-b border-gray-300 text-left text-black font-light" style={{ fontWeight: 300, color: 'black', textAlign: 'left', fontSize: '12px' }}>Title</th>
-                  <th className="p-3 w-24 border-b border-gray-300 text-left text-black font-light" style={{ fontWeight: 300, color: 'black', textAlign: 'left', fontSize: '12px' }}>Status</th>
-                  <th className="p-3 w-48 border-b border-gray-300 text-left text-black font-light" style={{ fontWeight: 300, color: 'black', textAlign: 'left', fontSize: '12px' }}>Characters</th>
-                  <th className="p-3 w-48 border-b border-gray-300 text-left text-black font-light" style={{ fontWeight: 300, color: 'black', textAlign: 'left', fontSize: '12px' }}>Location</th>
-                  <th className="p-3 min-w-[300px] border-b border-gray-300 text-left text-black font-light" style={{ fontWeight: 300, color: 'black', textAlign: 'left', fontSize: '12px' }}>Action</th>
-                  <th className="p-3 min-w-[300px] border-b border-gray-300 text-left text-black font-light" style={{ fontWeight: 300, color: 'black', textAlign: 'left', fontSize: '12px' }}>Dialog</th>
-                  <th className="p-3 w-32 border-b border-gray-300 text-left text-black font-light" style={{ fontWeight: 300, color: 'black', textAlign: 'left', fontSize: '12px' }}>Ref Images</th>
-                  <th className="p-3 w-24 border-b border-gray-300 text-left text-black font-light" style={{ fontWeight: 300, color: 'black', textAlign: 'left', fontSize: '12px' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black">
-                {activeClips.map((clip) => {
-                  const index = clips.findIndex(c => c.id === clip.id); // Global index
-                  return (
-                    <tr key={clip.id} className={`hover:bg-white/5 transition ${selectedIds.has(clip.id) ? 'bg-blue-900/20' : ''}`} style={{ verticalAlign: 'top', borderBottom: '1px solid black' }}>
-                      <td className="text-center" style={{ verticalAlign: 'top', padding: '12px 8px', fontSize: '12px' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(clip.id)}
-                          onChange={() => toggleSelect(clip.id)}
-                          className="appearance-none w-4 h-4 border border-white rounded bg-transparent checked:bg-blue-500 checked:border-blue-500 cursor-pointer relative"
-                        />
-                      </td>
-                      <td className="text-gray-400" style={{ verticalAlign: 'top', padding: '12px 8px', fontSize: '12px', fontWeight: 'bold' }}>{clip.scene}</td>
-                      <td className="text-gray-200" title={clip.title} style={{ verticalAlign: 'top', padding: '12px 8px', fontSize: '12px', fontWeight: 'bold' }}>{clip.title}</td>
-                      <td className="" style={{ verticalAlign: 'top', padding: '12px 8px', fontSize: '12px', fontWeight: 300 }}>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${clip.status === 'Done' ? 'bg-green-900 text-green-300' :
-                          clip.status === 'Generating' ? 'bg-yellow-900 text-yellow-300 animate-pulse' :
-                            'bg-gray-800 text-gray-400'
-                          }`}>
-                          {clip.status}
-                        </span>
-                      </td>
-                      <td className="text-gray-400" title={clip.character} style={{ verticalAlign: 'top', padding: '12px 8px', fontSize: '12px', fontWeight: 300 }}>{clip.character}</td>
-                      <td className="text-gray-400" title={clip.location} style={{ verticalAlign: 'top', padding: '12px 8px', fontSize: '12px', fontWeight: 300 }}>{clip.location}</td>
-                      <td className="text-gray-300 leading-relaxed" style={{ verticalAlign: 'top', padding: '12px 8px', fontSize: '12px', fontWeight: 300 }}>{clip.action}</td>
-                      <td className="text-gray-400 italic leading-relaxed" style={{ verticalAlign: 'top', padding: '12px 8px', fontSize: '12px', fontWeight: 300 }}>{clip.dialog}</td>
-                      <td className="" style={{ verticalAlign: 'top', padding: '12px 8px' }}>
-                        <div className="flex space-x-2 overflow-hidden">
-                          {clip.refImageUrls ? clip.refImageUrls.split(',').slice(0, 3).map((url, i) => (
-                            <img
-                              key={i}
-                              src={`/api/proxy-image?url=${encodeURIComponent(url.trim())}`}
-                              alt="Ref"
-                              referrerPolicy="no-referrer"
-                              className="inline-block rounded-md ring-1 ring-gray-700 object-contain bg-gray-900"
-                              style={{ height: '40px', width: 'auto' }}
-                            />
-                          )) : <span className="text-gray-700 font-light">-</span>}
-                          {clip.refImageUrls && clip.refImageUrls.split(',').length > 3 && (
-                            <span className="inline-flex items-center justify-center rounded-md bg-gray-800 text-xs text-gray-400" style={{ height: '40px', width: '32px' }}>
-                              +{clip.refImageUrls.split(',').length - 3}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="" style={{ verticalAlign: 'top', padding: '12px 8px' }}>
-                        {clip.status === 'Done' && clip.resultUrl ? (
-                          <button
-                            onClick={() => setPlayingVideoUrl(clip.resultUrl)}
-                            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded shadow transition inline-block"
-                          >
-                            PLAY
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleGenerate(clip, index)}
-                            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded shadow transition"
-                            title="Generate Single"
-                          >
-                            GEN
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="rounded-lg border border-border/40 bg-card/50 shadow-sm backdrop-blur-sm">
+            <ClipTable
+              clips={activeClips}
+              selectedIds={selectedIds}
+              editingId={editingId}
+              saving={saving}
+              onSelectAll={toggleSelectAll}
+              onSelect={toggleSelect}
+              onEdit={startEditing}
+              onSave={handleSave}
+              onCancelEdit={handleCancelEdit}
+              onGenerate={(clip) => handleGenerate(clip, clips.findIndex(c => c.id === clip.id))}
+              onPlay={(url) => {
+                if (!url) {
+                  console.log('Play clicked but no URL');
+                  return;
+                }
+                console.log('Play clicked with URL:', url);
+                setPlayingVideoUrl(url);
+                setPlaylist([url]);
+                setCurrentPlayIndex(0);
+              }}
+            />
           </div>
         )}
       </main>
     </div>
   );
 }
+

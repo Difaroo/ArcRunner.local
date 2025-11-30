@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        return new NextResponse(buffer, {
+        return new NextResponse(buffer as any, {
             headers: {
                 'Content-Type': contentType,
                 'Cache-Control': 'public, max-age=31536000, immutable',
