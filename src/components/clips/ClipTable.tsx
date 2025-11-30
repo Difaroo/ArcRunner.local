@@ -15,6 +15,12 @@ interface ClipTableProps {
     onCancelEdit: () => void
     onGenerate: (clip: Clip) => void
     onPlay: (url: string) => void
+    uniqueValues: {
+        characters: string[]
+        locations: string[]
+        styles: string[]
+        cameras: string[]
+    }
 }
 
 export function ClipTable({
@@ -28,7 +34,8 @@ export function ClipTable({
     onSave,
     onCancelEdit,
     onGenerate,
-    onPlay
+    onPlay,
+    uniqueValues
 }: ClipTableProps) {
     const allSelected = clips.length > 0 && selectedIds.size === clips.length
 
@@ -44,11 +51,11 @@ export function ClipTable({
                             />
                         </TableHead>
                         <TableHead className="w-12 font-semibold text-stone-500 text-left align-top py-3">SCN</TableHead>
-                        <TableHead className="w-1/6 font-semibold text-stone-500 text-left align-top py-3">TITLE</TableHead>
-                        <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
+                        <TableHead className="w-[13%] font-semibold text-stone-500 text-left align-top py-3">TITLE</TableHead>
+                        <TableHead className="w-16 font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
                         <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>
                         <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">STYLE/CAM</TableHead>
-                        <TableHead className="w-1/3 font-semibold text-stone-500 text-left align-top py-3">ACTION</TableHead>
+                        <TableHead className="w-1/4 font-semibold text-stone-500 text-left align-top py-3">ACTION</TableHead>
                         <TableHead className="w-1/6 font-semibold text-stone-500 text-left align-top py-3">DIALOG</TableHead>
                         <TableHead className="w-24 font-semibold text-stone-500 text-left align-top py-3">REF IMG</TableHead>
                         <TableHead className="text-right w-24 font-semibold text-stone-500 align-top py-3">STATUS</TableHead>
@@ -68,6 +75,7 @@ export function ClipTable({
                             onGenerate={onGenerate}
                             onPlay={onPlay}
                             saving={saving}
+                            uniqueValues={uniqueValues}
                         />
                     ))}
                 </TableBody>

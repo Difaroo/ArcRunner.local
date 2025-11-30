@@ -79,10 +79,22 @@ export async function POST(req: Request) {
         // Limit to 3 images
         imageUrls = imageUrls.slice(0, 3);
 
-        // Determine model based on Quality (default to veo3_fast)
-        const quality = (clip['Quality'] || 'fast').toLowerCase();
-        let model = quality === 'quality' ? 'veo3' : 'veo3_fast';
+        // Determine model based on Request Param OR Quality column (default to veo3_fast)
+        const { model: requestedModel } = await req.json().then(data => data).catch(() => ({}));
+
+        let model = 'veo3_fast'; // Default
         let aspectRatio = '9:16'; // Default
+
+        // 1. Check Request Param (from UI Menu)
+        if (requestedModel === 'veo-quality') {
+            model = 'veo3';
+        } else if (requestedModel === 'veo-fast') {
+            model = 'veo3_fast';
+        } else {
+            // 2. Fallback to 'Quality' column if no param (legacy support)
+            const quality = (clip['Quality'] || 'fast').toLowerCase();
+            model = quality === 'quality' ? 'veo3' : 'veo3_fast';
+        }
 
         // Force veo3_fast and 16:9 if using images (Veo requirement)
         if (imageUrls.length > 0) {

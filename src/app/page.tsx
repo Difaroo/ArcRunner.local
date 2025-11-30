@@ -22,6 +22,7 @@ export default function Home() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Clip>>({});
   const [saving, setSaving] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('veo-fast');
 
   useEffect(() => {
     fetch('/api/clips')
@@ -207,7 +208,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clip, rowIndex: index }),
+        body: JSON.stringify({ clip, rowIndex: index, model: selectedModel }),
       });
 
       const data = await res.json();
@@ -325,7 +326,15 @@ export default function Home() {
             selectedCount={selectedIds.size}
             onGenerateSelected={handleGenerateSelected}
             onDownloadSelected={handleDownloadSelected}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
           />
+        </div>
+        {/* Episode Title Header */}
+        <div className="flex items-center px-6 h-14 border-t border-white/5">
+          <h2 className="text-lg font-sans font-normal text-white">
+            {episodeTitles[currentEpKey] ? episodeTitles[currentEpKey] : `Episode ${currentEpKey}`}
+          </h2>
         </div>
       </div>
 
@@ -371,6 +380,13 @@ export default function Home() {
                 setPlayingVideoUrl(url);
                 setPlaylist([url]);
                 setCurrentPlayIndex(0);
+              }}
+
+              uniqueValues={{
+                characters: Array.from(new Set(clips.flatMap(c => (c.character || '').split(',').map(s => s.trim()).filter(Boolean)))).sort(),
+                locations: Array.from(new Set(clips.map(c => c.location).filter(Boolean))).sort(),
+                styles: Array.from(new Set(clips.map(c => c.style).filter(Boolean))).sort(),
+                cameras: Array.from(new Set(clips.map(c => c.camera).filter(Boolean))).sort(),
               }}
             />
           </div>
