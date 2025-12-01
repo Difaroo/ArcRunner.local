@@ -41,7 +41,7 @@ export function ScriptView({ episodeId, onIngest }: ScriptViewProps) {
             <div className="flex-1 p-6 flex flex-col gap-4">
                 <div className="bg-stone-900/50 p-4 rounded-lg border border-white/5 flex-1 flex flex-col">
                     <div className="mb-4 text-sm text-stone-400">
-                        Paste your script JSON below. It will be ingested into <span className="text-primary font-semibold">Episode {episodeId}</span>.
+                        Paste your script JSON below.
                     </div>
 
                     <Textarea

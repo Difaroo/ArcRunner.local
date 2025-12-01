@@ -33,7 +33,6 @@ export function ActionToolbar({
                 <span className="font-semibold text-zinc-900">Ep {currentEpKey}</span>
                 <span>{totalClips} Clips</span>
                 <span>{selectedCount} Selected</span>
-                <span>{selectedCount} Selected</span>
             </div>
 
             {/* Model Selection */}

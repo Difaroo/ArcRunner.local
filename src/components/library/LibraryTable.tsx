@@ -10,6 +10,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ImageUploadCell } from "@/components/ui/ImageUploadCell";
 
 export interface LibraryItem {
     id: string; // Added ID (index)
@@ -32,8 +33,8 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
     const [editValues, setEditValues] = useState<Partial<LibraryItem>>({});
     const [saving, setSaving] = useState(false);
 
-    const handleStartEdit = (item: LibraryItem, index: number) => {
-        setEditingId(index.toString());
+    const handleStartEdit = (item: LibraryItem) => {
+        setEditingId(item.id);
         setEditValues({ ...item });
     };
 
@@ -64,14 +65,14 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
     const LIBRARY_TYPES = ['LIB_CHARACTER', 'LIB_LOCATION', 'LIB_STYLE', 'LIB_CAMERA'];
 
     const renderCell = (item: LibraryItem, index: number, field: keyof LibraryItem, content: React.ReactNode, className: string = "") => {
-        const isEditing = editingId === index.toString();
+        const isEditing = editingId === item.id;
         if (isEditing) return content;
 
         return (
             <div
                 onClick={(e) => {
                     e.stopPropagation();
-                    handleStartEdit(item, index);
+                    handleStartEdit(item);
                 }}
                 className={`cursor-pointer hover:bg-stone-800/50 p-1 rounded -m-1 transition ${className}`}
                 title="Click to edit"
@@ -82,18 +83,18 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
     };
 
     return (
-        <div className="rounded-md border border-stone-800 bg-black/40 overflow-hidden">
+        <div className="w-full">
             <Table>
-                <TableHeader className="bg-black sticky top-0 z-10">
-                    <TableRow className="border-stone-800 hover:bg-black">
-                        <TableHead className="text-stone-500 w-[50px]">Ep</TableHead>
-                        <TableHead className="text-stone-500 w-[150px]">Name</TableHead>
-                        <TableHead className="text-stone-500 w-[100px]">Type</TableHead>
-                        <TableHead className="text-stone-500">Description</TableHead>
-                        <TableHead className="text-stone-500 w-[150px]">Negatives</TableHead>
-                        <TableHead className="text-stone-500 w-[150px]">Notes</TableHead>
-                        <TableHead className="text-stone-500 w-[120px] text-right">Ref Image</TableHead>
-                        <TableHead className="w-24"></TableHead>
+                <TableHeader className="sticky top-0 bg-black backdrop-blur-sm z-10">
+                    <TableRow>
+                        <TableHead className="w-[50px] font-semibold text-stone-500 text-left align-top py-3">EP</TableHead>
+                        <TableHead className="w-[150px] font-semibold text-stone-500 text-left align-top py-3">NAME</TableHead>
+                        <TableHead className="w-[100px] font-semibold text-stone-500 text-left align-top py-3">TYPE</TableHead>
+                        <TableHead className="font-semibold text-stone-500 text-left align-top py-3">DESCRIPTION</TableHead>
+                        <TableHead className="w-[150px] font-semibold text-stone-500 text-left align-top py-3">NEGATIVES</TableHead>
+                        <TableHead className="w-[150px] font-semibold text-stone-500 text-left align-top py-3">NOTES</TableHead>
+                        <TableHead className="w-[120px] font-semibold text-stone-500 text-left align-top py-3">REF IMG</TableHead>
+                        <TableHead className="w-24 font-semibold text-stone-500 align-top py-3"></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -105,9 +106,9 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                         </TableRow>
                     ) : (
                         items.map((item, index) => {
-                            const isEditing = editingId === index.toString();
+                            const isEditing = editingId === item.id;
                             return (
-                                <TableRow key={index} className="border-stone-800 hover:bg-black group transition-colors">
+                                <TableRow key={index} className="group hover:bg-black transition-colors">
                                     <TableCell className="font-mono text-xs text-stone-500 align-top py-3">
                                         {item.episode}
                                     </TableCell>
@@ -205,29 +206,11 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     {/* Ref Image */}
                                     <TableCell className="align-top py-3 text-right">
                                         {renderCell(item, index, 'refImageUrl',
-                                            isEditing ? (
-                                                <Input
-                                                    value={editValues.refImageUrl || ''}
-                                                    onChange={e => handleChange('refImageUrl', e.target.value)}
-                                                    className="h-8 text-xs bg-stone-900 border-stone-700 text-white"
-                                                    placeholder="Image URL"
-                                                />
-                                            ) : (
-                                                item.refImageUrl ? (
-                                                    <div className="relative w-24 h-32 rounded-md overflow-hidden border border-stone-700 bg-stone-900 ml-auto">
-                                                        <img
-                                                            src={`/api/proxy-image?url=${encodeURIComponent(item.refImageUrl)}`}
-                                                            alt={item.name}
-                                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                                            loading="lazy"
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-24 h-32 bg-transparent rounded border border-white/10 flex items-center justify-center text-stone-500 text-xs ml-auto">
-                                                        -
-                                                    </div>
-                                                )
-                                            )
+                                            <ImageUploadCell
+                                                imageUrl={isEditing ? editValues.refImageUrl : item.refImageUrl}
+                                                onChange={(url) => handleChange('refImageUrl', url)}
+                                                isEditing={isEditing}
+                                            />
                                         )}
                                     </TableCell>
 

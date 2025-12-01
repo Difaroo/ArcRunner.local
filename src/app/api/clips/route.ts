@@ -82,8 +82,9 @@ export async function GET() {
 
         // Map rows to Clip objects
         const clips = clipsRows
-            .filter((row) => row[0] !== 'Scene #' && row[0]) // Filter out header row AND empty scene numbers
-            .map((row, index) => {
+            .map((row, index) => ({ row, index })) // Preserve original index
+            .filter(({ row }) => row[0] !== 'Scene #' && row[0]) // Filter out header row AND empty scene numbers
+            .map(({ row, index }) => {
                 const character = row[3] || '';
                 const location = row[5] || '';
                 const style = row[6] || '';
@@ -115,7 +116,7 @@ export async function GET() {
                 const processedRefs = refUrls.join(',');
 
                 return {
-                    id: index.toString(),
+                    id: index.toString(), // Use original index (from clipsRows) as ID
                     scene: row[0] || '',         // Column A (Scene #)
                     status: row[1] || '', // Column B
                     title: row[2] || '',         // Column C (Title)
@@ -135,7 +136,8 @@ export async function GET() {
             });
 
         // Build Library List for Frontend
-        const libraryItems = libraryRows ? libraryRows.map(row => ({
+        const libraryItems = libraryRows ? libraryRows.map((row, index) => ({
+            id: index.toString(), // Original row index
             type: row[0],
             name: row[1],
             description: row[2],

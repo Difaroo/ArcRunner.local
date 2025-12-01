@@ -47,6 +47,7 @@ export async function POST(request: Request) {
             camera: 'H',
             action: 'I',
             dialog: 'J',
+            refImageUrls: 'K',
         };
 
         const updatePromises = Object.entries(updates).map(([field, value]) => {

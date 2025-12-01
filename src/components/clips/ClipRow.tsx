@@ -13,6 +13,7 @@ import {
     DropdownMenuCheckboxItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ImageUploadCell } from "@/components/ui/ImageUploadCell"
 
 interface ClipRowProps {
     clip: Clip
@@ -203,24 +204,46 @@ export function ClipRow({
                 {renderCell('dialog', "text-white")}
             </TableCell>
             <TableCell className="align-top py-3">
-                {clip.refImageUrls && clip.refImageUrls.length > 5 && !clip.refImageUrls.startsWith('`') ? (
-                    <div className="flex gap-1">
-                        {clip.refImageUrls.split(',').slice(0, 3).map((url, i) => (
-                            <img
-                                key={i}
-                                src={`/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                alt={`Ref ${i + 1}`}
-                                className="w-16 h-10 object-cover rounded border border-white/10 shadow-sm"
-                                onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                            />
-                        ))}
-                    </div>
+                {isEditing ? (
+                    <ImageUploadCell
+                        imageUrl={editValues.refImageUrls}
+                        onChange={(url) => handleChange('refImageUrls', url)}
+                        isEditing={true}
+                    />
                 ) : (
-                    <div className="w-16 h-10 bg-transparent rounded border border-white/10 flex items-center justify-center text-stone-500 text-xs">
-                        -
-                    </div>
+                    (() => {
+                        const urls = clip.refImageUrls ? clip.refImageUrls.split(',').map(s => s.trim()).filter(Boolean) : [];
+                        return urls.length > 0 ? (
+                            <div className="flex gap-1" onClick={handleStartEdit}>
+                                {urls.slice(0, 3).map((url, i) => (
+                                    <img
+                                        key={i}
+                                        src={url.startsWith('/api/images') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                        alt={`Ref ${i + 1}`}
+                                        className="w-16 h-10 object-cover rounded border border-white/10 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = 'none';
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="w-full">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleStartEdit();
+                                    }}
+                                    className="h-8 w-full border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary"
+                                    title="Add Reference Image"
+                                >
+                                    <span className="material-symbols-outlined !text-lg">add</span>
+                                </Button>
+                            </div>
+                        );
+                    })()
                 )}
             </TableCell>
             <TableCell className="align-top text-right py-3">
@@ -261,16 +284,21 @@ export function ClipRow({
                             {(!clip.status || clip.status === '' || clip.status === 'Error') && (
                                 <Button
                                     variant="outline"
-                                    size="sm"
                                     onClick={() => onGenerate(clip)}
-                                    className="h-8 px-2 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary"
+                                    className="h-8 px-3 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary font-bold"
                                 >
-                                    Gen
+                                    GEN
                                 </Button>
                             )}
 
                             {clip.status === 'Generating' && (
-                                <Badge variant="secondary" className="animate-pulse bg-primary/20 text-primary border-primary/50">Gen...</Badge>
+                                <Button
+                                    variant="outline"
+                                    disabled
+                                    className="h-8 px-3 text-xs border-primary/50 text-primary bg-primary/10 font-bold animate-pulse"
+                                >
+                                    GEN
+                                </Button>
                             )}
                         </div>
 

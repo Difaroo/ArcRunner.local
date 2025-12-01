@@ -112,8 +112,8 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to save library item');
 
       // Update local state
-      setLibraryItems(prev => prev.map((item, i) =>
-        i.toString() === index ? { ...item, ...updates } : item
+      setLibraryItems(prev => prev.map((item) =>
+        item.id === index ? { ...item, ...updates } : item
       ));
 
     } catch (err) {
@@ -409,7 +409,7 @@ export default function Home() {
               onModelChange={setSelectedModel}
             />
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 py-2">
               {copyMessage && (
                 <span className="text-xs text-green-500 animate-in fade-in slide-in-from-right-2 duration-300">
                   {copyMessage}
