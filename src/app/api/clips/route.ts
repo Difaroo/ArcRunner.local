@@ -23,7 +23,7 @@ export async function GET() {
         // Fetch data from 'CLIPS', 'LIBRARY', and 'EPISODES' sheets
         const [clipsRows, libraryRows, episodesRows] = await Promise.all([
             getSheetData('CLIPS!A2:Z'),
-            getSheetData('LIBRARY!A2:F'),
+            getSheetData('LIBRARY!A2:G'),
             getSheetData('EPISODES!A2:C')
         ]);
 
@@ -66,6 +66,16 @@ export async function GET() {
                 const title = row[2]; // Column C: Title
                 if (epNum && title) {
                     episodeTitles[epNum] = title;
+                }
+            });
+        }
+
+        // Infer Episodes from Clips (if not in EPISODES sheet)
+        if (clipsRows) {
+            clipsRows.forEach(row => {
+                const epNum = row[25] || '1'; // Column Z: Episode
+                if (!episodeTitles[epNum]) {
+                    episodeTitles[epNum] = `Episode ${epNum}`;
                 }
             });
         }
@@ -124,7 +134,18 @@ export async function GET() {
                 };
             });
 
-        return NextResponse.json({ clips, episodeTitles });
+        // Build Library List for Frontend
+        const libraryItems = libraryRows ? libraryRows.map(row => ({
+            type: row[0],
+            name: row[1],
+            description: row[2],
+            refImageUrl: convertDriveUrl(row[3]),
+            negatives: row[4],
+            notes: row[5],
+            episode: row[6] || '1' // Column G: Episode (Default to '1')
+        })).filter(item => item.name && item.name !== 'Name' && item.type !== 'Type') : [];
+
+        return NextResponse.json({ clips, episodeTitles, libraryItems });
     } catch (error: any) {
         console.error('API Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

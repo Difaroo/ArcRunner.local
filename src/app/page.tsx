@@ -8,11 +8,16 @@ import { ClipTable } from "@/components/clips/ClipTable"
 import { EpisodeTabs } from "@/components/clips/EpisodeTabs"
 import { ActionToolbar } from "@/components/clips/ActionToolbar"
 
+import { PageHeader } from "@/components/PageHeader"
+
+import { ScriptView } from "@/components/ingest/ScriptView"
+import { LibraryTable } from "@/components/library/LibraryTable"
 
 
 export default function Home() {
   const [clips, setClips] = useState<Clip[]>([]);
   const [episodeTitles, setEpisodeTitles] = useState<Record<string, string>>({});
+  const [libraryItems, setLibraryItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -23,6 +28,8 @@ export default function Home() {
   const [editValues, setEditValues] = useState<Partial<Clip>>({});
   const [saving, setSaving] = useState(false);
   const [selectedModel, setSelectedModel] = useState('veo-fast');
+  const [currentView, setCurrentView] = useState<'clips' | 'script' | 'library'>('clips');
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/clips')
@@ -31,6 +38,7 @@ export default function Home() {
         if (data.error) throw new Error(data.error);
         setClips(data.clips);
         if (data.episodeTitles) setEpisodeTitles(data.episodeTitles);
+        if (data.libraryItems) setLibraryItems(data.libraryItems);
 
         // Auto-select clips with empty status (ready for re-render)
         const emptyStatusIds = data.clips
@@ -87,6 +95,31 @@ export default function Home() {
       alert('Failed to save changes');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLibrarySave = async (index: string, updates: Partial<any>) => {
+    try {
+      const res = await fetch('/api/update_library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rowIndex: index,
+          updates: updates
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to save library item');
+
+      // Update local state
+      setLibraryItems(prev => prev.map((item, i) =>
+        i.toString() === index ? { ...item, ...updates } : item
+      ));
+
+    } catch (err) {
+      console.error('Library Save error:', err);
+      alert('Failed to save library item');
+      throw err; // Propagate to component
     }
   };
 
@@ -257,6 +290,21 @@ export default function Home() {
     }
   };
 
+  const handleIngest = async (json: string) => {
+    const res = await fetch('/api/ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ json, episodeId: currentEpKey }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Ingest failed');
+
+    alert(`Successfully ingested ${data.count} clips!`);
+    // Refresh data
+    window.location.reload();
+  };
+
   return (
     <div className="flex h-screen w-full flex-col bg-background font-display text-foreground">
       {/* Custom Video Player Modal */}
@@ -290,6 +338,35 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.3.0</span>
+
+          <div className="h-6 w-px bg-border/40 mx-2"></div>
+
+          <nav className="flex items-center gap-1">
+            <Button
+              variant={currentView === 'script' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setCurrentView('script')}
+              className={`text-xs ${currentView === 'script' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
+            >
+              Script
+            </Button>
+            <Button
+              variant={currentView === 'library' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setCurrentView('library')}
+              className={`text-xs ${currentView === 'library' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
+            >
+              Library
+            </Button>
+            <Button
+              variant={currentView === 'clips' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setCurrentView('clips')}
+              className={`text-xs ${currentView === 'clips' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
+            >
+              Clips
+            </Button>
+          </nav>
         </div>
 
         <div className="flex items-center gap-4">
@@ -319,24 +396,51 @@ export default function Home() {
             episodeTitles={episodeTitles}
             onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedIds(new Set()); }}
           />
-          <ActionToolbar
-            currentEpKey={currentEpKey}
-            totalClips={activeClips.length}
-            readyClips={activeClips.filter(c => c.status === 'Done').length}
-            selectedCount={selectedIds.size}
-            onGenerateSelected={handleGenerateSelected}
-            onDownloadSelected={handleDownloadSelected}
-            selectedModel={selectedModel}
-            onModelChange={setSelectedModel}
-          />
-        </div>
-        {/* Episode Title Header */}
-        <div className="flex items-center px-6 h-14 border-t border-white/5">
-          <h2 className="text-lg font-sans font-normal text-white">
-            {episodeTitles[currentEpKey] ? episodeTitles[currentEpKey] : `Episode ${currentEpKey}`}
-          </h2>
+
+          {currentView === 'clips' ? (
+            <ActionToolbar
+              currentEpKey={currentEpKey}
+              totalClips={activeClips.length}
+              readyClips={activeClips.filter(c => c.status === 'Done').length}
+              selectedCount={selectedIds.size}
+              onGenerateSelected={handleGenerateSelected}
+              onDownloadSelected={handleDownloadSelected}
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+            />
+          ) : (
+            <div className="flex items-center gap-2">
+              {copyMessage && (
+                <span className="text-xs text-green-500 animate-in fade-in slide-in-from-right-2 duration-300">
+                  {copyMessage}
+                </span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const keys = libraryItems.map(i => `- ${i.name} (${i.type})`).join('\n');
+                  navigator.clipboard.writeText(keys);
+                  setCopyMessage("Library items copied. Paste into Production prompt.");
+                  setTimeout(() => setCopyMessage(null), 2000);
+                }}
+                className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              >
+                <span className="material-symbols-outlined !text-sm mr-2">content_copy</span>
+                Copy Library Keys
+              </Button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Episode Title Header - Only for Clips and Library View (Script View has its own) */}
+      {(currentView === 'clips' || currentView === 'library') && (
+        <PageHeader
+          title={episodeTitles[currentEpKey] ? episodeTitles[currentEpKey] : `Episode ${currentEpKey}`}
+          className="border-t border-white/5 border-b-0"
+        />
+      )}
 
       {/* Error Banner */}
       {error && (
@@ -359,40 +463,50 @@ export default function Home() {
             <span className="font-light">Error loading data</span>
           </div>
         ) : (
-          <div className="rounded-lg border border-border/40 bg-card/50 shadow-sm backdrop-blur-sm">
-            <ClipTable
-              clips={activeClips}
-              selectedIds={selectedIds}
-              editingId={editingId}
-              saving={saving}
-              onSelectAll={toggleSelectAll}
-              onSelect={toggleSelect}
-              onEdit={startEditing}
-              onSave={handleSave}
-              onCancelEdit={handleCancelEdit}
-              onGenerate={(clip) => handleGenerate(clip, clips.findIndex(c => c.id === clip.id))}
-              onPlay={(url) => {
-                if (!url) {
-                  console.log('Play clicked but no URL');
-                  return;
-                }
-                console.log('Play clicked with URL:', url);
-                setPlayingVideoUrl(url);
-                setPlaylist([url]);
-                setCurrentPlayIndex(0);
-              }}
-
-              uniqueValues={{
-                characters: Array.from(new Set(clips.flatMap(c => (c.character || '').split(',').map(s => s.trim()).filter(Boolean)))).sort(),
-                locations: Array.from(new Set(clips.map(c => c.location).filter(Boolean))).sort(),
-                styles: Array.from(new Set(clips.map(c => c.style).filter(Boolean))).sort(),
-                cameras: Array.from(new Set(clips.map(c => c.camera).filter(Boolean))).sort(),
-              }}
-            />
+          <div className="rounded-lg border border-border/40 bg-card/50 shadow-sm backdrop-blur-sm h-full flex flex-col">
+            {currentView === 'script' ? (
+              <ScriptView
+                episodeId={currentEpKey}
+                onIngest={handleIngest}
+              />
+            ) : currentView === 'library' ? (
+              <LibraryTable
+                items={libraryItems.filter(item => item.episode === currentEpKey)}
+                onSave={handleLibrarySave}
+              />
+            ) : (
+              <ClipTable
+                clips={activeClips}
+                selectedIds={selectedIds}
+                editingId={editingId}
+                saving={saving}
+                onSelectAll={toggleSelectAll}
+                onSelect={toggleSelect}
+                onEdit={startEditing}
+                onSave={handleSave}
+                onCancelEdit={handleCancelEdit}
+                onGenerate={(clip) => handleGenerate(clip, clips.findIndex(c => c.id === clip.id))}
+                onPlay={(url) => {
+                  if (!url) {
+                    console.log('Play clicked but no URL');
+                    return;
+                  }
+                  console.log('Play clicked with URL:', url);
+                  setPlayingVideoUrl(url);
+                  setPlaylist([url]);
+                  setCurrentPlayIndex(0);
+                }}
+                uniqueValues={{
+                  characters: Array.from(new Set(clips.flatMap(c => (c.character || '').split(',').map(s => s.trim()).filter(Boolean)))).sort(),
+                  locations: Array.from(new Set(clips.map(c => c.location).filter(Boolean))).sort(),
+                  styles: Array.from(new Set(clips.map(c => c.style).filter(Boolean))).sort(),
+                  cameras: Array.from(new Set(clips.map(c => c.camera).filter(Boolean))).sort(),
+                }}
+              />
+            )}
           </div>
         )}
       </main>
     </div>
   );
 }
-
