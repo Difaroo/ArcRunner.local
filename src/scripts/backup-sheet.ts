@@ -3,12 +3,19 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Load env vars BEFORE importing lib/sheets
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+const envPath = path.resolve(process.cwd(), '.env.local');
+console.log('Loading env from:', envPath);
+const result = dotenv.config({ path: envPath });
+if (result.error) console.error('Dotenv error:', result.error);
+
+console.log('GOOGLE_SERVICE_ACCOUNT_EMAIL:', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ? 'FOUND' : 'MISSING');
 
 import fs from 'fs';
-import { getSheetData } from '../lib/sheets';
 
 async function backup() {
+    // Dynamic import to ensure env vars are loaded first
+    const { getSheetData } = await import('../lib/sheets');
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupDir = path.join(process.cwd(), 'backups', timestamp);
 
