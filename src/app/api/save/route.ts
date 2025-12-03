@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { getHeaders } from '@/lib/sheets';
 
 // Helper to get authenticated sheets client
 async function getSheetsClient() {
@@ -59,18 +60,33 @@ export async function POST(req: Request) {
 
         // 2. Append LIBRARY
         if (library && library.length > 0) {
-            const libraryRows = library.map((l: any) => [
-                l['Type'] || '',        // A: Type
-                l['Name'] || '',        // B: Name
-                l['Description'] || '', // C: Description
-                l['Ref Image URLs'] || '', // D: Ref Image URLs
-                l['Negatives'] || '',   // E: Negatives
-                l['Notes'] || ''        // F: Notes
-            ]);
+            const headers = await getHeaders('LIBRARY');
+            const maxColIndex = Math.max(...Array.from(headers.values()));
+
+            const fieldToHeader: Record<string, string> = {
+                'Type': 'Type',
+                'Name': 'Name',
+                'Description': 'Description',
+                'Ref Image URLs': 'Ref Image URLs',
+                'Negatives': 'Negatives',
+                'Notes': 'Notes'
+            };
+
+            const libraryRows = library.map((l: any) => {
+                const row = new Array(maxColIndex + 1).fill('');
+
+                Object.entries(fieldToHeader).forEach(([field, header]) => {
+                    const colIndex = headers.get(header);
+                    if (colIndex !== undefined) {
+                        row[colIndex] = l[field] || '';
+                    }
+                });
+                return row;
+            });
 
             await sheets.spreadsheets.values.append({
                 spreadsheetId,
-                range: 'LIBRARY!A:F', // Append to columns A-F
+                range: 'LIBRARY!A:ZZ', // Append to end
                 valueInputOption: 'USER_ENTERED',
                 requestBody: { values: libraryRows },
             });

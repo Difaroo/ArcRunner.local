@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { getHeaders, indexToColumnLetter } from '@/lib/sheets';
 
 // --- Auth Helper (Duplicated to avoid import issues for temp script) ---
 async function getAuthClient() {
@@ -21,17 +22,27 @@ export async function GET() {
         const authClient = await getAuthClient();
         const sheets = google.sheets({ version: 'v4', auth: authClient as any });
 
-        // 1. Read Library Data (A:F)
+        // 1. Fetch Headers
+        const headers = await getHeaders('LIBRARY');
+        const episodeColIndex = headers.get('Episode');
+
+        if (episodeColIndex === undefined) {
+            throw new Error('Episode column not found in LIBRARY sheet');
+        }
+
+        const episodeColLetter = indexToColumnLetter(episodeColIndex);
+
+        // 2. Read Library Data
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: 'LIBRARY!A2:F', // Skip header
+            range: 'LIBRARY!A2:ZZ', // Read all columns
         });
 
         const rows = response.data.values || [];
         const updates = [];
         let currentEpisode = 1;
 
-        // 2. Iterate and Calculate Episodes
+        // 3. Iterate and Calculate Episodes
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             const isEmpty = !row || row.length === 0 || row.every(cell => !cell);
@@ -39,13 +50,10 @@ export async function GET() {
             if (isEmpty) {
                 // Gap found! Increment episode for NEXT items
                 currentEpisode++;
-                // Don't write anything for the empty row itself
             } else {
                 // Content found! Assign current episode
-                // We need to write to Column G (Index 6). 
-                // Row index in sheet = i + 2 (because we started at A2)
                 updates.push({
-                    range: `LIBRARY!G${i + 2}`,
+                    range: `LIBRARY!${episodeColLetter}${i + 2}`,
                     values: [[currentEpisode.toString()]]
                 });
             }
