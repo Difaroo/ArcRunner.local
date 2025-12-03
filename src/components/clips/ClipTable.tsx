@@ -50,8 +50,8 @@ export function ClipTable({
                                 onCheckedChange={onSelectAll}
                             />
                         </TableHead>
-                        <TableHead className="w-12 font-semibold text-stone-500 text-left align-top py-3">SCN</TableHead>
-                        <TableHead className="w-[13%] font-semibold text-stone-500 text-left align-top py-3">TITLE</TableHead>
+                        <TableHead className="w-[60px] font-semibold text-stone-500 text-left align-top py-3">SCN</TableHead>
+                        <TableHead className="w-[13%] font-semibold text-stone-500 text-left align-top py-3 pl-1">TITLE</TableHead>
                         <TableHead className="w-16 font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
                         <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>
                         <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">STYLE/CAM</TableHead>

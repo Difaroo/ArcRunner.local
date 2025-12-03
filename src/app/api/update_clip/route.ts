@@ -1,26 +1,7 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
 
-// --- Config ---
-const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const CLIENT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-// --- Helper: Get Auth Client ---
-const getAuthClient = async () => {
-    if (!CLIENT_EMAIL || !PRIVATE_KEY) {
-        throw new Error('Missing Google Service Account credentials');
-    }
-    const auth = new google.auth.GoogleAuth({
-        credentials: {
-            client_email: CLIENT_EMAIL,
-            private_key: PRIVATE_KEY,
-        },
-        scopes: SCOPES,
-    });
-    return await auth.getClient();
-};
 
 export async function POST(request: Request) {
     try {
@@ -31,32 +12,48 @@ export async function POST(request: Request) {
         }
 
         // Calculate actual row number (0-indexed array + 2 for header and 1-based sheet)
-        // Wait, the 'id' in our app is the index in the 'clipsRows' array.
         // clipsRows starts at A2. So index 0 is Row 2.
         const sheetRow = parseInt(rowIndex) + 2;
 
-        const authClient = await getAuthClient();
-        const sheets = google.sheets({ version: 'v4', auth: authClient as any });
+        const sheets = await getGoogleSheetsClient();
 
-        // Map field names to Column letters
-        const columnMap: Record<string, string> = {
-            title: 'C',
-            character: 'D',
-            location: 'F',
-            style: 'G',
-            camera: 'H',
-            action: 'I',
-            dialog: 'J',
-            refImageUrls: 'K',
+        // Fetch Headers dynamically
+        const headers = await getHeaders('CLIPS');
+
+        // Helper to get column letter for a field
+        const getColLetter = (headerName: string) => {
+            const index = headers.get(headerName);
+            return index !== undefined ? indexToColumnLetter(index) : null;
+        };
+
+        // Map field names to Header Names
+        const fieldToHeader: Record<string, string> = {
+            status: 'Status',
+            title: 'Title',
+            character: 'Character',
+            location: 'Location',
+            style: 'Style',
+            camera: 'Camera',
+            action: 'Action',
+            dialog: 'Dialog',
+            refImageUrls: 'Ref Image URLs',
+            seed: 'Seed',
+            resultUrl: 'Result URL', // Added just in case
         };
 
         const updatePromises = Object.entries(updates).map(([field, value]) => {
-            const col = columnMap[field];
-            if (!col) return null;
+            const headerName = fieldToHeader[field];
+            if (!headerName) return null;
+
+            const colLetter = getColLetter(headerName);
+            if (!colLetter) {
+                console.warn(`Column for field '${field}' (Header: '${headerName}') not found in CLIPS sheet.`);
+                return null;
+            }
 
             return sheets.spreadsheets.values.update({
                 spreadsheetId: SPREADSHEET_ID,
-                range: `CLIPS!${col}${sheetRow}`,
+                range: `CLIPS!${colLetter}${sheetRow}`,
                 valueInputOption: 'RAW',
                 requestBody: {
                     values: [[value]],

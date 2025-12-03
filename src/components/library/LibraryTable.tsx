@@ -11,6 +11,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ImageUploadCell } from "@/components/ui/ImageUploadCell";
+import { EditableCell } from "@/components/ui/EditableCell";
 
 export interface LibraryItem {
     id: string; // Added ID (index)
@@ -64,30 +65,14 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
 
     const LIBRARY_TYPES = ['LIB_CHARACTER', 'LIB_LOCATION', 'LIB_STYLE', 'LIB_CAMERA'];
 
-    const renderCell = (item: LibraryItem, index: number, field: keyof LibraryItem, content: React.ReactNode, className: string = "") => {
-        const isEditing = editingId === item.id;
-        if (isEditing) return content;
 
-        return (
-            <div
-                onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartEdit(item);
-                }}
-                className={`cursor-pointer hover:bg-stone-800/50 p-1 rounded -m-1 transition ${className}`}
-                title="Click to edit"
-            >
-                {content}
-            </div>
-        );
-    };
 
     return (
         <div className="w-full">
             <Table>
                 <TableHeader className="sticky top-0 bg-black backdrop-blur-sm z-10">
                     <TableRow>
-                        <TableHead className="w-[50px] font-semibold text-stone-500 text-left align-top py-3">EP</TableHead>
+                        <TableHead className="w-[60px] font-semibold text-stone-500 text-left align-top py-3">EP</TableHead>
                         <TableHead className="w-[150px] font-semibold text-stone-500 text-left align-top py-3">NAME</TableHead>
                         <TableHead className="w-[100px] font-semibold text-stone-500 text-left align-top py-3">TYPE</TableHead>
                         <TableHead className="font-semibold text-stone-500 text-left align-top py-3">DESCRIPTION</TableHead>
@@ -115,23 +100,23 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
 
                                     {/* Name */}
                                     <TableCell className="align-top py-3">
-                                        {renderCell(item, index, 'name',
-                                            isEditing ? (
+                                        <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
+                                            {isEditing ? (
                                                 <Input
                                                     value={editValues.name || ''}
                                                     onChange={e => handleChange('name', e.target.value)}
-                                                    className="h-8 text-xs bg-stone-900 border-stone-700 text-white"
+                                                    className="table-input"
                                                 />
                                             ) : (
-                                                <span className="font-medium text-white text-sm">{item.name}</span>
-                                            )
-                                        )}
+                                                <span className="table-text font-medium">{item.name}</span>
+                                            )}
+                                        </EditableCell>
                                     </TableCell>
 
                                     {/* Type Dropdown */}
                                     <TableCell className="align-top py-3">
-                                        {renderCell(item, index, 'type',
-                                            isEditing ? (
+                                        <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
+                                            {isEditing ? (
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="outline" size="sm" className="h-8 w-full justify-start text-[10px] px-2 text-left truncate border-stone-700 bg-stone-900 text-stone-300">
@@ -154,64 +139,64 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                                 <Badge variant="outline" className="text-[10px] border-stone-700 text-stone-400 font-normal">
                                                     {item.type.replace('LIB_', '')}
                                                 </Badge>
-                                            )
-                                        )}
+                                            )}
+                                        </EditableCell>
                                     </TableCell>
 
                                     {/* Description */}
                                     <TableCell className="align-top py-3">
-                                        {renderCell(item, index, 'description',
-                                            isEditing ? (
+                                        <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
+                                            {isEditing ? (
                                                 <Textarea
                                                     value={editValues.description || ''}
                                                     onChange={e => handleChange('description', e.target.value)}
                                                     className="min-h-[60px] text-xs bg-stone-900 border-stone-700 text-white"
                                                 />
                                             ) : (
-                                                <span className="text-white text-sm whitespace-pre-wrap leading-relaxed">{item.description}</span>
-                                            )
-                                        )}
+                                                <span className="table-text whitespace-pre-wrap">{item.description}</span>
+                                            )}
+                                        </EditableCell>
                                     </TableCell>
 
                                     {/* Negatives */}
                                     <TableCell className="align-top py-3">
-                                        {renderCell(item, index, 'negatives',
-                                            isEditing ? (
+                                        <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
+                                            {isEditing ? (
                                                 <Input
                                                     value={editValues.negatives || ''}
                                                     onChange={e => handleChange('negatives', e.target.value)}
-                                                    className="h-8 text-xs bg-stone-900 border-stone-700 text-white"
+                                                    className="table-input"
                                                 />
                                             ) : (
-                                                <span className="text-white text-sm">{item.negatives}</span>
-                                            )
-                                        )}
+                                                <span className="table-text">{item.negatives}</span>
+                                            )}
+                                        </EditableCell>
                                     </TableCell>
 
                                     {/* Notes */}
                                     <TableCell className="align-top py-3">
-                                        {renderCell(item, index, 'notes',
-                                            isEditing ? (
+                                        <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
+                                            {isEditing ? (
                                                 <Input
                                                     value={editValues.notes || ''}
                                                     onChange={e => handleChange('notes', e.target.value)}
-                                                    className="h-8 text-xs bg-stone-900 border-stone-700 text-white italic"
+                                                    className="table-input italic"
                                                 />
                                             ) : (
-                                                <span className="text-white text-sm italic">{item.notes}</span>
-                                            )
-                                        )}
+                                                <span className="table-text italic">{item.notes}</span>
+                                            )}
+                                        </EditableCell>
                                     </TableCell>
 
                                     {/* Ref Image */}
                                     <TableCell className="align-top py-3 text-right">
-                                        {renderCell(item, index, 'refImageUrl',
+                                        <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
                                             <ImageUploadCell
-                                                imageUrl={isEditing ? editValues.refImageUrl : item.refImageUrl}
+                                                value={isEditing ? editValues.refImageUrl || '' : item.refImageUrl || ''}
                                                 onChange={(url) => handleChange('refImageUrl', url)}
                                                 isEditing={isEditing}
                                             />
-                                        )}
+                                        </EditableCell>
                                     </TableCell>
 
                                     {/* Actions */}
@@ -230,7 +215,7 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                                     variant="outline"
                                                     size="icon"
                                                     onClick={handleCancelEdit}
-                                                    className="h-8 w-8 border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary"
+                                                    className="btn-icon-action"
                                                 >
                                                     <span className="material-symbols-outlined !text-lg">close</span>
                                                 </Button>

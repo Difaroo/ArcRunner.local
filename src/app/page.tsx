@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Clip } from './api/clips/route';
+import { Clip, Series } from './api/clips/route';
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+
 import { ClipTable } from "@/components/clips/ClipTable"
 import { EpisodeTabs } from "@/components/clips/EpisodeTabs"
 import { ActionToolbar } from "@/components/clips/ActionToolbar"
+import { SeriesPage } from "@/components/series/SeriesPage"
+import { SettingsPage } from "@/components/settings/SettingsPage"
+import { DEFAULT_EPISODE_PROMPT } from "@/lib/defaults"
 
 import { PageHeader } from "@/components/PageHeader"
 
@@ -14,10 +17,25 @@ import { ScriptView } from "@/components/ingest/ScriptView"
 import { LibraryTable } from "@/components/library/LibraryTable"
 
 
+export interface LibraryItem {
+  id: string;
+  type: string;
+  name: string;
+  description: string;
+  refImageUrl: string;
+  negatives: string;
+  notes: string;
+  episode: string;
+  series: string;
+}
+
 export default function Home() {
   const [clips, setClips] = useState<Clip[]>([]);
+  const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const [currentSeriesId, setCurrentSeriesId] = useState<string>("1");
   const [episodeTitles, setEpisodeTitles] = useState<Record<string, string>>({});
-  const [libraryItems, setLibraryItems] = useState<any[]>([]);
+  const [allEpisodes, setAllEpisodes] = useState<{ series: string, id: string, title: string }[]>([]);
+  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -28,36 +46,56 @@ export default function Home() {
   const [editValues, setEditValues] = useState<Partial<Clip>>({});
   const [saving, setSaving] = useState(false);
   const [selectedModel, setSelectedModel] = useState('veo-fast');
-  const [currentView, setCurrentView] = useState<'clips' | 'script' | 'library'>('clips');
+  const [episodeStyles, setEpisodeStyles] = useState<Record<string, string>>({}); // Map Ep -> Style
+  const [currentView, setCurrentView] = useState<'series' | 'script' | 'library' | 'clips' | 'settings'>('series');
+
+  const [episodePromptTemplate, setEpisodePromptTemplate] = useState("");
+
+  const handleViewChange = (view: 'series' | 'script' | 'library' | 'clips' | 'settings') => {
+    if (currentView === 'settings' && view !== 'settings') {
+      const saved = localStorage.getItem("episodePromptTemplate")
+      setEpisodePromptTemplate(saved || DEFAULT_EPISODE_PROMPT)
+    }
+    setCurrentView(view)
+  }
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    const saved = localStorage.getItem("episodePromptTemplate")
+    setEpisodePromptTemplate(saved || DEFAULT_EPISODE_PROMPT)
+  }, [])
+
+  const hasFetched = useRef(false);
+
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     fetch('/api/clips')
-      .then((res) => res.json())
+      .then((res) => {
+        return res.json();
+      })
       .then((data) => {
         if (data.error) throw new Error(data.error);
         setClips(data.clips);
         if (data.episodeTitles) setEpisodeTitles(data.episodeTitles);
+        if (data.episodes) setAllEpisodes(data.episodes);
         if (data.libraryItems) setLibraryItems(data.libraryItems);
-
-        // Auto-select clips with empty status (ready for re-render)
-        const emptyStatusIds = data.clips
-          .filter((c: Clip) => {
-            const isEmpty = !c.status || c.status.trim() === '';
-            return isEmpty;
-          })
-          .map((c: Clip) => c.id);
-
-        if (emptyStatusIds.length > 0) {
-          setSelectedIds(prev => {
-            const next = new Set(prev);
-            emptyStatusIds.forEach((id: string) => next.add(id));
-            return next;
-          });
+        if (data.series) {
+          setSeriesList(data.series);
+          // Default to first series if current is invalid
+          if (!data.series.find((s: Series) => s.id === currentSeriesId)) {
+            setCurrentSeriesId(data.series[0]?.id || "1");
+          }
         }
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        console.error('Fetch error:', err);
+        setError(err.message);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   // --- Editing Logic ---
@@ -67,11 +105,9 @@ export default function Home() {
     setEditValues({ ...clip });
   };
 
-  const handleEditChange = (field: keyof Clip, value: string) => {
-    setEditValues(prev => ({ ...prev, [field]: value }));
-  };
 
-  const handleSave = async (clipId: string) => {
+
+  const handleSave = async (clipId: string, updates: Partial<Clip>) => {
     setSaving(true);
     try {
       const res = await fetch('/api/update_clip', {
@@ -79,14 +115,14 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rowIndex: clipId, // id is the index
-          updates: editValues
+          updates: updates
         }),
       });
 
       if (!res.ok) throw new Error('Failed to save');
 
       // Update local state
-      setClips(prev => prev.map(c => c.id === clipId ? { ...c, ...editValues } : c));
+      setClips(prev => prev.map(c => c.id === clipId ? { ...c, ...updates } : c));
       setEditingId(null);
       setEditValues({});
 
@@ -134,7 +170,11 @@ export default function Home() {
   const episodes: Clip[][] = [];
   const episodeMap = new Map<string, Clip[]>();
 
-  clips.forEach(clip => {
+  // Filter Clips by Series
+  const seriesClips = clips.filter(c => c.series === currentSeriesId);
+  const seriesLibrary = libraryItems.filter(i => i.series === currentSeriesId);
+
+  seriesClips.forEach(clip => {
     const ep = clip.episode || '1';
     if (!episodeMap.has(ep)) {
       episodeMap.set(ep, []);
@@ -142,8 +182,14 @@ export default function Home() {
     episodeMap.get(ep)?.push(clip);
   });
 
-  // Combine keys from both clips and the EPISODES sheet
-  const allEpKeys = new Set([...Array.from(episodeMap.keys()), ...Object.keys(episodeTitles)]);
+  // Combine keys from both clips and the EPISODES sheet (Filtered by Series)
+  // We use `allEpisodes` from API which has Series ID.
+  const seriesEpisodeList = allEpisodes.filter(e => e.series === currentSeriesId);
+
+  // Also include episodes found in clips for this series (in case they aren't in the sheet yet)
+  const clipEpKeys = Array.from(episodeMap.keys());
+
+  const allEpKeys = new Set([...clipEpKeys, ...seriesEpisodeList.map(e => e.id)]);
 
   // Convert to array, sorted by episode number (numeric)
   const sortedEpKeys = Array.from(allEpKeys).sort((a, b) => {
@@ -156,12 +202,26 @@ export default function Home() {
     episodes.push(episodeMap.get(key) || []);
   });
 
+  // Create Series-Specific Title Map
+  const seriesEpisodeTitles: Record<string, string> = {};
+  seriesEpisodeList.forEach(e => {
+    seriesEpisodeTitles[e.id] = e.title;
+  });
+
   // Note: activeClips might be empty if the episode exists in titles but has no clips yet
   // We need to be careful with indexing 'episodes' array if we rely on sortedEpKeys order
   // The 'episodes' array is pushed in the same order as sortedEpKeys, so index matches.
   const activeClips = episodes[currentEpisode - 1] || [];
   const currentEpKey = sortedEpKeys[currentEpisode - 1] || '1';
-  const currentEpTitle = episodeTitles[currentEpKey] ? `: ${episodeTitles[currentEpKey]}` : '';
+  const currentEpTitle = seriesEpisodeTitles[currentEpKey] ? `: ${seriesEpisodeTitles[currentEpKey]}` : '';
+
+  // Unique Values for Dropdowns (Filtered by Series)
+  const uniqueValues = {
+    characters: Array.from(new Set(seriesLibrary.filter(i => i.type === 'LIB_CHARACTER').map(i => i.name))).sort(),
+    locations: Array.from(new Set(seriesLibrary.filter(i => i.type === 'LIB_LOCATION').map(i => i.name))).sort(),
+    styles: Array.from(new Set(seriesLibrary.filter(i => i.type === 'LIB_STYLE').map(i => i.name))).sort(),
+    cameras: Array.from(new Set(seriesLibrary.filter(i => i.type === 'LIB_CAMERA').map(i => i.name))).sort(),
+  };
 
   // --- Selection Logic ---
   const toggleSelect = (id: string) => {
@@ -238,10 +298,19 @@ export default function Home() {
       newClips[index].status = 'Generating';
       setClips(newClips);
 
+      // Use Episode Style if available, otherwise fallback to clip style (which might be empty now)
+      // Actually, user said "Make clip render function reference episode STYLE for all clips of the Ep"
+      // So we override the clip's style with the Episode Style.
+      const styleToUse = episodeStyles[currentEpKey] || clip.style;
+
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clip, rowIndex: index, model: selectedModel }),
+        body: JSON.stringify({
+          clip: { ...clip, style: styleToUse }, // Override style
+          library: seriesLibrary, // Use filtered library
+          model: selectedModel
+        }),
       });
 
       const data = await res.json();
@@ -343,6 +412,14 @@ export default function Home() {
 
           <nav className="flex items-center gap-1">
             <Button
+              variant={currentView === 'series' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setCurrentView('series')}
+              className={`text-xs ${currentView === 'series' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
+            >
+              Series
+            </Button>
+            <Button
               variant={currentView === 'script' ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => setCurrentView('script')}
@@ -365,6 +442,14 @@ export default function Home() {
               className={`text-xs ${currentView === 'clips' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
             >
               Clips
+            </Button>
+            <Button
+              variant={currentView === 'settings' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setCurrentView('settings')}
+              className={`text-xs ${currentView === 'settings' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
+            >
+              Settings
             </Button>
           </nav>
         </div>
@@ -390,12 +475,14 @@ export default function Home() {
       {/* Navigation & Toolbar */}
       <div className="flex flex-col border-b border-border/40 bg-background/50 backdrop-blur-sm">
         <div className="flex items-center justify-between px-6">
-          <EpisodeTabs
-            episodeKeys={sortedEpKeys}
-            currentEpisode={currentEpisode}
-            episodeTitles={episodeTitles}
-            onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedIds(new Set()); }}
-          />
+          {currentView !== 'series' && currentView !== 'settings' && (
+            <EpisodeTabs
+              episodeKeys={sortedEpKeys}
+              currentEpisode={currentEpisode}
+              episodeTitles={seriesEpisodeTitles}
+              onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedIds(new Set()); }}
+            />
+          )}
 
           {currentView === 'clips' ? (
             <ActionToolbar
@@ -407,9 +494,12 @@ export default function Home() {
               onDownloadSelected={handleDownloadSelected}
               selectedModel={selectedModel}
               onModelChange={setSelectedModel}
+              currentStyle={episodeStyles[currentEpKey] || ''}
+              onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
+              availableStyles={uniqueValues.styles}
             />
           ) : (
-            <div className="flex items-center gap-2 py-2">
+            <div className="flex items-center gap-2 py-2 ml-auto">
               {copyMessage && (
                 <span className="text-xs text-green-500 animate-in fade-in slide-in-from-right-2 duration-300">
                   {copyMessage}
@@ -437,7 +527,13 @@ export default function Home() {
       {/* Episode Title Header - Only for Clips and Library View (Script View has its own) */}
       {(currentView === 'clips' || currentView === 'library') && (
         <PageHeader
-          title={episodeTitles[currentEpKey] ? episodeTitles[currentEpKey] : `Episode ${currentEpKey}`}
+          title={
+            <div className="flex items-center gap-2">
+              <span className="text-stone-500 font-normal">{seriesList.find(s => s.id === currentSeriesId)?.title}</span>
+              <span className="text-stone-700">/</span>
+              <span>{seriesEpisodeTitles[currentEpKey] ? seriesEpisodeTitles[currentEpKey] : `Episode ${currentEpKey}`}</span>
+            </div>
+          }
           className="border-t border-white/5 border-b-0"
         />
       )}
@@ -463,15 +559,31 @@ export default function Home() {
             <span className="font-light">Error loading data</span>
           </div>
         ) : (
-          <div className="rounded-lg border border-border/40 bg-card/50 shadow-sm backdrop-blur-sm h-full flex flex-col">
-            {currentView === 'script' ? (
+          <div className="rounded-lg border border-border/40 bg-card/50 shadow-sm backdrop-blur-sm min-h-full flex flex-col">
+            {currentView === 'series' ? (
+              <SeriesPage
+                seriesList={seriesList}
+                currentSeriesId={currentSeriesId}
+                onSeriesChange={setCurrentSeriesId}
+                onAddSeries={(title) => {
+                  // TODO: Implement Add Series API
+                  alert("Add Series not implemented yet (requires backend support)")
+                }}
+                clips={seriesClips}
+                episodes={seriesEpisodeList}
+                libraryItems={libraryItems} // Pass all library items, filtering happens inside or we pass filtered
+                episodePromptTemplate={episodePromptTemplate}
+              />
+            ) : currentView === 'settings' ? (
+              <SettingsPage onBack={() => handleViewChange('series')} />
+            ) : currentView === 'script' ? (
               <ScriptView
                 episodeId={currentEpKey}
                 onIngest={handleIngest}
               />
             ) : currentView === 'library' ? (
               <LibraryTable
-                items={libraryItems.filter(item => item.episode === currentEpKey)}
+                items={seriesLibrary.filter(item => item.episode === currentEpKey)}
                 onSave={handleLibrarySave}
               />
             ) : (
@@ -496,12 +608,7 @@ export default function Home() {
                   setPlaylist([url]);
                   setCurrentPlayIndex(0);
                 }}
-                uniqueValues={{
-                  characters: Array.from(new Set(clips.flatMap(c => (c.character || '').split(',').map(s => s.trim()).filter(Boolean)))).sort(),
-                  locations: Array.from(new Set(clips.map(c => c.location).filter(Boolean))).sort(),
-                  styles: Array.from(new Set(clips.map(c => c.style).filter(Boolean))).sort(),
-                  cameras: Array.from(new Set(clips.map(c => c.camera).filter(Boolean))).sort(),
-                }}
+                uniqueValues={uniqueValues}
               />
             )}
           </div>

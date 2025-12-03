@@ -122,3 +122,17 @@
     font-family: 'Spline Sans', sans-serif;
   }
 }
+
+@layer components {
+  .table-input {
+    @apply h-8 text-xs bg-stone-900 border-stone-700 text-white w-full focus:ring-1 focus:ring-primary;
+  }
+
+  .table-text {
+    @apply text-xs text-white leading-relaxed;
+  }
+
+  .btn-icon-action {
+    @apply h-8 w-8 text-primary !border-black hover:bg-primary hover:bg-opacity-10 hover:text-primary hover:border-primary;
+  }
+}

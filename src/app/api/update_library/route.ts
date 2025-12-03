@@ -1,26 +1,7 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
 
-// --- Config ---
-const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const CLIENT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-// --- Helper: Get Auth Client ---
-const getAuthClient = async () => {
-    if (!CLIENT_EMAIL || !PRIVATE_KEY) {
-        throw new Error('Missing Google Service Account credentials');
-    }
-    const auth = new google.auth.GoogleAuth({
-        credentials: {
-            client_email: CLIENT_EMAIL,
-            private_key: PRIVATE_KEY,
-        },
-        scopes: SCOPES,
-    });
-    return await auth.getClient();
-};
 
 export async function POST(request: Request) {
     try {
@@ -34,23 +15,46 @@ export async function POST(request: Request) {
         // rowIndex comes from the array index, so row 0 is actually Row 2 in Sheet (Header is Row 1)
         const sheetRow = parseInt(rowIndex) + 2;
 
-        const authClient = await getAuthClient();
-        const sheets = google.sheets({ version: 'v4', auth: authClient as any });
+        const sheets = await getGoogleSheetsClient();
 
-        // Map updates to columns
-        // A: Type, B: Name, C: Description, D: RefImage, E: Negatives, F: Notes
-        // We only update specific cells to avoid overwriting others if partial
+        // Fetch Headers dynamically
+        const headers = await getHeaders('LIBRARY');
+
+        // Helper to get column letter for a field
+        const getColLetter = (headerName: string) => {
+            const index = headers.get(headerName);
+            return index !== undefined ? indexToColumnLetter(index) : null;
+        };
+
+        // Map field names to Header Names
+        const fieldToHeader: Record<string, string> = {
+            type: 'Type',
+            name: 'Name',
+            description: 'Description',
+            refImageUrl: 'Ref Image URLs',
+            negatives: 'Negatives',
+            notes: 'Notes',
+            episode: 'Episode',
+            series: 'Series'
+        };
 
         // Construct batch update requests
         const data = [];
 
-        if (updates.type !== undefined) data.push({ range: `LIBRARY!A${sheetRow}`, values: [[updates.type]] });
-        if (updates.name !== undefined) data.push({ range: `LIBRARY!B${sheetRow}`, values: [[updates.name]] });
-        if (updates.description !== undefined) data.push({ range: `LIBRARY!C${sheetRow}`, values: [[updates.description]] });
-        if (updates.refImageUrl !== undefined) data.push({ range: `LIBRARY!D${sheetRow}`, values: [[updates.refImageUrl]] });
-        if (updates.negatives !== undefined) data.push({ range: `LIBRARY!E${sheetRow}`, values: [[updates.negatives]] });
-        if (updates.notes !== undefined) data.push({ range: `LIBRARY!F${sheetRow}`, values: [[updates.notes]] });
-        // G: Episode is usually not edited, but could be added if needed
+        for (const [field, value] of Object.entries(updates)) {
+            const headerName = fieldToHeader[field];
+            if (headerName) {
+                const colLetter = getColLetter(headerName);
+                if (colLetter) {
+                    data.push({
+                        range: `LIBRARY!${colLetter}${sheetRow}`,
+                        values: [[value]]
+                    });
+                } else {
+                    console.warn(`Column for field '${field}' (Header: '${headerName}') not found in LIBRARY sheet.`);
+                }
+            }
+        }
 
         if (data.length > 0) {
             await sheets.spreadsheets.values.batchUpdate({

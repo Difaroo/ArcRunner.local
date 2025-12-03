@@ -15,6 +15,9 @@ interface ActionToolbarProps {
     onDownloadSelected: () => void
     selectedModel: string
     onModelChange: (model: string) => void
+    currentStyle: string
+    onStyleChange: (style: string) => void
+    availableStyles: string[]
 }
 
 export function ActionToolbar({
@@ -25,7 +28,10 @@ export function ActionToolbar({
     onGenerateSelected,
     onDownloadSelected,
     selectedModel,
-    onModelChange
+    onModelChange,
+    currentStyle,
+    onStyleChange,
+    availableStyles
 }: ActionToolbarProps) {
     return (
         <div className="flex items-center gap-3 py-2">
@@ -54,6 +60,31 @@ export function ActionToolbar({
                 </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* Style Selection */}
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2">
+                        <span className="text-zinc-500 mr-2 font-semibold">STYLE</span>
+                        <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
+                        <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
+                    {availableStyles.map((style) => (
+                        <DropdownMenuItem
+                            key={style}
+                            onClick={() => onStyleChange(style)}
+                            className="focus:bg-stone-800 focus:text-white cursor-pointer"
+                        >
+                            {style}
+                        </DropdownMenuItem>
+                    ))}
+                    {availableStyles.length === 0 && (
+                        <div className="p-2 text-xs text-stone-500">No styles found in Library</div>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+
             <div className="h-4 w-px bg-zinc-700 mx-2"></div>
 
             <Button
@@ -70,7 +101,7 @@ export function ActionToolbar({
                 size="sm"
                 onClick={onDownloadSelected}
                 disabled={selectedCount === 0}
-                className="h-8 px-3 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary"
+                className="h-8 px-3 text-xs border-primary border-opacity-50 text-primary hover:bg-primary hover:bg-opacity-10 hover:text-primary hover:border-primary disabled:text-primary disabled:text-opacity-50 disabled:border-opacity-30"
             >
                 <span className="material-symbols-outlined !text-sm mr-2">download</span>
                 Download
