@@ -134,7 +134,7 @@ export function ImageUploadCell({ value, onChange, isEditing }: ImageUploadCellP
     // Display Mode
     if (imageUrl) {
         return (
-            <div className="relative w-24 h-auto rounded-md overflow-hidden border border-black bg-stone-900 ml-auto group">
+            <div className="relative w-24 h-24 rounded-md overflow-hidden border border-black bg-stone-900 ml-auto group">
                 <img
                     src={imageUrl.startsWith('/api/images') ? imageUrl : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`}
                     alt="Ref"

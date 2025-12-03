@@ -40,7 +40,7 @@ export function ClipTable({
     const allSelected = clips.length > 0 && selectedIds.size === clips.length
 
     return (
-        <div className="w-full">
+        <div className="w-full h-full overflow-auto">
             <Table>
                 <TableHeader className="sticky top-0 bg-black backdrop-blur-sm z-10">
                     <TableRow>
