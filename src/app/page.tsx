@@ -547,7 +547,7 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-background p-6">
+      <main className="flex-1 overflow-hidden bg-background p-6">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground animate-pulse">
             <span className="material-symbols-outlined text-4xl mb-2">sync</span>
@@ -559,7 +559,7 @@ export default function Home() {
             <span className="font-light">Error loading data</span>
           </div>
         ) : (
-          <div className="rounded-lg border border-border/40 bg-card/50 shadow-sm backdrop-blur-sm min-h-full flex flex-col">
+          <div className="rounded-lg border border-border/40 bg-card/50 shadow-sm backdrop-blur-sm h-full flex flex-col">
             {currentView === 'series' ? (
               <SeriesPage
                 seriesList={seriesList}
