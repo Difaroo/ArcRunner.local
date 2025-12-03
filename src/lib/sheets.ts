@@ -35,6 +35,7 @@ export async function getSheetData(range: string, retries = 3) {
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId: SPREADSHEET_ID,
                 range,
+                valueRenderOption: 'FORMATTED_VALUE',
             });
             console.log('Sheets API response status:', response.status);
 

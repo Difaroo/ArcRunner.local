@@ -62,7 +62,7 @@ export async function GET() {
         const getValue = (row: any[], headerMap: Map<string, number>, colName: string): string => {
             const index = headerMap.get(colName);
             if (index === undefined) return '';
-            return row[index] || '';
+            return String(row[index] || '');
         };
 
         // Helper: Convert Drive URL to Direct Link
