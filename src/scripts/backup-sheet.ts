@@ -1,11 +1,12 @@
 
-import fs from 'fs';
-import path from 'path';
-import { getSheetData } from '../lib/sheets';
 import dotenv from 'dotenv';
+import path from 'path';
 
-// Load env vars
-dotenv.config({ path: '.env.local' });
+// Load env vars BEFORE importing lib/sheets
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+
+import fs from 'fs';
+import { getSheetData } from '../lib/sheets';
 
 async function backup() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
