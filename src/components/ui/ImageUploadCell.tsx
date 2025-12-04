@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
     AlertDialog,
@@ -10,6 +10,12 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { X, Loader2 } from "lucide-react";
 
@@ -17,11 +23,27 @@ interface ImageUploadCellProps {
     value: string;
     onChange: (value: string) => void;
     isEditing: boolean;
+    autoOpen?: boolean;
+    onAutoOpenComplete?: () => void;
 }
 
-export function ImageUploadCell({ value, onChange, isEditing }: ImageUploadCellProps) {
+export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOpenComplete }: ImageUploadCellProps) {
     const [uploading, setUploading] = useState(false);
     const [imageToDelete, setImageToDelete] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-open file dialog if requested
+    useEffect(() => {
+        if (autoOpen && isEditing && fileInputRef.current) {
+            // We need a slight delay to ensure the input is mounted and visible (even if hidden)
+            const timer = setTimeout(() => {
+                fileInputRef.current?.click();
+                onAutoOpenComplete?.();
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [autoOpen, isEditing, onAutoOpenComplete]);
+
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -78,14 +100,32 @@ export function ImageUploadCell({ value, onChange, isEditing }: ImageUploadCellP
         return (
             <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
-                    <Input
+                    <input
+                        ref={fileInputRef}
                         type="file"
                         accept="image/*"
                         onChange={handleUpload}
                         disabled={uploading}
-                        className="h-8 w-24 text-xs text-transparent file:mr-0 file:py-0 file:px-2 file:rounded-sm file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-secondary-foreground hover:file:bg-secondary/80"
+                        className="hidden"
                     />
-                    {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                    className="btn-icon-action p-0"
+                                >
+                                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">add</span>}
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Upload Image</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-0">
                     {imageUrls.map((url, idx) => (
@@ -97,16 +137,24 @@ export function ImageUploadCell({ value, onChange, isEditing }: ImageUploadCellP
                                     className="w-full h-full object-cover"
                                 />
                             </div>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteClick(url);
-                                }}
-                                className="absolute -top-1 -right-1 bg-stone-900 rounded-full p-0.5 shadow-sm border border-stone-700 hover:bg-stone-800 transition-colors z-10"
-                                title="Delete image"
-                            >
-                                <X className="h-3 w-3 text-primary" />
-                            </button>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteClick(url);
+                                            }}
+                                            className="absolute -top-1 -right-1 bg-stone-900 rounded-full p-0.5 shadow-sm border border-stone-700 hover:bg-stone-800 transition-colors z-10"
+                                        >
+                                            <X className="h-3 w-3 text-primary" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Delete image</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     ))}
                 </div>
@@ -151,13 +199,22 @@ export function ImageUploadCell({ value, onChange, isEditing }: ImageUploadCellP
 
     return (
         <div className="w-full h-full min-h-[40px] flex items-center justify-center">
-            <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-full border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary"
-            >
-                <span className="material-symbols-outlined !text-lg">add</span>
-            </Button>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="btn-icon-action w-full"
+                        >
+                            <span className="material-symbols-outlined !text-lg">add</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Add Reference Image</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
     );
 }

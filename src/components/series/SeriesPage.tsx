@@ -1,3 +1,4 @@
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -112,13 +113,21 @@ export function SeriesPage({
                             {series.title}
                         </button>
                     ))}
-                    <button
-                        onClick={() => setShowAddDialog(true)}
-                        className="py-3 text-primary hover:text-primary/80 transition-colors ml-2"
-                        title="Add Series"
-                    >
-                        <span className="material-symbols-outlined !text-lg">add</span>
-                    </button>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={() => setShowAddDialog(true)}
+                                    className="py-3 text-primary hover:text-primary/80 transition-colors ml-2"
+                                >
+                                    <span className="material-symbols-outlined !text-lg">add</span>
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Create a new Series</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
             </div>
 
@@ -188,21 +197,30 @@ export function SeriesPage({
                 <div className="flex-1 flex flex-col bg-stone-950 h-full">
                     <div className="p-4 border-b border-white/5 flex justify-between items-center shrink-0">
                         <h3 className="text-sm font-semibold text-stone-300">Episode Prompt</h3>
-                        <Button
-                            variant="secondary"
-                            size="icon"
-                            onClick={copyToClipboard}
-                            className="h-6 w-6"
-                            title="Copy Prompt"
-                        >
-                            <span className="material-symbols-outlined !text-sm">content_copy</span>
-                        </Button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={copyToClipboard}
+                                        className="h-7 text-xs border-primary/50 text-primary hover:text-primary hover:bg-primary/10"
+                                    >
+                                        <span className="material-symbols-outlined !text-sm mr-2">content_copy</span>
+                                        Copy Prompt
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Copies the Episode prompt for making episode clips</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
 
                     <div className="flex-1 p-4 flex flex-col gap-4 overflow-hidden h-full">
                         {/* Overall Style Field */}
                         <div className="flex flex-col gap-2 shrink-0">
-                            <label className="text-xs font-medium text-stone-500">Overall Series Style / Instructions</label>
+                            <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Overall Series Style / Instructions</label>
                             <Input
                                 value={overallStyle}
                                 onChange={(e) => setOverallStyle(e.target.value)}
@@ -213,7 +231,7 @@ export function SeriesPage({
 
                         {/* Merged Prompt Display */}
                         <div className="flex-1 flex flex-col gap-2 min-h-0">
-                            <label className="text-xs font-medium text-stone-500">Generated Prompt</label>
+                            <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Generated Prompt</label>
                             <Textarea
                                 value={seriesPrompt}
                                 readOnly
@@ -238,8 +256,26 @@ export function SeriesPage({
                         />
                     </div>
                     <DialogFooter>
-                        <Button onClick={() => setShowAddDialog(false)} variant="ghost">Cancel</Button>
-                        <Button onClick={handleAdd}>Add Series</Button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button onClick={() => setShowAddDialog(false)} variant="ghost">Cancel</Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Cancel adding series</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button onClick={handleAdd}>Add Series</Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Confirm adding series</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

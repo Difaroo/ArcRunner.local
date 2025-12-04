@@ -62,17 +62,17 @@ export function ScriptView({ episodeId, onIngest }: ScriptViewProps) {
                         <Button
                             onClick={handleIngest}
                             disabled={isIngesting}
-                            className="bg-primary hover:bg-primary/90 text-white"
+                            className="bg-primary hover:bg-primary/90 text-white h-8 text-xs px-3"
                         >
                             {isIngesting ? (
                                 <>
                                     <span className="material-symbols-outlined animate-spin mr-2 !text-sm">sync</span>
-                                    Ingesting...
+                                    Loading...
                                 </>
                             ) : (
                                 <>
                                     <span className="material-symbols-outlined mr-2 !text-sm">input</span>
-                                    Ingest Script
+                                    Load Episode Library & Clips
                                 </>
                             )}
                         </Button>

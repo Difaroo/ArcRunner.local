@@ -10,6 +10,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ImageUploadCell } from "@/components/ui/ImageUploadCell";
 import { EditableCell } from "@/components/ui/EditableCell";
 
@@ -99,13 +105,13 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     </TableCell>
 
                                     {/* Name */}
-                                    <TableCell className="align-top py-3">
+                                    <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
                                         <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
                                             {isEditing ? (
                                                 <Input
                                                     value={editValues.name || ''}
                                                     onChange={e => handleChange('name', e.target.value)}
-                                                    className="table-input"
+                                                    className="table-input h-full"
                                                 />
                                             ) : (
                                                 <span className="table-text font-medium">{item.name}</span>
@@ -114,15 +120,24 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     </TableCell>
 
                                     {/* Type Dropdown */}
-                                    <TableCell className="align-top py-3">
+                                    <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
                                         <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
                                             {isEditing ? (
                                                 <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="outline" size="sm" className="h-8 w-full justify-start text-[10px] px-2 text-left truncate border-stone-700 bg-stone-900 text-stone-300">
-                                                            {editValues.type?.replace('LIB_', '') || "Select..."}
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="outline" size="sm" className="h-full w-full justify-start text-[10px] px-2 text-left truncate border-stone-700 bg-stone-900 text-stone-300">
+                                                                        {editValues.type?.replace('LIB_', '') || "Select..."}
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Select Library Type</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                     <DropdownMenuContent className="bg-stone-900 border-stone-800 text-white">
                                                         {LIBRARY_TYPES.map(type => (
                                                             <DropdownMenuItem
@@ -144,13 +159,13 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     </TableCell>
 
                                     {/* Description */}
-                                    <TableCell className="align-top py-3">
+                                    <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
                                         <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
                                             {isEditing ? (
                                                 <Textarea
                                                     value={editValues.description || ''}
                                                     onChange={e => handleChange('description', e.target.value)}
-                                                    className="min-h-[60px] text-xs bg-stone-900 border-stone-700 text-white"
+                                                    className="min-h-[60px] text-xs bg-stone-900 border-stone-700 text-white w-full"
                                                 />
                                             ) : (
                                                 <span className="table-text whitespace-pre-wrap">{item.description}</span>
@@ -159,13 +174,13 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     </TableCell>
 
                                     {/* Negatives */}
-                                    <TableCell className="align-top py-3">
+                                    <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
                                         <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
                                             {isEditing ? (
                                                 <Input
                                                     value={editValues.negatives || ''}
                                                     onChange={e => handleChange('negatives', e.target.value)}
-                                                    className="table-input"
+                                                    className="table-input h-full"
                                                 />
                                             ) : (
                                                 <span className="table-text">{item.negatives}</span>
@@ -174,13 +189,13 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     </TableCell>
 
                                     {/* Notes */}
-                                    <TableCell className="align-top py-3">
+                                    <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
                                         <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
                                             {isEditing ? (
                                                 <Input
                                                     value={editValues.notes || ''}
                                                     onChange={e => handleChange('notes', e.target.value)}
-                                                    className="table-input italic"
+                                                    className="table-input italic h-full"
                                                 />
                                             ) : (
                                                 <span className="table-text italic">{item.notes}</span>
@@ -203,22 +218,40 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     <TableCell className="align-top py-3 text-right">
                                         {isEditing && (
                                             <div className="flex justify-end gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    onClick={handleSave}
-                                                    disabled={saving}
-                                                    className="h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                                >
-                                                    {saving ? '...' : 'Save'}
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    onClick={handleCancelEdit}
-                                                    className="btn-icon-action"
-                                                >
-                                                    <span className="material-symbols-outlined !text-lg">close</span>
-                                                </Button>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                size="sm"
+                                                                onClick={handleSave}
+                                                                disabled={saving}
+                                                                className="h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                                            >
+                                                                {saving ? '...' : 'Save'}
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Save changes</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="icon"
+                                                                onClick={handleCancelEdit}
+                                                                className="btn-icon-action"
+                                                            >
+                                                                <span className="material-symbols-outlined !text-lg">close</span>
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Cancel editing</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
                                             </div>
                                         )}
                                     </TableCell>

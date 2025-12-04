@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -62,6 +63,7 @@ export function ClipRow({
     const [editValues, setEditValues] = useState<Partial<Clip>>({})
     const [downloadCount, setDownloadCount] = useState(0)
     const [showEditGuard, setShowEditGuard] = useState(false)
+    const [autoOpenUpload, setAutoOpenUpload] = useState(false)
 
     const handleStartEdit = () => {
         if (clip.status === 'Done' && downloadCount === 0) {
@@ -130,25 +132,25 @@ export function ClipRow({
             <TableCell className="align-top font-sans font-extralight text-stone-500 text-xs py-3">
                 {clip.scene}
             </TableCell>
-            <TableCell className="align-top w-[13%] py-3">
+            <TableCell className={`align-top w-[13%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="font-medium text-white block">
                     {isEditing ? (
                         <Input
                             value={editValues.title || ''}
                             onChange={(e) => handleChange('title', e.target.value)}
-                            className="table-input"
+                            className="table-input h-full"
                         />
                     ) : (
                         <span className="table-text font-medium">{clip.title || '-'}</span>
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className="align-top w-16 py-3">
+            <TableCell className={`align-top w-16 ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
                     {isEditing ? (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-auto min-h-[32px] w-full justify-start text-xs text-left whitespace-normal">
+                                <Button variant="outline" size="sm" className="h-full min-h-[32px] w-full justify-start text-xs text-left whitespace-normal">
                                     {editValues.character || "Select..."}
                                 </Button>
                             </DropdownMenuTrigger>
@@ -174,7 +176,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className="align-top w-32 py-3">
+            <TableCell className={`align-top w-32 ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <DropdownMenu>
@@ -200,7 +202,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className="align-top text-white text-xs w-32 py-3">
+            <TableCell className={`align-top text-white text-xs w-32 ${isEditing ? "p-1" : "py-3"}`}>
                 <div>
                     <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
                         {isEditing ? (
@@ -228,26 +230,26 @@ export function ClipRow({
                     </EditableCell>
                 </div>
             </TableCell>
-            <TableCell className="align-top text-white w-1/4 py-3">
+            <TableCell className={`align-top text-white w-1/4 ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
                     {isEditing ? (
                         <Textarea
                             value={editValues.action || ''}
                             onChange={(e) => handleChange('action', e.target.value)}
-                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white"
+                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full"
                         />
                     ) : (
                         <span className="table-text">{clip.action || '-'}</span>
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className="align-top text-white w-1/6 py-3">
+            <TableCell className={`align-top text-white w-1/6 ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <Textarea
                             value={editValues.dialog || ''}
                             onChange={(e) => handleChange('dialog', e.target.value)}
-                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white"
+                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full"
                         />
                     ) : (
                         <span className="table-text">{clip.dialog || '-'}</span>
@@ -260,6 +262,8 @@ export function ClipRow({
                         value={editValues.refImageUrls || ''}
                         onChange={(url) => handleChange('refImageUrls', url)}
                         isEditing={true}
+                        autoOpen={autoOpenUpload}
+                        onAutoOpenComplete={() => setAutoOpenUpload(false)}
                     />
                 ) : (
                     (() => {
@@ -280,18 +284,27 @@ export function ClipRow({
                             </div>
                         ) : (
                             <div className="w-full">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleStartEdit();
-                                    }}
-                                    className="h-8 w-full border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary"
-                                    title="Add Reference Image"
-                                >
-                                    <span className="material-symbols-outlined !text-lg">add</span>
-                                </Button>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAutoOpenUpload(true);
+                                                    handleStartEdit();
+                                                }}
+                                                className="btn-icon-action w-full"
+                                            >
+                                                <span className="material-symbols-outlined !text-lg">add</span>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Add Reference Image</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                         );
                     })()
@@ -300,57 +313,100 @@ export function ClipRow({
             <TableCell className="align-top text-right py-3">
                 {isEditing ? (
                     <div className="flex justify-end gap-2">
-                        <Button
-                            size="sm"
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                        >
-                            {saving ? '...' : 'Save'}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={onCancelEdit}
-                            className="btn-icon-action h-8 w-8"
-                        >
-                            <span className="material-symbols-outlined !text-lg">close</span>
-                        </Button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        className="h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                    >
+                                        {saving ? '...' : 'Save'}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Save changes</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={onCancelEdit}
+                                        className="btn-icon-action h-8 w-8"
+                                    >
+                                        <span className="material-symbols-outlined !text-lg">close</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Cancel editing</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                 ) : (
                     <div className="flex flex-col items-end gap-2">
                         <div className="flex justify-end gap-2">
                             {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && clip.resultUrl && (
                                 <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => onPlay(clip.resultUrl!)}
-                                        className="btn-icon-action h-8 w-8"
-                                        title="Play"
-                                    >
-                                        <span className="material-symbols-outlined !text-lg">play_arrow</span>
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={handleDownload}
-                                        className="btn-icon-action h-8 w-8"
-                                        title="Download"
-                                    >
-                                        <span className="material-symbols-outlined !text-lg">download</span>
-                                    </Button>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    onClick={() => onPlay(clip.resultUrl!)}
+                                                    className="btn-icon-action h-8 w-8"
+                                                >
+                                                    <span className="material-symbols-outlined !text-lg">play_arrow</span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Play video</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    onClick={handleDownload}
+                                                    className="btn-icon-action h-8 w-8"
+                                                >
+                                                    <span className="material-symbols-outlined !text-lg">download</span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Download video</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
                                 </div>
                             )}
 
                             {(!clip.status || clip.status === '' || clip.status === 'Error' || ((clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && !clip.resultUrl)) && (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => onGenerate(clip)}
-                                    className="h-8 px-3 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary font-normal"
-                                >
-                                    GEN
-                                </Button>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => onGenerate(clip)}
+                                                className="h-8 px-3 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary font-normal border-[0.5px]"
+                                            >
+                                                GEN
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Generate video for this clip</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             )}
 
                             {clip.status === 'Generating' && (

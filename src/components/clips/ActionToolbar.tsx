@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -35,21 +36,31 @@ export function ActionToolbar({
 }: ActionToolbarProps) {
     return (
         <div className="flex items-center gap-3 py-1.5">
-            <div className="flex gap-2 text-xs text-zinc-500 uppercase tracking-wider items-center mr-4 border-r border-zinc-200 pr-4 h-6">
+            <div className="flex gap-2 text-xs text-zinc-500 uppercase tracking-wider items-center">
                 <span className="font-semibold text-zinc-900">Ep {currentEpKey}</span>
                 <span>{totalClips} Clips</span>
                 <span>{selectedCount} Selected</span>
             </div>
+            <div className="h-4 w-px bg-zinc-700 mx-2"></div>
 
             {/* Model Selection */}
             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-                        <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
-                        {selectedModel === 'veo-fast' ? 'Veo Fast' : 'Veo Quality'}
-                        <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
-                    </Button>
-                </DropdownMenuTrigger>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                                    <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
+                                    {selectedModel === 'veo-fast' ? 'Veo Fast' : 'Veo Quality'}
+                                    <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Select the AI model for video generation</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
                 <DropdownMenuContent className="w-40 bg-stone-900 border-stone-800 text-white">
                     <DropdownMenuItem onClick={() => onModelChange('veo-fast')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
                         Veo Fast
@@ -62,13 +73,22 @@ export function ActionToolbar({
 
             {/* Style Selection */}
             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2">
-                        <span className="text-zinc-500 mr-2 font-semibold">STYLE</span>
-                        <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
-                        <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
-                    </Button>
-                </DropdownMenuTrigger>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2">
+                                    <span className="text-zinc-500 mr-2 font-semibold">STYLE</span>
+                                    <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
+                                    <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Select a visual style for the episode</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
                 <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
                     {availableStyles.map((style) => (
                         <DropdownMenuItem
@@ -87,25 +107,43 @@ export function ActionToolbar({
 
             <div className="h-4 w-px bg-zinc-700 mx-2"></div>
 
-            <Button
-                size="sm"
-                onClick={onGenerateSelected}
-                disabled={selectedCount === 0}
-                className="h-8 px-3 text-xs"
-            >
-                <span className="material-symbols-outlined !text-sm mr-2">movie_creation</span>
-                Generate ({selectedCount})
-            </Button>
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={onDownloadSelected}
-                disabled={selectedCount === 0}
-                className="h-8 px-3 text-xs border-primary border-opacity-50 text-primary hover:bg-primary hover:bg-opacity-10 hover:text-primary hover:border-primary disabled:text-primary disabled:text-opacity-50 disabled:border-opacity-30"
-            >
-                <span className="material-symbols-outlined !text-sm mr-2">download</span>
-                Download
-            </Button>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            size="sm"
+                            onClick={onGenerateSelected}
+                            disabled={selectedCount === 0}
+                            className="h-8 px-3 text-xs"
+                        >
+                            <span className="material-symbols-outlined !text-sm mr-2">movie_creation</span>
+                            Generate ({selectedCount})
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Generate video for selected clips</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onDownloadSelected}
+                            disabled={selectedCount === 0}
+                            className="h-8 px-3 text-xs border-primary border-opacity-50 text-primary hover:bg-primary hover:bg-opacity-10 hover:text-primary hover:border-primary disabled:text-primary disabled:text-opacity-50 disabled:border-opacity-30"
+                        >
+                            <span className="material-symbols-outlined !text-sm mr-2">download</span>
+                            Download
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Download generated videos for selected clips</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
     )
 }
