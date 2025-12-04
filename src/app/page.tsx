@@ -474,7 +474,7 @@ export default function Home() {
 
       {/* Navigation & Toolbar */}
       <div className="flex flex-col border-b border-border/40 bg-background/50 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-6">
+        <div className="flex items-center justify-between px-6 h-[45px]">
           {currentView !== 'series' && currentView !== 'settings' && (
             <EpisodeTabs
               episodeKeys={sortedEpKeys}
@@ -505,20 +505,6 @@ export default function Home() {
                   {copyMessage}
                 </span>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const keys = libraryItems.map(i => `- ${i.name} (${i.type})`).join('\n');
-                  navigator.clipboard.writeText(keys);
-                  setCopyMessage("Library items copied. Paste into Production prompt.");
-                  setTimeout(() => setCopyMessage(null), 2000);
-                }}
-                className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-              >
-                <span className="material-symbols-outlined !text-sm mr-2">content_copy</span>
-                Copy Library Keys
-              </Button>
             </div>
           )}
         </div>

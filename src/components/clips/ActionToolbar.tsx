@@ -34,7 +34,7 @@ export function ActionToolbar({
     availableStyles
 }: ActionToolbarProps) {
     return (
-        <div className="flex items-center gap-3 py-2">
+        <div className="flex items-center gap-3 py-1.5">
             <div className="flex gap-2 text-xs text-zinc-500 uppercase tracking-wider items-center mr-4 border-r border-zinc-200 pr-4 h-6">
                 <span className="font-semibold text-zinc-900">Ep {currentEpKey}</span>
                 <span>{totalClips} Clips</span>

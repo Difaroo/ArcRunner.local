@@ -97,26 +97,29 @@ export function SeriesPage({
     return (
         <div className="flex flex-col h-full">
             {/* Series Tabs */}
-            <div className="flex items-center gap-1 px-6 py-2 border-b border-white/5 bg-black/20 overflow-x-auto shrink-0">
-                {seriesList.map(series => (
+            {/* Series Tabs */}
+            <div className="px-6 bg-black/20 border-b border-white/5 shrink-0">
+                <div className="flex items-center gap-6 -mb-px overflow-x-auto">
+                    {seriesList.map(series => (
+                        <button
+                            key={series.id}
+                            onClick={() => onSeriesChange(series.id)}
+                            className={`py-3 text-sm font-normal transition-colors border-b-2 whitespace-nowrap ${currentSeriesId === series.id
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-stone-500 hover:text-stone-300 hover:border-stone-700'
+                                }`}
+                        >
+                            {series.title}
+                        </button>
+                    ))}
                     <button
-                        key={series.id}
-                        onClick={() => onSeriesChange(series.id)}
-                        className={`px-4 py-2 text-xs font-medium rounded-t-md transition-colors ${currentSeriesId === series.id
-                            ? 'bg-stone-800 text-white border-t border-x border-white/10'
-                            : 'text-stone-500 hover:text-stone-300 hover:bg-white/5'
-                            }`}
+                        onClick={() => setShowAddDialog(true)}
+                        className="py-3 text-primary hover:text-primary/80 transition-colors ml-2"
+                        title="Add Series"
                     >
-                        {series.title}
+                        <span className="material-symbols-outlined !text-lg">add</span>
                     </button>
-                ))}
-                <button
-                    onClick={() => setShowAddDialog(true)}
-                    className="px-3 py-2 text-primary hover:text-primary hover:bg-primary/10 rounded-md ml-2"
-                    title="Add Series"
-                >
-                    <span className="material-symbols-outlined !text-sm">add</span>
-                </button>
+                </div>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
@@ -186,17 +189,13 @@ export function SeriesPage({
                     <div className="p-4 border-b border-white/5 flex justify-between items-center shrink-0">
                         <h3 className="text-sm font-semibold text-stone-300">Episode Prompt</h3>
                         <Button
+                            variant="secondary"
+                            size="icon"
                             onClick={copyToClipboard}
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-3 text-xs border-primary border-opacity-50 text-primary hover:bg-primary hover:bg-opacity-10 hover:text-primary hover:border-primary"
+                            className="h-6 w-6"
+                            title="Copy Prompt"
                         >
-                            {copyMessage || (
-                                <>
-                                    <span className="material-symbols-outlined !text-sm mr-2">content_copy</span>
-                                    Copy Prompt
-                                </>
-                            )}
+                            <span className="material-symbols-outlined !text-sm">content_copy</span>
                         </Button>
                     </div>
 

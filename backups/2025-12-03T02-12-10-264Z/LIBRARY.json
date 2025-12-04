@@ -1,0 +1,721 @@
+[
+  [
+    "Series",
+    "Episode",
+    "Type",
+    "Name",
+    "Description",
+    "Ref Image URLs",
+    "Negatives",
+    "Notes"
+  ],
+  [
+    "1",
+    "1",
+    "LIB_CHARACTER",
+    "Candy_Jones",
+    "CANDY: A hauntingly beautiful woman in her mid-20s, c. 1950.\nFace: Green eyes, shoulder length wavy 50's styled auburn hair, high cheekbones, straight long nose, strong Cupid’s bow; lips medium‑full. \nYoung, gorgeous, smart, with non-classical aristocratic features. Poised, camera‑aware, cool.\nVoice: American educated 50's Pennsylvania accent and theatrical delivery.",
+    "https://drive.google.com/file/d/1uD4FZ_9C5QzqYUN34ImKwfabPTRmlbWp/view?usp=sharing",
+    "1",
+    "Primary lead character"
+  ],
+  [
+    "1",
+    "3",
+    "LIB_CHARACTER",
+    "Candy_Rocketman",
+    "CANDY's WARDROBE: Styled in retro-futurist 1950s fashion — sharp collar, cinched waist, simple fitted, two-tone uniform dress: cream colored short-sleeves with pointed collar above the bust, and red section covering bust and extending down into a fitted midsection. The outfit has a tailored, vintage look with bold color blocking that accentuates the waist. Makeup featuring classic red lipstick and subtle eyeliner. Cinematic retro aesthetic.",
+    "/api/images/Candy_Arlene_00.1_1764610607491.jpg",
+    "1"
+  ],
+  [
+    "1",
+    "1",
+    "LIB_CHARACTER",
+    "Chet_Valentine",
+    "CHET: Mid‑30s newsroom anchor; Jack Lord‑style quiff, sharp cheekbones; cheap 1960s suit and skinny tie. Facial hair: clean‑shaven. \nDemeanor: intense stare, deadpan wit.",
+    "",
+    "1",
+    "Anchor / voice‑over"
+  ],
+  [
+    "1",
+    "1",
+    "LIB_LOCATION",
+    "Ultra_Radio_Studio",
+    "Candy’s booth at Ultra Radio. C. 1960\nClassic 50’s mic in front of her, metal Ultra Radio plaque on the front of it, capitals \"ULTRA RADIO\" stacked, with black enamel background / infill.\nAnglepoise screen left, the only light. \nBehind her: A chaotic pinboard filled with yellowed clippings, vintage concert tickets, passport photos, telex messages, and CIA documents, all linked with red string - fills the background.",
+    "/api/images/Candy_Ultra_Radio_Cgpt_01.png",
+    "1",
+    "Core set"
+  ],
+  [
+    "1",
+    "1",
+    "LIB_STYLE",
+    "Anime_Cel",
+    "Anime cel shading; crisp black line art; high‑contrast flat colors; limited motion blur; lensing like Demon Slayer / One Piece.",
+    "",
+    "1",
+    "Use for anime look"
+  ],
+  [
+    "1",
+    "1",
+    "LIB_STYLE",
+    "Noir_1960s",
+    "Noir newsroom grit; saturated but tasteful color; 1960s film grain; hard key and deep shadows.",
+    "",
+    "1",
+    "Use for newsroom scenes"
+  ],
+  [
+    "1",
+    "1",
+    "LIB_CAMERA",
+    "CloseUp_Dramatic",
+    "Straight, square on, on face, slow push‑in; shallow depth‑of‑field; slight low angle to intensify.",
+    "",
+    "1",
+    "Good for dialogue hooks"
+  ],
+  [
+    "1",
+    "1",
+    "LIB_CAMERA",
+    "Crash_Zoom",
+    "Rapid crash zoom to subject; brief whip‑pan feel; handheld micro‑shake allowed.",
+    "",
+    "1",
+    "For reveals"
+  ],
+  [
+    "1",
+    "3",
+    "LIB_CHARACTER",
+    "Jack_Parsons",
+    "JACK: Eccentric 1950s rocket engineer. 30 yr old, Intense, visionary. Dark hair, short back and sides, curly eraserhead style bourfant quiff. Pencil moustache. Grease-stained white shirt. Blue suspenders. ",
+    "",
+    "1",
+    "Repeat villain figure."
+  ],
+  [
+    "1",
+    "3",
+    "LIB_CHARACTER",
+    "Fritz_Dornberger",
+    "FRITZ: Comic Germanic mad scientist neighbour. Messy white hair, lab coat, tool belt, Converse sneakers. Welding goggles.",
+    "",
+    "1",
+    "Strangelove parody."
+  ],
+  [
+    "1",
+    "3",
+    "LIB_LOCATION",
+    "Rocketman_Shed",
+    "Interior. 50's era. Dusty barn, workshop for rockets. Jet parts. Blueprints, chalk board with formulas and occult chalk sigils on walls. ",
+    "",
+    "1",
+    "Jack’s lair."
+  ],
+  [
+    "1",
+    "3",
+    "LIB_LOCATION",
+    "Backyard_Launch",
+    "Backyard garden, pasadena native plants, scrapped inventions scarttered around, palm trees in distance, pentagram drawn in dirt charred launch patch, hippy girls dancing.",
+    "",
+    "1",
+    "Launch ritual site."
+  ],
+  [
+    "1",
+    "3",
+    "LIB_LOCATION",
+    "Newsroom_1950s",
+    "Mid-century newsroom desk with ticker tape, glass ashtray, harsh overhead light.",
+    "",
+    "1",
+    "Anchor’s base."
+  ],
+  [
+    "1",
+    "3",
+    "LIB_STYLE",
+    "Noir_1960s",
+    "Cinematic depth-of-field, noir grit, 1960s film grain, hard key shadows, slight analog glitch.",
+    "",
+    "1",
+    "House style."
+  ],
+  [
+    "1",
+    "3",
+    "LIB_CAMERA",
+    "CloseUp_Dramatic",
+    "Straight-on close-up, shallow depth of field.",
+    "",
+    "1",
+    "For emotional beats."
+  ],
+  [
+    "1",
+    "3",
+    "LIB_CAMERA",
+    "Medium_Close",
+    "Waist-up framing, slight push-in.",
+    "",
+    "1",
+    "-"
+  ],
+  [
+    "1",
+    "3",
+    "LIB_CAMERA",
+    "Wide",
+    "Full-body framing, wide context.",
+    "",
+    "1",
+    "-"
+  ],
+  [
+    "1",
+    "3",
+    "LIB_CAMERA",
+    "Drone_Down",
+    "Very high descending shot, looking down on location, and descending, centred on the key object or action.",
+    "",
+    "1",
+    "For beauty beat."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_CHARACTER",
+    "Candy_Meets_Castro",
+    "CANDY WARDROBE: Olive green satin cocktail dress in a fitted pencil-skirt silhouette, floor-length with a deep halter neckline. Satin fabric gleams subtly under light, clinging elegantly to the figure. Bodice plunges low, framed with delicate silver beaded trim that runs down the neckline. Skirt tapers narrow, with a small slit at the back for movement. Accessories: diamond drop earrings, slim bracelet, silver pendant on a chain. Makeup: bold red lipstick, subtle eyeliner, hair styled in loose 1950s waves swept to one side. Diamond drop earrings, bold red lipstick.",
+    "",
+    "1",
+    "Distinct from Candy’s radio or Rocketman looks; reusable for future palace/party settings."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_CHARACTER",
+    "The_Nordic",
+    "The Nordic: Striking albino woman in her late 20s. Long, straight white hair with no wave. Skin pale, almost luminous. Wardrobe: ice-white slit pencil skirt, retro-futurist chic; fitted jacket; white 1950s airhostess hat with no trim, graphics, or badges; white 4-inch stilettos; white toenails. Demeanor: cold, enigmatic, half-lidded gaze, moves with gliding precision.",
+    "",
+    "1",
+    "Archetypal figure recurring across the island mythos."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_CHARACTER",
+    "CIA_Handler",
+    "Mid-40s man, cropped dark hair, severe jawline. \nWardrobe: horn-rimmed glasses with cyan lenses, plain grey CIA suit, loosened tie. \nDemeanor: flat, reflective, speaks with detached authority.",
+    "",
+    "1",
+    "Appears in multiple CIA flashback briefings."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_CHARACTER",
+    "Secret_Police",
+    "Cuban secret police: late 50s. Assorted moustache and beard combos. Assorted builds.\nWardrobe: black suit, crisp black shirts, narrow red ties, black 1950s sunglasses. Black AK-47's. Leather strap of a shoulder holster inside the jacket. \nDemeanor: disciplined, stone-faced, menacing.",
+    "",
+    "1",
+    "Guards throughout palace exterior and interior."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_CHARACTER",
+    "Castro_Wife",
+    "CASTROS WIFE: Mid-30s Cuban woman, elegant. Wardrobe: fitted cocktail dress in black satin, pearl necklace, hair pinned in 1960 updo. Demeanor: stiff, watchful, jealous gaze.",
+    "",
+    "1",
+    "Recurs in party and lounge shots."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_LOCATION",
+    "Presidential_Palace_Ext_1960",
+    "Presidential Palace: Havana’s Presidential Palace exterior at night. Huge Cuban flag hanging sideways, the red chevron at the top pointing down above entrance, 6 wide stone steps up from a wide pavement, red carpet, access road running across the front of the pagvement. On the pavement Chet Valentine in tux talking to 60's tv camera, Cuban state tv crew, searchlights pointing straight up to the sky, velvet ropes, press crowd, flashbulbs.",
+    "",
+    "1",
+    "Exterior recurring setup."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_LOCATION",
+    "Red_Carpet_Gate",
+    "At the arched entrance, secret police guards check the guests invitations. ",
+    "",
+    "1",
+    "Used for invitation and Candy slipping past."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_LOCATION",
+    "Presidential_Palace_Int_Ballroom",
+    "INTERIOR: Havana’s Presidential Palace ball room, Lavish 1960 interior. Marble columns, chandeliers, gilded trim, dancers, fire-eater, waiters with trays. Subdued club lighting. Crowded, decadent atmosphere.",
+    "",
+    "1",
+    "Used repeatedly in party sequence."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_LOCATION",
+    "Candys_Porsche",
+    "CANDYS PORSCHE: 1959 Porsche 356 A (T2) 1600 Super, coupe, hard top, NOT A CONVERTIBLE. Bodywork in buffed bare aluminium. Red leather interior.",
+    "",
+    "1",
+    "Used repeatedly in party sequence."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_STYLE",
+    "Newsreel_BW_1960",
+    "High-contrast monochrome, visible film grain, gate weave, subtle scratches, archival look.",
+    "",
+    "1",
+    "For Castro’s UN sequence."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_CAMERA",
+    "Low_Angle_Heroic",
+    "Camera angled sharply up from below, enlarging subject, high-contrast shadows across face, dramatic manga exaggeration.",
+    "",
+    "1",
+    "For Castro’s UN speech."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_CAMERA",
+    "Tracking_Shot",
+    "Handheld or dolly tracking through crowd, shallow depth of field, subject center-framed, noir grit.",
+    "",
+    "1",
+    "Used in party sequence following Candy."
+  ],
+  [
+    "1",
+    "6",
+    "LIB_CAMERA",
+    "Insert_Close",
+    "Macro close-up, object fills frame, shallow focus, vignette edges, noir panel-like emphasis.",
+    "",
+    "1",
+    "Used for cigar band."
+  ],
+  [],
+  [
+    "",
+    "",
+    "UFO>Alien Hunters",
+    "",
+    "",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_LOCATION",
+    "Farm_Night",
+    "New Mexico. Rain-soaked rural farm at night with mud, barn, farm house, and faint vehicle headlights in the distance.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_LOCATION",
+    "Desert_Night",
+    "Open New Mexico scrubland with sand, cactus, yucca, and storm clouds lit by lightning.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_LOCATION",
+    "Cafe_Night",
+    "Small urban UK café with strip lighting, chrome fittings, and window reflections of rain.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_LOCATION",
+    "Corridor_Night",
+    "Industrial corridor with peeling paint, dripping pipes, dim torchlight.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_LOCATION",
+    "Field_Night",
+    "Open field with mist and floodlights; night sky overhead.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_LOCATION",
+    "Basement",
+    "Low-lit basement with clutter, exposed wiring, and damp concrete walls.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_LOCATION",
+    "Van_Night",
+    "Dimly lit vehicle interior with instrument glow and rain on windows.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_STYLE",
+    "Cinematic_Dark",
+    "Dramatic low-key lighting with high contrast, cool tones, and deep shadows, urban, contemporary, alternative.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_STYLE",
+    "Documentary_Real",
+    "Natural handheld realism with muted tones and soft ambient light.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_STYLE",
+    "Thriller_Tense",
+    "Moody, suspenseful palette with high contrast, cold blues, tight framing, contemporary.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_STYLE",
+    "Cinematic_Action",
+    "Dynamic, high-speed realism with motion blur and dramatic lighting, contemporary.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CAMERA",
+    "Wide_Establishing",
+    "Wide frame establishing geography and atmosphere.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CAMERA",
+    "CloseUp_Atmospheric",
+    "Close, textured shot capturing rain or emotion with shallow focus.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CAMERA",
+    "Medium_Close",
+    "Shoulder-up framing; environmental detail still visible.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CAMERA",
+    "Tracking_Steady",
+    "Smooth dolly or gimbal tracking following characters.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CAMERA",
+    "Montage_Fast",
+    "Rapid intercut edits with visual rhythm and quick zooms.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CAMERA",
+    "Wide_Dynamic",
+    "Expansive framing with fast motion and environmental effects.",
+    "",
+    "2"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CHARACTER",
+    "Hacker",
+    "Late 20s, female, dark hair under beanie, leather jacket, fingerless gloves, focused.",
+    "",
+    "2",
+    "recurring"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CHARACTER",
+    "Albino_Asian",
+    "Pale-skinned woman with platinum hair, calm, analytical, wearing field jacket, holds Geiger counter.",
+    "",
+    "2",
+    "recurring"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CHARACTER",
+    "Handler",
+    "40s, male, military bearing, bomber jacket, cautious intensity.",
+    "",
+    "2",
+    "recurring"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CHARACTER",
+    "Believer",
+    "30s, male, slightly disheveled, haunted eyes, casual jacket, carries notebook.",
+    "",
+    "2",
+    "recurring"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CHARACTER",
+    "Team",
+    "Four investigators together: the Skeptic, Believer, Hacker, Albino Asian.",
+    "",
+    "2",
+    "recurring"
+  ],
+  [
+    "2",
+    "1",
+    "LIB_CHARACTER",
+    "Men_In_Black",
+    "Two men in black suits, white shirts, dark ties, emotionless expressions.",
+    "",
+    "2",
+    "recurring"
+  ],
+  [],
+  [
+    "",
+    "",
+    "E2 One Night in Rowell",
+    "",
+    "",
+    "",
+    "3"
+  ],
+  [
+    "1",
+    "2",
+    "LIB_CHARACTER",
+    "Candy_Jones_Roswell",
+    "Candy, Wardrobe: stylish 50's tan trench coat over knee-length pencil skirt, tailored red retro-futurist stewardess dress.",
+    "https://drive.google.com/file/d/1LA06wnC9a17tScuqiDOHTSFopn9w8JOL",
+    "3",
+    "Default Candy look for noir episodes."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_STYLE",
+    "Noir_1950s_BMovie",
+    "Pulp sci-fi tone: heavy film grain, exaggerated chiaroscuro, thunderflash lighting, smoke machine haze. Palette: desaturated with cyan highlights. Visual rhythm: quick cuts, comic-book panels, theatrical shadows.",
+    "",
+    "3",
+    "Default visual mood for NOHS Roswell arc."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_CAMERA",
+    "CloseUp_Dramatic",
+    "Tight framing, slight lens distortion, film grain accentuating facial highlights. Background blurred with low-angle uplight, emphasising pulp intensity.",
+    "",
+    "3",
+    "For Chet opener, Candy reaction, or reveal shots."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_CAMERA",
+    "Medium_Wide_Static",
+    "Waist-up to full-body composition, balanced symmetrical framing, static camera on tripod. Atmospheric depth visible behind subjects.",
+    "",
+    "3",
+    "Used for sign and pasture setups."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_CAMERA",
+    "Interview_2Shot_Static",
+    "Locked tripod framing of two characters mid-chest up, 1950s talk-show feel. Slight backlight halo on reporter’s hair.",
+    "",
+    "3",
+    "Candy + farmhand exchange scenes."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_CAMERA",
+    "Hands_Reveal_Object",
+    "Close on hands manipulating or discovering object; shallow DoF; background bokeh flickers from lab light or desert sun.",
+    "",
+    "3",
+    "Used in toaster discovery, cigar band, prop reveals."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_ACTION",
+    "Object_Floats",
+    "Small object levitates or hovers in frame, lit from below, dust drifting around.",
+    "",
+    "3",
+    "For the toaster “flying saucer” gag."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_ACTION",
+    "Character_Deadpan_Quip",
+    "Character pauses, stares into camera, delivers line flat and ironic.",
+    "",
+    "3",
+    "Used by Candy and Chet across series."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_ACTION",
+    "Reveal_Scientist",
+    "Character removes hood or mask to reveal eccentric scientist beneath; camera push-in.",
+    "",
+    "3",
+    "Used in Parsons reveal sequence."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_ACTION",
+    "Interview_WalkAndTalk",
+    "Reporter and subject stroll side-by-side while exchanging lines; background movement conveys realism.",
+    "",
+    "3",
+    "Standard walk-and-talk pattern for interviews."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_LOCATION",
+    "Ultra_News_Studio",
+    "Small 1960s local Miami TV station newsroom. Low ceiling with buzzing fluorescent tubes, wood-panel walls, Ultra News logo painted slightly off-center behind desk. Chrome boom mic overhead, bulky cathode cameras on wheeled tripods, cables coiled across scuffed linoleum floor. Lighting: harsh, flat, with faint cigarette haze. Background props: rotary phone, stack of cue cards, wall clock perpetually five minutes slow.",
+    "",
+    "3",
+    "Used for Chet Valentine’s Ultra News segments and broadcast cut-ins."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_LOCATION",
+    "Roswell_Pasture",
+    "Open New Mexico scrubland with sand, cactus, yucca, and storm clouds.",
+    "",
+    "3"
+  ],
+  [
+    "1",
+    "2",
+    "LIB_CHARACTER",
+    "Jack_Parsons_Roswell",
+    "Jack is wearing a 60's hazmat suit, with a full spherical perspex space helmet, but he will not be holding the torch.",
+    "https://drive.google.com/file/d/1uxAeL5J4Nl1Lgw_V90TpFEYNDfCwKtQW",
+    "3"
+  ],
+  [
+    "1",
+    "2",
+    "LIB_CHARACTER",
+    "Farmhand_Son",
+    "Good looking farm hand in lumberjack shirt and denim bib overalls.",
+    "https://drive.google.com/file/d/1jbxTrV0Dc4AXAGir74mPr1hyXoi0g_Jq",
+    "3"
+  ],
+  [
+    "1",
+    "2",
+    "LIB_LOCATION",
+    "Roswell_Cow_Circle",
+    "Wide open New Mexico pasture at dusk, ring of cows standing perfectly still in a circular formation. Dust in the air, faint thunderclouds, eerie stillness under flickering light. UFO debris and tire ruts visible around them.",
+    "",
+    "3",
+    "Used for Candy and Farmhand discovery scene; evokes eerie 1950s alien mystery."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_CHARACTER",
+    "Farmhand_Son",
+    "Early 20s rancher type; sunburned skin, strong jaw, naive expression. Wears plaid shirt, denim overalls, and tinfoil hat made from kitchen foil. Demeanor: goofy, awkwardly flirtatious, enamoured with Candy.",
+    "",
+    "3",
+    "Recurring comic-relief archetype for rural Roswell segments."
+  ],
+  [
+    "1",
+    "2",
+    "LIB_ACTION",
+    "Heroic_Hazmat_Scan",
+    "Character in bulky 1950s hazmat suit sweeps desert with a metal detector under storm clouds; cinematic low-angle, lightning flashes, cows watching.",
+    "",
+    "3",
+    "Used for Jack Parsons' entrance; parody of pulp sci-fi hero shot."
+  ]
+]

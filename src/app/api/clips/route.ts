@@ -129,7 +129,8 @@ export async function GET() {
                 return scene !== 'Scene #' && scene; // Filter out header row (if somehow duplicated) AND empty scene numbers
             })
             .map(({ row, index }) => {
-                const character = getValue(row, clipsSheet.headers, 'Character');
+                let character = getValue(row, clipsSheet.headers, 'Character');
+                if (!character) character = getValue(row, clipsSheet.headers, 'Characters');
                 const location = getValue(row, clipsSheet.headers, 'Location');
 
                 // 1. Get Clip-specific refs

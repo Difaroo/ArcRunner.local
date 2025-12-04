@@ -54,7 +54,7 @@ export function ClipTable({
                         <TableHead className="w-[13%] font-semibold text-stone-500 text-left align-top py-3 pl-1">TITLE</TableHead>
                         <TableHead className="w-16 font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
                         <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>
-                        <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">STYLE/CAM</TableHead>
+                        <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">CAMERA</TableHead>
                         <TableHead className="w-1/4 font-semibold text-stone-500 text-left align-top py-3">ACTION</TableHead>
                         <TableHead className="w-1/6 font-semibold text-stone-500 text-left align-top py-3">DIALOG</TableHead>
                         <TableHead className="w-24 font-semibold text-stone-500 text-left align-top py-3">REF IMG</TableHead>

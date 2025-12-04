@@ -19,7 +19,7 @@ export function EpisodeTabs({
                 <button
                     key={epKey}
                     onClick={() => onEpisodeChange(i + 1)}
-                    className={`border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${currentEpisode === i + 1
+                    className={`border-b-2 px-4 py-3 text-sm font-normal whitespace-nowrap transition-colors ${currentEpisode === i + 1
                         ? 'border-primary text-primary'
                         : 'border-transparent text-stone-500 hover:text-white hover:border-stone-700'
                         }`}

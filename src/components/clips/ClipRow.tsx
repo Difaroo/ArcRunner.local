@@ -127,7 +127,7 @@ export function ClipRow({
                     onCheckedChange={() => onSelect(clip.id)}
                 />
             </TableCell>
-            <TableCell className="align-top font-sans text-stone-500 text-xs py-3">
+            <TableCell className="align-top font-sans font-extralight text-stone-500 text-xs py-3">
                 {clip.scene}
             </TableCell>
             <TableCell className="align-top w-[13%] py-3">
@@ -144,7 +144,7 @@ export function ClipRow({
                 </EditableCell>
             </TableCell>
             <TableCell className="align-top w-16 py-3">
-                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs">
+                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
                     {isEditing ? (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -201,14 +201,7 @@ export function ClipRow({
                 </EditableCell>
             </TableCell>
             <TableCell className="align-top text-white text-xs w-32 py-3">
-                <div className="mb-2">
-                    <span className="text-stone-500 uppercase tracking-wider text-[10px] block mb-0.5 font-semibold">Style</span>
-                    <div className="h-8 flex items-center">
-                        <span className="table-text text-stone-500">{clip.style || '-'}</span>
-                    </div>
-                </div>
                 <div>
-                    <span className="text-stone-500 uppercase tracking-wider text-[10px] block mb-0.5 font-semibold">Camera</span>
                     <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
                         {isEditing ? (
                             <DropdownMenu>
