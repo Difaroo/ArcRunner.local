@@ -460,11 +460,11 @@ export default function Home() {
                     onClick={() => setCurrentView('library')}
                     className={`text-xs ${currentView === 'library' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
                   >
-                    Library
+                    Studio
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>View Asset Library</p>
+                  <p>View Studio Assets</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -477,11 +477,11 @@ export default function Home() {
                     onClick={() => setCurrentView('clips')}
                     className={`text-xs ${currentView === 'clips' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
                   >
-                    Clips
+                    Episode
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>View Clips table</p>
+                  <p>View Episode Clips</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

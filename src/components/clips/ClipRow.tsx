@@ -27,6 +27,7 @@ import {
 import { Loader2 } from "lucide-react"
 import { ImageUploadCell } from "@/components/ui/ImageUploadCell"
 import { EditableCell } from "@/components/ui/EditableCell"
+import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea"
 
 interface ClipRowProps {
     clip: Clip
@@ -122,7 +123,7 @@ export function ClipRow({
 
 
     return (
-        <TableRow className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''}`}>
+        <TableRow className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''}`}>
             <TableCell className="w-10 text-center align-top py-3">
                 <Checkbox
                     checked={isSelected}
@@ -233,10 +234,10 @@ export function ClipRow({
             <TableCell className={`align-top text-white w-1/4 ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
                     {isEditing ? (
-                        <Textarea
+                        <AutoResizeTextarea
                             value={editValues.action || ''}
                             onChange={(e) => handleChange('action', e.target.value)}
-                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full"
+                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
                         />
                     ) : (
                         <span className="table-text">{clip.action || '-'}</span>
@@ -246,10 +247,10 @@ export function ClipRow({
             <TableCell className={`align-top text-white w-1/6 ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
-                        <Textarea
+                        <AutoResizeTextarea
                             value={editValues.dialog || ''}
                             onChange={(e) => handleChange('dialog', e.target.value)}
-                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full"
+                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
                         />
                     ) : (
                         <span className="table-text">{clip.dialog || '-'}</span>
@@ -317,12 +318,13 @@ export function ClipRow({
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button
-                                        size="sm"
+                                        variant="outline"
+                                        size="icon"
                                         onClick={handleSave}
                                         disabled={saving}
-                                        className="h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                        className="h-8 w-8 border-[0.5px] border-green-600/50 text-green-600 hover:bg-green-600/10 hover:text-green-600 hover:border-green-600"
                                     >
-                                        {saving ? '...' : 'Save'}
+                                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">check</span>}
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>

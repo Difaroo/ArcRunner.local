@@ -72,7 +72,7 @@ export function ScriptView({ episodeId, onIngest }: ScriptViewProps) {
                             ) : (
                                 <>
                                     <span className="material-symbols-outlined mr-2 !text-sm">input</span>
-                                    Load Episode Library & Clips
+                                    Load Studio & Episode Data
                                 </>
                             )}
                         </Button>

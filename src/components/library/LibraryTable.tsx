@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ImageUploadCell } from "@/components/ui/ImageUploadCell";
 import { EditableCell } from "@/components/ui/EditableCell";
+import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea";
 
 export interface LibraryItem {
     id: string; // Added ID (index)
@@ -99,7 +101,7 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                         items.map((item, index) => {
                             const isEditing = editingId === item.id;
                             return (
-                                <TableRow key={index} className="group hover:bg-black transition-colors">
+                                <TableRow key={index} className={`group hover:bg-black transition-colors ${isEditing ? 'bg-black' : ''}`}>
                                     <TableCell className="font-mono text-xs text-stone-500 align-top py-3">
                                         {item.episode}
                                     </TableCell>
@@ -162,10 +164,10 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
                                         <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
                                             {isEditing ? (
-                                                <Textarea
+                                                <AutoResizeTextarea
                                                     value={editValues.description || ''}
                                                     onChange={e => handleChange('description', e.target.value)}
-                                                    className="min-h-[60px] text-xs bg-stone-900 border-stone-700 text-white w-full"
+                                                    className="min-h-[60px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
                                                 />
                                             ) : (
                                                 <span className="table-text whitespace-pre-wrap">{item.description}</span>
@@ -204,7 +206,7 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     </TableCell>
 
                                     {/* Ref Image */}
-                                    <TableCell className="align-top py-3 text-right">
+                                    <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
                                         <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
                                             <ImageUploadCell
                                                 value={isEditing ? editValues.refImageUrl || '' : item.refImageUrl || ''}
@@ -215,19 +217,20 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                     </TableCell>
 
                                     {/* Actions */}
-                                    <TableCell className="align-top py-3 text-right">
+                                    <TableCell className={`align-top text-right ${isEditing ? "p-1" : "py-3"}`}>
                                         {isEditing && (
                                             <div className="flex justify-end gap-2">
                                                 <TooltipProvider>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <Button
-                                                                size="sm"
+                                                                variant="outline"
+                                                                size="icon"
                                                                 onClick={handleSave}
                                                                 disabled={saving}
-                                                                className="h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                                                className="h-8 w-8 border-[0.5px] border-green-600/50 text-green-600 hover:bg-green-600/10 hover:text-green-600 hover:border-green-600"
                                                             >
-                                                                {saving ? '...' : 'Save'}
+                                                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">check</span>}
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
@@ -242,7 +245,7 @@ export function LibraryTable({ items, onSave }: LibraryTableProps) {
                                                                 variant="outline"
                                                                 size="icon"
                                                                 onClick={handleCancelEdit}
-                                                                className="btn-icon-action"
+                                                                className="btn-icon-action h-8 w-8"
                                                             >
                                                                 <span className="material-symbols-outlined !text-lg">close</span>
                                                             </Button>

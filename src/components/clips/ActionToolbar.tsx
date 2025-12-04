@@ -100,7 +100,7 @@ export function ActionToolbar({
                         </DropdownMenuItem>
                     ))}
                     {availableStyles.length === 0 && (
-                        <div className="p-2 text-xs text-stone-500">No styles found in Library</div>
+                        <div className="p-2 text-xs text-stone-500">No styles found in Studio</div>
                     )}
                 </DropdownMenuContent>
             </DropdownMenu>
