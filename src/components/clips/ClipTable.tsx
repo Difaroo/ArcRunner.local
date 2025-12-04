@@ -2,6 +2,22 @@ import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { ClipRow } from "./ClipRow"
 import { Clip } from "@/app/api/clips/route"
+import { useState, useEffect } from "react"
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from "@dnd-kit/core"
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
 
 interface ClipTableProps {
     clips: Clip[]
@@ -39,47 +55,97 @@ export function ClipTable({
 }: ClipTableProps) {
     const allSelected = clips.length > 0 && selectedIds.size === clips.length
 
+    const [orderedClips, setOrderedClips] = useState(clips)
+
+    useEffect(() => {
+        setOrderedClips(clips)
+    }, [clips])
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    )
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event
+        if (active.id !== over?.id) {
+            setOrderedClips((items) => {
+                const oldIndex = items.findIndex((item) => item.id === active.id)
+                const newIndex = items.findIndex((item) => item.id === over?.id)
+                const newItems = arrayMove(items, oldIndex, newIndex)
+
+                // Persist to API
+                const updates = newItems.map((clip, index) => ({
+                    id: clip.id,
+                    sortOrder: (index + 1) * 10
+                }))
+
+                fetch('/api/sort', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ updates })
+                }).catch(err => console.error('Failed to save sort order:', err))
+
+                return newItems
+            })
+        }
+    }
+
     return (
         <div className="w-full h-full overflow-auto">
-            <Table>
-                <TableHeader className="sticky top-0 bg-black backdrop-blur-sm z-10">
-                    <TableRow>
-                        <TableHead className="w-10 text-center align-top py-3">
-                            <Checkbox
-                                checked={allSelected}
-                                onCheckedChange={onSelectAll}
-                            />
-                        </TableHead>
-                        <TableHead className="w-[60px] font-semibold text-stone-500 text-left align-top py-3">SCN</TableHead>
-                        <TableHead className="w-[13%] font-semibold text-stone-500 text-left align-top py-3 pl-1">TITLE</TableHead>
-                        <TableHead className="w-16 font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
-                        <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>
-                        <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">CAMERA</TableHead>
-                        <TableHead className="w-1/4 font-semibold text-stone-500 text-left align-top py-3">ACTION</TableHead>
-                        <TableHead className="w-1/6 font-semibold text-stone-500 text-left align-top py-3">DIALOG</TableHead>
-                        <TableHead className="w-24 font-semibold text-stone-500 text-left align-top py-3">REF IMG</TableHead>
-                        <TableHead className="text-right w-24 font-semibold text-stone-500 align-top py-3">STATUS</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {clips.map((clip) => (
-                        <ClipRow
-                            key={clip.id}
-                            clip={clip}
-                            isSelected={selectedIds.has(clip.id)}
-                            isEditing={editingId === clip.id}
-                            onSelect={onSelect}
-                            onEdit={onEdit}
-                            onSave={onSave}
-                            onCancelEdit={onCancelEdit}
-                            onGenerate={onGenerate}
-                            onPlay={onPlay}
-                            saving={saving}
-                            uniqueValues={uniqueValues}
-                        />
-                    ))}
-                </TableBody>
-            </Table>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                <Table>
+                    <TableHeader className="sticky top-0 bg-black backdrop-blur-sm z-10">
+                        <TableRow>
+                            <TableHead className="w-[1px] p-0"></TableHead>
+                            <TableHead className="w-6 px-0 text-center align-top py-3">
+                                <Checkbox
+                                    checked={allSelected}
+                                    onCheckedChange={onSelectAll}
+                                />
+                            </TableHead>
+                            <TableHead className="w-[60px] font-semibold text-stone-500 text-left align-top py-3">SCN</TableHead>
+                            <TableHead className="w-[13%] font-semibold text-stone-500 text-left align-top py-3 pl-1">TITLE</TableHead>
+                            <TableHead className="w-16 font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
+                            <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>
+                            <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">CAMERA</TableHead>
+                            <TableHead className="w-1/4 font-semibold text-stone-500 text-left align-top py-3">ACTION</TableHead>
+                            <TableHead className="w-1/6 font-semibold text-stone-500 text-left align-top py-3">DIALOG</TableHead>
+                            <TableHead className="w-24 font-semibold text-stone-500 text-left align-top py-3">REF IMG</TableHead>
+                            <TableHead className="text-right w-24 font-semibold text-stone-500 align-top py-3">STATUS</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <SortableContext
+                            items={orderedClips.map(c => c.id)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            {orderedClips.map((clip) => (
+                                <ClipRow
+                                    key={clip.id}
+                                    clip={clip}
+                                    isSelected={selectedIds.has(clip.id)}
+                                    isEditing={editingId === clip.id}
+                                    onSelect={onSelect}
+                                    onEdit={onEdit}
+                                    onSave={onSave}
+                                    onCancelEdit={onCancelEdit}
+                                    onGenerate={onGenerate}
+                                    onPlay={onPlay}
+                                    saving={saving}
+                                    uniqueValues={uniqueValues}
+                                />
+                            ))}
+                        </SortableContext>
+                    </TableBody>
+                </Table>
+            </DndContext>
         </div>
     )
 }

@@ -17,6 +17,7 @@ export interface Clip {
     seed?: string;
     episode?: string;
     series?: string;
+    sortOrder?: number;
 }
 
 export interface Series {
@@ -180,7 +181,15 @@ export async function GET() {
                     seed: getValue(row, clipsSheet.headers, 'Seed'),
                     episode: getValue(row, clipsSheet.headers, 'Episode') || '1',
                     series: getValue(row, clipsSheet.headers, 'Series') || '1',
+                    sortOrder: parseInt(getValue(row, clipsSheet.headers, 'Sort Order')) || 0,
                 };
+            })
+            .sort((a, b) => {
+                // Sort by Sort Order first, then by original index (stable sort)
+                if (a.sortOrder !== 0 || b.sortOrder !== 0) {
+                    return (a.sortOrder || 0) - (b.sortOrder || 0);
+                }
+                return parseInt(a.id) - parseInt(b.id);
             });
 
         // Build Series List

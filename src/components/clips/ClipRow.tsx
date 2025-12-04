@@ -28,6 +28,8 @@ import { Loader2 } from "lucide-react"
 import { ImageUploadCell } from "@/components/ui/ImageUploadCell"
 import { EditableCell } from "@/components/ui/EditableCell"
 import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea"
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 interface ClipRowProps {
     clip: Clip
@@ -65,6 +67,22 @@ export function ClipRow({
     const [downloadCount, setDownloadCount] = useState(0)
     const [showEditGuard, setShowEditGuard] = useState(false)
     const [autoOpenUpload, setAutoOpenUpload] = useState(false)
+
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: clip.id })
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : 'auto',
+        position: isDragging ? 'relative' as const : undefined,
+    }
 
     const handleStartEdit = () => {
         if (clip.status === 'Done' && downloadCount === 0) {
@@ -123,8 +141,17 @@ export function ClipRow({
 
 
     return (
-        <TableRow className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''}`}>
-            <TableCell className="w-10 text-center align-top py-3">
+        <TableRow
+            ref={setNodeRef}
+            style={style}
+            className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''} ${isDragging ? 'opacity-50 bg-stone-800' : ''}`}
+        >
+            <TableCell className="w-[1px] p-0 pl-1 pr-0 align-top py-3 cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
+                <div className="flex items-center justify-center h-4 w-4">
+                    <span className="material-symbols-outlined text-stone-600 hover:text-stone-400 !text-base leading-none">drag_indicator</span>
+                </div>
+            </TableCell>
+            <TableCell className="w-6 px-0 text-center align-top py-3">
                 <Checkbox
                     checked={isSelected}
                     onCheckedChange={() => onSelect(clip.id)}
