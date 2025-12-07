@@ -5,13 +5,15 @@ import { PageHeader } from "@/components/PageHeader"
 
 interface ScriptViewProps {
     episodeId: string
-    onIngest: (json: string) => Promise<void>
+    onIngest: (json: string, defaultModel: string) => Promise<void>
 }
 
 export function ScriptView({ episodeId, onIngest }: ScriptViewProps) {
     const [jsonInput, setJsonInput] = useState("")
     const [isIngesting, setIsIngesting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    const [defaultModel, setDefaultModel] = useState("veo-fast")
 
     const handleIngest = async () => {
         setError(null)
@@ -25,7 +27,7 @@ export function ScriptView({ episodeId, onIngest }: ScriptViewProps) {
             JSON.parse(jsonInput)
 
             setIsIngesting(true)
-            await onIngest(jsonInput)
+            await onIngest(jsonInput, defaultModel)
             setJsonInput("") // Clear on success
         } catch (err: any) {
             setError("Invalid JSON format: " + err.message)
@@ -40,8 +42,22 @@ export function ScriptView({ episodeId, onIngest }: ScriptViewProps) {
 
             <div className="flex-1 p-6 flex flex-col gap-4">
                 <div className="bg-stone-900/50 p-4 rounded-lg border border-white/5 flex-1 flex flex-col">
-                    <div className="mb-4 text-sm text-stone-400">
-                        Paste your script JSON below.
+                    <div className="mb-4 flex justify-between items-center text-sm text-stone-400">
+                        <span>Paste your script JSON below.</span>
+
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-stone-500 uppercase tracking-wider font-semibold">Default Generation Model</label>
+                            <select
+                                value={defaultModel}
+                                onChange={(e) => setDefaultModel(e.target.value)}
+                                className="bg-stone-800 border-none text-xs text-stone-300 rounded px-2 py-1 outline-none cursor-pointer hover:bg-stone-700 hover:text-white transition-colors"
+                            >
+                                <option value="veo-fast">Veo Fast (Video)</option>
+                                <option value="veo-quality">Veo Quality (Video)</option>
+                                <option value="flux-pro">Flux Pro (Image)</option>
+                                <option value="flux-flex">Flux Flex (Image)</option>
+                            </select>
+                        </div>
                     </div>
 
                     <Textarea

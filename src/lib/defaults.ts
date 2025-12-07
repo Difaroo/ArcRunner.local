@@ -1,5 +1,5 @@
-export const DEFAULT_EPISODE_PROMPT = `
-**Instructions**
+export const DEFAULT_VIDEO_PROMPT = `
+**Instructions for VIDEO [Veo]**
 
 You are helping me break an episode script into production clips. Each clip will be ingested into the ArcRunner production system via JSON.
 
@@ -35,6 +35,7 @@ library
 \`\`\`json
 {
   "scene": "2.1",
+  "status": "Ready",
   "title": "Heroic Jack Metal-detecting",
   "character": "Candy_Jones_Roswell, Jack_Parsons_Roswell",
   "location": "Roswell_Pasture",
@@ -43,6 +44,7 @@ library
   "action": "Heroic 1950s framing: Jack in 50's hazmat suit with perspex sphere helmet, 50's metal detector, sweeping the ground with intense concentration, under lightning sky, cows watching.",
   "dialog": "Cut to closeup of Candy's face looking cheeky: \"Why are you vacuuming the desert?\"\\nZoom into close up of Jack's face inside the helmet.\\nJack says: \"Cleaning up weather balloon shit.\"",
   "refImageUrls": "",
+  "refVideoUrl": "",
   "seed": "64132",
   "duration": "5",
   "quality": "quality",
@@ -50,7 +52,8 @@ library
   "negatives": "No subtitles. No music. No UFO or disturbance of the ground.",
   "service": "kie_api",
   "episode": "2",
-  "series": "1"
+  "series": "1",
+  "model": "veo-quality"
 }
 \`\`\`
 
@@ -59,6 +62,7 @@ library
 \`\`\`json
 {
   "scene": "1.1",              // Scene Number (e.g., '1.1', '1.2')
+  "status": "Ready",           // Always 'Ready'
   "title": "The Arrival",      // Short descriptive label (max 8 words)
   "character": "Neo, Morpheus",// LIBRARY names (comma separated)
   "location": "Subway_Station",// LIBRARY name
@@ -67,6 +71,7 @@ library
   "action": "Neo steps onto the platform...", // One short sentence of what happens
   "dialog": "NEO: Where are we?", // Exact dialogue. Prefix with speaker name.
   "refImageUrls": "",          // Up to 3 URLs (optional)
+  "refVideoUrl": "",           // Optional Video URL
   "seed": "",                  // Optional seed for consistency
   "duration": "4",             // Duration in seconds (typically 3–5)
   "quality": "fast",           // 'fast' (default) or 'quality' for hero shots
@@ -74,7 +79,8 @@ library
   "negatives": "",             // Optional negatives
   "service": "kie_api",        // Always 'kie_api'
   "episode": "1",              // Episode Number
-  "series": "1"                // Series ID
+  "series": "1",               // Series ID
+  "model": "veo-fast"          // Model ID (e.g. veo-fast, veo-quality)
 }
 \`\`\`
 
@@ -85,7 +91,7 @@ library
 **Rule:** **Only create LIBRARY assets for components that appear in more than one clip (≥ 2 uses)** within this episode or across episodes.
 
 - If an element appears **once**, write it directly in the CLIPS row (do **not** add to LIBRARY).
-- **Wardrobe variants** should be added as **character entries** when they recur (e.g., Candy_Rocketman for Candy’s E5 look) so you can reuse them across multiple shots.
+- **Wardrobe variants** should be added as **character entries** when they recur.
 - **Add to Negatives to every entry:** *No subtitles. No music.*
 
 **Writing Guidance by Type:**
@@ -101,33 +107,17 @@ library
 {
   "type": "LIB_CHARACTER",
   "name": "Candy_Jones",
-  "description": "CANDY: A hauntingly beautiful woman in her mid-20s, c. 1950.\\nFace: Green eyes, shoulder length wavy 50's styled auburn hair, high cheekbones, straight long nose, strong Cupid’s bow; lips medium‑full.\\nYoung, gorgeous, smart, with non-classical aristocratic features. Poised, camera‑aware, cool.\\nVoice: American educated 50's Pennsylvania accent and theatrical delivery.",
-  "refImageUrl": "https://drive.google.com/file/d/1uD4FZ_9C5QzqYUN34ImKwfabPTRmlbWp/view?usp=sharing",
-  "negatives": "no glasses, no modern clothing logos, no tattoos, no deformed hands",
+  "description": "CANDY: A hauntingly beautiful woman in her mid-20s, c. 1950...",
+  "refImageUrl": "https://example.com/image.jpg",
+  "negatives": "no glasses, no modern clothing logos...",
   "notes": "Primary lead character",
   "episode": "1",
   "series": "1"
 }
 \`\`\`
 
-**Existing Library (Reference)** The following assets already exist. **Reuse them** where appropriate. Do not create duplicates.
-
+**Existing Library (Reference)** Reuse these names where appropriate:
 {{LIBRARY_KEYS}}
-
-**Schema:** Each object in the library array must use these keys:
-
-\`\`\`json
-{
-  "type": "LIB_CHARACTER",     // LIB_CHARACTER, LIB_LOCATION, LIB_STYLE, LIB_CAMERA, LIB_ACTION
-  "name": "Candy_Rocketman",   // Canonical handle (stable, unique), Title_Case_With_Underscores
-  "description": "Mid-20s...", // Self-contained text injected into prompts. Precise, period-correct.
-  "refImageUrl": "",           // One URL (optional)
-  "negatives": "no modern logos", // Short 'avoid' list
-  "notes": "",                 // Optional notes
-  "episode": "1",              // Episode Number
-  "series": "1"                // Series ID
-}
-\`\`\`
 
 **Final Rule:** Ensure the output is valid, parseable JSON. Do not include markdown formatting or extra text.
 
@@ -135,3 +125,112 @@ library
 
 [Insert script HERE >>> ]
 `;
+
+export const DEFAULT_IMAGE_PROMPT = `
+**Instructions for IMAGES [Flux]**
+
+You are helping me create a storyboard / shot list for an episode. Each shot will be generated as a High-Fidelity Still Image using Flux 1.1 Pro.
+
+Break the script below into shot-level CLIPS, following the schema and formatting rules below.
+
+Focus on **Visual Description**, **Lighting**, and **Composition**. Ignore sound or dialog unless it implies a visual emotion.
+
+**Episode Special Instructions:**
+
+{{SERIES_STYLE}}
+
+**Output Format:** Please output the final script as a **single JSON object** containing two arrays:
+
+clips
+and
+library
+
+\`\`\`json
+{
+  "clips": [ ... ],
+  "library": [ ... ]
+}
+\`\`\`
+
+## **1. CLIPS Array**
+
+**Goal:** Create distinct, high-quality still image prompts.
+
+**Example Row (Tone & Detail Reference):**
+
+\`\`\`json
+{
+  "scene": "2.1",
+  "status": "Ready",
+  "title": "Heroic Jack Portrait",
+  "character": "Candy_Jones_Roswell, Jack_Parsons_Roswell",
+  "location": "Roswell_Pasture",
+  "style": "Photo_Real_1950s",
+  "camera": "Portrait_Length_85mm",
+  "action": "A striking portrait of Jack in a 50's hazmat suit with perspex sphere helmet. The helmet reflects the lightning sky above. He looks determined. Cows are visible in the soft-focus background.",
+  "dialog": "",
+  "refImageUrls": "",
+  "refVideoUrl": "",
+  "seed": "12345",
+  "duration": "0",
+  "quality": "quality",
+  "ratio": "3:2",
+  "negatives": "blur, distortion, low quality, illustration, 3d render",
+  "service": "kie_api",
+  "episode": "2",
+  "series": "1",
+  "model": "flux-pro"
+}
+\`\`\`
+
+**Schema:** Each object in the clips array must use these keys:
+
+\`\`\`json
+{
+  "scene": "1.1",              // Scene Number
+  "status": "Ready",           // Always 'Ready'
+  "title": "The Arrival",      // Short descriptive label
+  "character": "Neo, Morpheus",// LIBRARY names
+  "location": "Subway_Station",// LIBRARY name
+  "style": "Cyberpunk_Noir",   // LIBRARY name
+  "camera": "Wide_Shot",       // LIBRARY name
+  "action": "Neo steps onto the platform...", // Detailed visual description
+  "dialog": "",                // Leave empty for Stills
+  "refImageUrls": "",          // Up to 3 URLs (optional)
+  "refVideoUrl": "",           // Leave empty
+  "seed": "",                  // Optional
+  "duration": "0",             // 0 for Stills
+  "quality": "quality",        // 'quality' preferred for main shots
+  "ratio": "16:9",             // e.g. '16:9', '3:2', '4:3'
+  "negatives": "text, watermark, blur", // Negatives for image gen
+  "service": "kie_api",        // Always 'kie_api'
+  "episode": "1",              // Episode Number
+  "series": "1",               // Series ID
+  "model": "flux-pro"          // Model ID (e.g. flux-pro, flux-flex)
+}
+\`\`\`
+
+## **2. LIBRARY Array**
+
+**Goal:** The LIBRARY defines reusable prompt components referenced by **Name**.
+
+**Rule:** **Only create LIBRARY assets for components that appear in more than one clip.**
+
+**Writing Guidance:**
+- **LIB_CHARACTER**: Facial traits, skin texture, wardrobe details.
+- **LIB_LOCATION**: Lighting, atmosphere, set details.
+- **LIB_STYLE**: Photography style (e.g., 'Cinestill 800T', 'Kodak Portra', 'Noir B&W').
+- **LIB_CAMERA**: Lens focal length (e.g. 35mm, 85mm), aperture (f/1.8), camera angle.
+
+**Existing Library (Reference):**
+{{LIBRARY_KEYS}}
+
+**Final Rule:** Ensure the output is valid, parseable JSON.
+
+# **Script**
+
+[Insert script HERE >>> ]
+`;
+
+// Export the OLD name for backward compatibility if needed, but we will update files.
+export const DEFAULT_EPISODE_PROMPT = DEFAULT_VIDEO_PROMPT;

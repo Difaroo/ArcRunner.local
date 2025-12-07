@@ -5,7 +5,7 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 export async function POST(request: Request) {
     try {
-        const { json, episodeId } = await request.json();
+        const { json, episodeId, defaultModel } = await request.json();
 
         if (!json || !episodeId) {
             return NextResponse.json({ error: 'Missing json or episodeId' }, { status: 400 });
@@ -49,7 +49,8 @@ export async function POST(request: Request) {
                 negatives: 'Negatives',
                 service: 'Service',
                 episode: 'Episode',
-                series: 'Series'
+                series: 'Series',
+                model: 'Model'
             };
 
             const clipRows = clips.map((clip: any) => {
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
                         if (field === 'service') value = 'kie_api';
                         if (field === 'quality' && !value) value = 'fast';
                         if (field === 'ratio' && !value) value = '9:16';
+                        if (field === 'model' && !value && defaultModel) value = defaultModel;
 
                         row[colIndex] = value;
                     }

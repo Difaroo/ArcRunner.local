@@ -112,4 +112,21 @@
   .btn-icon-action:hover {
     color: var(--primary) !important;
   }
+
+  /* Reusable Tab Style */
+  .nav-tab {
+    @apply border-b-2 border-transparent px-4 py-2 text-sm font-normal text-stone-500 transition-colors whitespace-nowrap;
+  }
+
+  .nav-tab:hover {
+    @apply text-foreground border-stone-700;
+  }
+
+  .nav-tab.active,
+  .nav-tab[data-state="active"] {
+    border-color: var(--primary) !important;
+    color: var(--primary) !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
 }

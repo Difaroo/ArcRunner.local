@@ -19,6 +19,8 @@ interface ActionToolbarProps {
     currentStyle: string
     onStyleChange: (style: string) => void
     availableStyles: string[]
+    aspectRatio: string
+    onAspectRatioChange: (ratio: string) => void
 }
 
 export function ActionToolbar({
@@ -32,7 +34,9 @@ export function ActionToolbar({
     onModelChange,
     currentStyle,
     onStyleChange,
-    availableStyles
+    availableStyles,
+    aspectRatio,
+    onAspectRatioChange
 }: ActionToolbarProps) {
     return (
         <div className="flex items-center gap-3 py-1.5">
@@ -51,7 +55,7 @@ export function ActionToolbar({
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
                                     <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
-                                    {selectedModel === 'veo-fast' ? 'Veo Fast' : 'Veo Quality'}
+                                    {selectedModel === 'veo-fast' ? 'Veo Fast' : selectedModel === 'veo-quality' ? 'Veo Quality' : selectedModel === 'flux-pro' ? 'Flux Pro' : 'Flux Flex'}
                                     <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                 </Button>
                             </DropdownMenuTrigger>
@@ -68,6 +72,43 @@ export function ActionToolbar({
                     <DropdownMenuItem onClick={() => onModelChange('veo-quality')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
                         Veo Quality
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onModelChange('flux-pro')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
+                        Flux Pro (Image)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onModelChange('flux-flex')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
+                        Flux Flex (Image)
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Aspect Ratio Selection */}
+            <DropdownMenu>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2">
+                                    <span className="text-zinc-500 mr-2 font-semibold">RATIO</span>
+                                    {aspectRatio}
+                                    <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Select Aspect Ratio</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+                <DropdownMenuContent className="w-24 bg-stone-900 border-stone-800 text-white">
+                    {['16:9', '9:16', '1:1', '21:9'].map((ratio) => (
+                        <DropdownMenuItem
+                            key={ratio}
+                            onClick={() => onAspectRatioChange(ratio)}
+                            className="focus:bg-stone-800 focus:text-white cursor-pointer"
+                        >
+                            {ratio}
+                        </DropdownMenuItem>
+                    ))}
                 </DropdownMenuContent>
             </DropdownMenu>
 

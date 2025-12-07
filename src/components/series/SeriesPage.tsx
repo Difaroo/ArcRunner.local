@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Clip, Series } from "@/app/api/clips/route"
 
+
 interface SeriesPageProps {
     seriesList: Series[]
     currentSeriesId: string
@@ -15,8 +16,9 @@ interface SeriesPageProps {
     onAddSeries: (title: string) => void
     clips: Clip[]
     episodes: { id: string, title: string }[]
-    libraryItems: any[] // For generating keys
-    episodePromptTemplate: string
+    libraryItems: any[]
+    videoPromptTemplate: string
+    imagePromptTemplate: string
 }
 
 export function SeriesPage({
@@ -27,11 +29,17 @@ export function SeriesPage({
     clips,
     episodes,
     libraryItems,
-    episodePromptTemplate
+    videoPromptTemplate,
+    imagePromptTemplate
 }: SeriesPageProps) {
     const [showAddDialog, setShowAddDialog] = useState(false)
     const [newSeriesTitle, setNewSeriesTitle] = useState("")
-    const [seriesPrompt, setSeriesPrompt] = useState("") // The merged prompt
+    const [activeTab, setActiveTab] = useState<'video' | 'image'>('video')
+
+    // Derived States
+    const [videoPrompt, setVideoPrompt] = useState("")
+    const [imagePrompt, setImagePrompt] = useState("")
+
     const [overallStyle, setOverallStyle] = useState("") // Editable field
     const [copyMessage, setCopyMessage] = useState<string | null>(null)
 
@@ -54,24 +62,28 @@ export function SeriesPage({
         }
     })
 
-    // Generate Merged Prompt
+    // Generate Merged Prompts
     useEffect(() => {
-        if (!episodePromptTemplate) return
+        const generate = (template: string) => {
+            if (!template) return ""
+            let merged = template
+            merged = merged.replace(/{{SERIES_TITLE}}/g, currentSeries?.title || '')
+            merged = merged.replace(/{{SERIES_STYLE}}/g, overallStyle)
 
-        let merged = episodePromptTemplate
-        merged = merged.replace(/{{SERIES_TITLE}}/g, currentSeries?.title || '')
-        merged = merged.replace(/{{SERIES_STYLE}}/g, overallStyle)
+            // Generate Library Keys
+            const keys = libraryItems
+                .filter(item => item.series === currentSeriesId)
+                .map(item => `- ${item.name} (${item.type})`)
+                .join('\n')
 
-        // Generate Library Keys
-        const keys = libraryItems
-            .filter(item => item.series === currentSeriesId)
-            .map(item => `- ${item.name} (${item.type})`)
-            .join('\n')
+            merged = merged.replace(/{{LIBRARY_KEYS}}/g, keys)
+            return merged
+        }
 
-        merged = merged.replace(/{{LIBRARY_KEYS}}/g, keys)
+        setVideoPrompt(generate(videoPromptTemplate))
+        setImagePrompt(generate(imagePromptTemplate))
 
-        setSeriesPrompt(merged)
-    }, [episodePromptTemplate, currentSeries, overallStyle, libraryItems, currentSeriesId])
+    }, [videoPromptTemplate, imagePromptTemplate, currentSeries, overallStyle, libraryItems, currentSeriesId])
 
 
     const handleAdd = () => {
@@ -82,13 +94,13 @@ export function SeriesPage({
         }
     }
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(seriesPrompt)
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text)
         setCopyMessage("Copied!")
         setTimeout(() => setCopyMessage(null), 2000)
     }
 
-    // Sort episodes numerically (though input list might already be sorted, let's be safe)
+    // Sort episodes
     const sortedEpisodes = [...episodes].sort((a, b) => {
         const numA = parseInt(a.id.replace(/\D/g, '')) || 0;
         const numB = parseInt(b.id.replace(/\D/g, '')) || 0;
@@ -97,7 +109,6 @@ export function SeriesPage({
 
     return (
         <div className="flex flex-col h-full">
-            {/* Series Tabs */}
             {/* Series Tabs */}
             <div className="px-6 bg-black/20 border-b border-white/5 shrink-0">
                 <div className="flex items-center gap-6 -mb-px overflow-x-auto">
@@ -165,12 +176,10 @@ export function SeriesPage({
                                                         <span>{savedProgress}%</span>
                                                     </div>
                                                     <div className="h-1.5 w-full bg-black rounded-full overflow-hidden relative">
-                                                        {/* Pink Bar (Ready + Saved) - Background Layer */}
                                                         <div
                                                             className="absolute top-0 left-0 h-full bg-destructive opacity-70 rounded-full transition-all duration-500"
                                                             style={{ width: `${totalProgress}%` }}
                                                         />
-                                                        {/* Orange Bar (Saved) - Foreground Layer */}
                                                         <div
                                                             className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-500"
                                                             style={{ width: `${savedProgress}%` }}
@@ -194,53 +203,108 @@ export function SeriesPage({
                 </div>
 
                 {/* RH Column: Prompts */}
-                <div className="flex-1 flex flex-col bg-stone-950 h-full">
-                    <div className="p-4 border-b border-white/5 flex justify-between items-center shrink-0">
-                        <h3 className="text-sm font-semibold text-stone-300">Episode Prompt</h3>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={copyToClipboard}
-                                        className="h-7 text-xs border-primary/50 text-primary hover:text-primary hover:bg-primary/10"
-                                    >
-                                        <span className="material-symbols-outlined !text-sm mr-2">content_copy</span>
-                                        Copy Prompt
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Copies the Episode prompt for making episode clips</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
+                <div className="flex-1 flex flex-col bg-stone-950 h-full border-l border-white/5">
+                    <div className="flex flex-col h-full">
+                        {/* Header Bar - Inline with Episodes Header */}
+                        <div className="flex items-center justify-between px-4 border-b border-white/5 h-[53px] shrink-0 bg-stone-900/30 relative">
+                            <h3 className="text-sm font-semibold text-stone-300">Episode Prompt</h3>
 
-                    <div className="flex-1 p-4 flex flex-col gap-4 overflow-hidden h-full">
-                        {/* Overall Style Field */}
-                        <div className="flex flex-col gap-2 shrink-0">
-                            <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Overall Series Style / Instructions</label>
-                            <Input
-                                value={overallStyle}
-                                onChange={(e) => setOverallStyle(e.target.value)}
-                                placeholder="e.g. Steampunk vibe, dark atmosphere..."
-                                className="bg-stone-900/50 border-stone-800 text-stone-300 text-xs h-9"
-                            />
+                            <div className="flex h-full bg-transparent p-0 gap-6 -mb-[1px]">
+                                <button
+                                    onClick={() => setActiveTab('video')}
+                                    className={`nav-tab h-full rounded-none ${activeTab === 'video' ? 'active' : ''}`}
+                                >
+                                    Video
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('image')}
+                                    className={`nav-tab h-full rounded-none ${activeTab === 'image' ? 'active' : ''}`}
+                                >
+                                    Image
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Merged Prompt Display */}
-                        <div className="flex-1 flex flex-col gap-2 min-h-0">
-                            <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Generated Prompt</label>
-                            <Textarea
-                                value={seriesPrompt}
-                                readOnly
-                                className="flex-1 font-mono text-xs bg-stone-900/30 border-stone-800 text-stone-400 resize-none p-4 leading-relaxed h-full"
-                            />
+                        {/* Content Area */}
+                        <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
+
+                            {/* Overall Style Field */}
+                            <div className="flex flex-col gap-2 shrink-0">
+                                <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Overall Series Style / Instructions</label>
+                                <Input
+                                    value={overallStyle}
+                                    onChange={(e) => setOverallStyle(e.target.value)}
+                                    placeholder="e.g. Steampunk vibe, dark atmosphere..."
+                                    className="bg-stone-900/50 border-stone-800 text-stone-300 text-xs h-9"
+                                />
+                            </div>
+
+                            {activeTab === 'video' && (
+                                <div className="flex-1 flex flex-col gap-2 min-h-0 mt-0">
+                                    <div className="flex justify-between items-center">
+                                        <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Video Prompt</label>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="outline-primary"
+                                                        size="sm"
+                                                        onClick={() => copyToClipboard(videoPrompt)}
+                                                        className="h-6 text-[10px]"
+                                                    >
+                                                        <span className="material-symbols-outlined !text-xs mr-1">content_copy</span>
+                                                        Copy
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Copy Video Prompt</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
+                                    <Textarea
+                                        value={videoPrompt}
+                                        readOnly
+                                        className="flex-1 font-mono text-xs bg-stone-900/30 border-stone-800 text-stone-400 resize-none p-4 leading-relaxed h-full"
+                                    />
+                                </div>
+                            )}
+
+                            {activeTab === 'image' && (
+                                <div className="flex-1 flex flex-col gap-2 min-h-0 mt-0">
+                                    <div className="flex justify-between items-center">
+                                        <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Image Prompt</label>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="outline-primary"
+                                                        size="sm"
+                                                        onClick={() => copyToClipboard(imagePrompt)}
+                                                        className="h-6 text-[10px]"
+                                                    >
+                                                        <span className="material-symbols-outlined !text-xs mr-1">content_copy</span>
+                                                        Copy
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Copy Image Prompt</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
+                                    <Textarea
+                                        value={imagePrompt}
+                                        readOnly
+                                        className="flex-1 font-mono text-xs bg-stone-900/30 border-stone-800 text-stone-400 resize-none p-4 leading-relaxed h-full"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
+
 
             {/* Add Series Dialog */}
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>

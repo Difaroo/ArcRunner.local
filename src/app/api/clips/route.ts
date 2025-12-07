@@ -18,6 +18,7 @@ export interface Clip {
     episode?: string;
     series?: string;
     sortOrder?: number;
+    model?: string;
 }
 
 export interface Series {
@@ -182,6 +183,7 @@ export async function GET() {
                     episode: getValue(row, clipsSheet.headers, 'Episode') || '1',
                     series: getValue(row, clipsSheet.headers, 'Series') || '1',
                     sortOrder: parseInt(getValue(row, clipsSheet.headers, 'Sort Order')) || 0,
+                    model: getValue(row, clipsSheet.headers, 'Model'),
                 };
             })
             .sort((a, b) => {

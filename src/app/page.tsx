@@ -13,9 +13,10 @@ import {
 import { ClipTable } from "@/components/clips/ClipTable"
 import { EpisodeTabs } from "@/components/clips/EpisodeTabs"
 import { ActionToolbar } from "@/components/clips/ActionToolbar"
+import { LibraryActionToolbar } from "@/components/library/LibraryActionToolbar"
 import { SeriesPage } from "@/components/series/SeriesPage"
 import { SettingsPage } from "@/components/settings/SettingsPage"
-import { DEFAULT_EPISODE_PROMPT } from "@/lib/defaults"
+import { DEFAULT_VIDEO_PROMPT, DEFAULT_IMAGE_PROMPT } from "@/lib/defaults"
 
 import { PageHeader } from "@/components/PageHeader"
 
@@ -55,20 +56,26 @@ export default function Home() {
   const [episodeStyles, setEpisodeStyles] = useState<Record<string, string>>({}); // Map Ep -> Style
   const [currentView, setCurrentView] = useState<'series' | 'script' | 'library' | 'clips' | 'settings'>('series');
 
-  const [episodePromptTemplate, setEpisodePromptTemplate] = useState("");
+  const [videoPromptTemplate, setVideoPromptTemplate] = useState("");
+  const [imagePromptTemplate, setImagePromptTemplate] = useState("");
+  const [aspectRatio, setAspectRatio] = useState("16:9");
 
   const handleViewChange = (view: 'series' | 'script' | 'library' | 'clips' | 'settings') => {
     if (currentView === 'settings' && view !== 'settings') {
-      const saved = localStorage.getItem("episodePromptTemplate")
-      setEpisodePromptTemplate(saved || DEFAULT_EPISODE_PROMPT)
+      const savedVideo = localStorage.getItem("videoPromptTemplate")
+      const savedImage = localStorage.getItem("imagePromptTemplate")
+      setVideoPromptTemplate(savedVideo || DEFAULT_VIDEO_PROMPT)
+      setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
     }
     setCurrentView(view)
   }
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("episodePromptTemplate")
-    setEpisodePromptTemplate(saved || DEFAULT_EPISODE_PROMPT)
+    const savedVideo = localStorage.getItem("videoPromptTemplate")
+    const savedImage = localStorage.getItem("imagePromptTemplate")
+    setVideoPromptTemplate(savedVideo || DEFAULT_VIDEO_PROMPT)
+    setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
   }, [])
 
   const hasFetched = useRef(false);
@@ -229,7 +236,22 @@ export default function Home() {
     cameras: Array.from(new Set(seriesLibrary.filter(i => i.type === 'LIB_CAMERA').map(i => i.name))).sort(),
   };
 
-  // --- Selection Logic ---
+  // --- Auto-Set Model from Episode Clips ---
+  useEffect(() => {
+    if (activeClips.length > 0) {
+      // Check if any clip has a defined model? Or just the first one?
+      // Let's check the first one as a heuristic for the Episode's default.
+      const firstModel = activeClips[0].model;
+      if (firstModel && firstModel !== selectedModel) {
+        // Only update if it's a valid known model to avoid garbage
+        if (['veo-fast', 'veo-quality', 'flux-pro', 'flux-flex'].includes(firstModel)) {
+          setSelectedModel(firstModel);
+        }
+      }
+    }
+  }, [currentEpisode, currentSeriesId, activeClips]); // Dependency on "Episode Switch" (indicated by ID change)
+
+  // --- Selection Logic (Clips) ---
   const toggleSelect = (id: string) => {
     const newSet = new Set(selectedIds);
     if (newSet.has(id)) newSet.delete(id);
@@ -244,6 +266,31 @@ export default function Home() {
       setSelectedIds(new Set(activeClips.map(c => c.id)));
     }
   };
+
+  // --- Selection Logic (Library) ---
+  const [selectedLibraryIds, setSelectedLibraryIds] = useState<Set<string>>(new Set());
+  const [generatingLibraryItems, setGeneratingLibraryItems] = useState<Set<string>>(new Set());
+
+  // Need filtered items for "Select All". Filter happens in render.
+  // Replicate filtering logic here or hoist it.
+  // Currently filtered in render: seriesLibrary.filter(item => item.episode === currentEpKey)
+  const currentLibraryItems = seriesLibrary.filter(item => item.episode === currentEpKey);
+
+  const toggleLibrarySelect = (id: string) => {
+    const newSet = new Set(selectedLibraryIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedLibraryIds(newSet);
+  };
+
+  const toggleLibrarySelectAll = () => {
+    if (selectedLibraryIds.size === currentLibraryItems.length) {
+      setSelectedLibraryIds(new Set());
+    } else {
+      setSelectedLibraryIds(new Set(currentLibraryItems.map(i => i.id)));
+    }
+  };
+
 
   // --- Actions ---
   const handleGenerateSelected = async () => {
@@ -264,6 +311,55 @@ export default function Home() {
     // Simple approach: Open each in new tab (browser might block popups)
     // Better: Generate a text file list? Or just loop open.
     toDownload.forEach(c => window.open(c.resultUrl, '_blank'));
+  };
+
+  const generateLibraryItem = async (item: LibraryItem) => {
+    const rowIndex = parseInt(item.id);
+    // Optimistic set generating
+    setGeneratingLibraryItems(prev => new Set(prev).add(item.id));
+
+    try {
+      const res = await fetch('/api/generate-library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item, rowIndex })
+      });
+      const data = await res.json();
+      console.log('Library Generate Result:', data);
+
+      if (data.resultUrl) {
+        // Update local state immediately logic?
+        // Reload page or re-fetch library
+        // For now, let's just complete the state. The user might need a refresh.
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGeneratingLibraryItems(prev => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  }
+
+  const handleLibraryGenerateSelected = async () => {
+    const toGen = currentLibraryItems.filter(item => selectedLibraryIds.has(item.id));
+    alert(`Generating ${toGen.length} library items...`);
+
+    for (const item of toGen) {
+      await generateLibraryItem(item);
+    }
+  };
+
+  const handleLibraryGenerate = async (item: LibraryItem) => {
+    await generateLibraryItem(item);
+  };
+
+  const handleLibraryDownloadSelected = () => {
+    const toDownload = currentLibraryItems.filter(item => selectedLibraryIds.has(item.id) && item.refImageUrl);
+    if (toDownload.length === 0) return alert("No completed items selected.");
+    toDownload.forEach(item => window.open(item.refImageUrl, '_blank'));
   };
 
   // --- Polling Logic ---
@@ -309,13 +405,17 @@ export default function Home() {
       // So we override the clip's style with the Episode Style.
       const styleToUse = episodeStyles[currentEpKey] || clip.style;
 
-      const res = await fetch('/api/generate', {
+      const endpoint = selectedModel.startsWith('flux') ? '/api/generate-image' : '/api/generate';
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clip: { ...clip, style: styleToUse }, // Override style
           library: seriesLibrary, // Use filtered library
-          model: selectedModel
+          model: selectedModel,
+          aspectRatio: aspectRatio, // Pass Aspect Ratio
+          rowIndex: index // Pass row index for Flux route update
         }),
       });
 
@@ -365,11 +465,11 @@ export default function Home() {
     }
   };
 
-  const handleIngest = async (json: string) => {
+  const handleIngest = async (json: string, defaultModel: string) => {
     const res = await fetch('/api/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ json, episodeId: currentEpKey }),
+      body: JSON.stringify({ json, episodeId: currentEpKey, defaultModel }),
     });
 
     const data = await res.json();
@@ -385,13 +485,65 @@ export default function Home() {
       {/* Custom Video Player Modal */}
       {playingVideoUrl && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => { setPlayingVideoUrl(null); setPlaylist([]); }}>
-          <div className="relative w-[90vw] max-w-5xl aspect-video bg-black border border-zinc-800 shadow-2xl rounded-lg overflow-hidden" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => { setPlayingVideoUrl(null); setPlaylist([]); }}
-              className="absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
+          <div className="relative w-[90vw] max-w-5xl aspect-video bg-black border border-zinc-800 shadow-2xl rounded-lg overflow-hidden group/player" onClick={e => e.stopPropagation()}>
+            {/* Top Right Controls */}
+            <div className="absolute top-4 right-4 z-50 flex gap-2">
+              <button
+                onClick={() => { setPlayingVideoUrl(null); setPlaylist([]); }}
+                className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* Bottom Controls Overlay (Visible on Hover) */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 z-40 flex justify-between items-end pointer-events-none">
+              <div className="pointer-events-auto">
+                {/* Playlist Counter */}
+                {playlist.length > 0 && (
+                  <div className="bg-black/50 text-white text-xs px-2 py-1 rounded inline-block mb-2">
+                    Playing {currentPlayIndex + 1} of {playlist.length}
+                  </div>
+                )}
+              </div>
+
+              <div className="pointer-events-auto">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Find the clip that owns this URL
+                    // We can search 'clips' state for resultUrl === playingVideoUrl
+                    // OR activeClips if we assume it's from the current view. 
+                    // Searching all 'clips' is safer.
+                    const currentUrl = playingVideoUrl;
+                    const clip = clips.find(c => c.resultUrl === currentUrl);
+
+                    if (clip) {
+                      // Append URL to Ref Image URLs
+                      const currentRefs = clip.refImageUrls || '';
+                      const newRefs = currentRefs ? `${currentRefs}, ${currentUrl}` : currentUrl;
+
+                      // Optimistic Update
+                      setClips(prev => prev.map(c => c.id === clip.id ? { ...c, refImageUrls: newRefs } : c));
+
+                      // API Call
+                      handleSave(clip.id, { refImageUrls: newRefs });
+
+                      alert("Added as Source Image!");
+                    } else {
+                      alert("Could not find source clip for this video.");
+                    }
+                  }}
+                >
+                  <span className="material-symbols-outlined !text-sm mr-2">add_photo_alternate</span>
+                  Add Source Image
+                </Button>
+              </div>
+            </div>
+
             <video
               src={playingVideoUrl}
               controls
@@ -399,11 +551,6 @@ export default function Home() {
               className="w-full h-full object-contain"
               onEnded={handleVideoEnded}
             />
-            {playlist.length > 0 && (
-              <div className="absolute bottom-4 left-4 bg-black/50 text-white text-xs px-2 py-1 rounded pointer-events-none">
-                Playing {currentPlayIndex + 1} of {playlist.length}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -539,7 +686,7 @@ export default function Home() {
               episodeKeys={sortedEpKeys}
               currentEpisode={currentEpisode}
               episodeTitles={seriesEpisodeTitles}
-              onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedIds(new Set()); }}
+              onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedIds(new Set()); setSelectedLibraryIds(new Set()); }}
             />
           )}
 
@@ -578,7 +725,19 @@ export default function Home() {
               currentStyle={episodeStyles[currentEpKey] || ''}
               onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
               availableStyles={uniqueValues.styles}
+              aspectRatio={aspectRatio}
+              onAspectRatioChange={setAspectRatio}
             />
+          )}
+          {currentView === 'library' && (
+            <div className="flex items-center">
+              {/* Reusing Action Toolbar style via pure component would be best, but LibraryActionToolbar is specific */}
+              <LibraryActionToolbar
+                selectedCount={selectedLibraryIds.size}
+                onGenerateSelected={handleLibraryGenerateSelected}
+                onDownloadSelected={handleLibraryDownloadSelected}
+              />
+            </div>
           )}
         </PageHeader>
       )}
@@ -617,7 +776,8 @@ export default function Home() {
                 clips={seriesClips}
                 episodes={seriesEpisodeList}
                 libraryItems={libraryItems} // Pass all library items, filtering happens inside or we pass filtered
-                episodePromptTemplate={episodePromptTemplate}
+                videoPromptTemplate={videoPromptTemplate}
+                imagePromptTemplate={imagePromptTemplate}
               />
             ) : currentView === 'settings' ? (
               <SettingsPage onBack={() => handleViewChange('series')} />
@@ -628,8 +788,13 @@ export default function Home() {
               />
             ) : currentView === 'library' ? (
               <LibraryTable
-                items={seriesLibrary.filter(item => item.episode === currentEpKey)}
+                items={currentLibraryItems}
                 onSave={handleLibrarySave}
+                selectedItems={selectedLibraryIds}
+                onSelect={toggleLibrarySelect}
+                onSelectAll={toggleLibrarySelectAll}
+                onGenerate={handleLibraryGenerate}
+                isGenerating={(id) => generatingLibraryItems.has(id)}
               />
             ) : (
               <ClipTable
@@ -649,6 +814,13 @@ export default function Home() {
                     return;
                   }
                   console.log('Play clicked with URL:', url);
+
+                  // Check if it's an image (simple check)
+                  if (url.match(/\.(jpeg|jpg|png|webp)$/i) || selectedModel.startsWith('flux')) { // Flux URLs might just be signed URLs
+                    window.open(url, '_blank');
+                    return;
+                  }
+
                   setPlayingVideoUrl(url);
                   setPlaylist([url]);
                   setCurrentPlayIndex(0);

@@ -16,7 +16,7 @@ async function getSheetsClient() {
 
 export async function POST(req: Request) {
     try {
-        const { clip, rowIndex } = await req.json(); // rowIndex is 0-based index in the array (so Row in sheet is rowIndex + 2)
+        const { clip, rowIndex } = await req.json(); // rowIndex is 0-based index in the array
 
         if (!clip || typeof rowIndex !== 'number') {
             return NextResponse.json({ error: 'Missing clip or rowIndex' }, { status: 400 });
@@ -80,10 +80,10 @@ export async function POST(req: Request) {
         imageUrls = imageUrls.slice(0, 3);
 
         // Determine model based on Request Param OR Quality column (default to veo3_fast)
-        const { model: requestedModel } = await req.json().then(data => data).catch(() => ({}));
+        const { model: requestedModel, aspectRatio: requestedRatio } = await req.json().then(data => data).catch(() => ({}));
 
         let model = 'veo3_fast'; // Default
-        let aspectRatio = '9:16'; // Default
+        let aspectRatio = requestedRatio || '16:9'; // Default to UI selection or 16:9
 
         // 1. Check Request Param (from UI Menu)
         if (requestedModel === 'veo-quality') {
