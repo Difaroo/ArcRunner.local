@@ -802,6 +802,11 @@ export default function Home() {
                     alert('Error adding series: ' + e.message);
                   }
                 }}
+                onNavigateToEpisode={(sid, eid) => {
+                  setCurrentSeriesId(sid);
+                  setCurrentEpisode(parseInt(eid) || 1);
+                  handleViewChange('clips');
+                }}
                 clips={seriesClips}
                 episodes={seriesEpisodeList}
                 libraryItems={libraryItems} // Pass all library items, filtering happens inside or we pass filtered

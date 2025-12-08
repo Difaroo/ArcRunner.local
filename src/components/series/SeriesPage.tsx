@@ -14,6 +14,7 @@ interface SeriesPageProps {
     currentSeriesId: string
     onSeriesChange: (id: string) => void
     onAddSeries: (title: string) => void
+    onNavigateToEpisode: (seriesId: string, episodeId: string) => void
     clips: Clip[]
     episodes: { id: string, title: string }[]
     libraryItems: any[]
@@ -26,6 +27,7 @@ export function SeriesPage({
     currentSeriesId,
     onSeriesChange,
     onAddSeries,
+    onNavigateToEpisode,
     clips,
     episodes,
     libraryItems,
@@ -166,9 +168,16 @@ export function SeriesPage({
                                     const totalProgress = data.count > 0 ? Math.round((totalCount / data.count) * 100) : 0
 
                                     return (
-                                        <TableRow key={ep.id} className="border-white/5 hover:bg-white/5">
+                                        <TableRow key={ep.id} className="border-white/5 hover:bg-white/5 group">
                                             <TableCell className="text-xs text-stone-400">{ep.id}</TableCell>
-                                            <TableCell className="font-medium text-xs text-white">{ep.title}</TableCell>
+                                            <TableCell className="font-medium text-xs text-white">
+                                                <button
+                                                    onClick={() => onNavigateToEpisode(currentSeriesId, ep.id)}
+                                                    className="hover:text-primary hover:underline group-hover:text-primary transition-colors text-left"
+                                                >
+                                                    {ep.title}
+                                                </button>
+                                            </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex justify-between text-[10px] text-stone-400">
