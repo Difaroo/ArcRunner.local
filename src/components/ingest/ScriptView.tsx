@@ -47,19 +47,7 @@ export function ScriptView({ episodeId, seriesId, seriesTitle, onIngest }: Scrip
                     <div className="mb-4 flex justify-between items-center text-sm text-stone-400">
                         <span>Paste your script JSON below.</span>
 
-                        <div className="flex items-center gap-2">
-                            <label className="text-xs text-stone-500 uppercase tracking-wider font-semibold">Default Episode Model</label>
-                            <select
-                                value={defaultModel}
-                                onChange={(e) => setDefaultModel(e.target.value)}
-                                className="bg-stone-800 border-none text-xs text-stone-300 rounded px-2 py-1 outline-none cursor-pointer hover:bg-stone-700 hover:text-white transition-colors"
-                            >
-                                <option value="veo-fast">Veo Fast (Video)</option>
-                                <option value="veo-quality">Veo Quality (Video)</option>
-                                <option value="flux-pro">Flux Pro (Image)</option>
-                                <option value="flux-flex">Flux Flex (Image)</option>
-                            </select>
-                        </div>
+
                     </div>
 
                     <Textarea
@@ -76,7 +64,20 @@ export function ScriptView({ episodeId, seriesId, seriesTitle, onIngest }: Scrip
                         </div>
                     )}
 
-                    <div className="mt-4 flex justify-end">
+                    <div className="mt-4 flex justify-between items-center bg-stone-900/50 p-2 rounded-lg border border-white/5">
+                        <div className="flex items-center gap-2 px-2">
+                            <label className="text-[10px] text-stone-500 uppercase tracking-wider font-semibold">Default Episode Model:</label>
+                            <select
+                                value={defaultModel}
+                                onChange={(e) => setDefaultModel(e.target.value)}
+                                className="bg-transparent border border-stone-700 text-xs text-stone-300 rounded px-2 py-1 outline-none cursor-pointer hover:border-stone-500 transition-colors"
+                            >
+                                <option value="veo-fast">Veo Fast (Video)</option>
+                                <option value="veo-quality">Veo Quality (Video)</option>
+                                <option value="flux-pro">Flux Pro (Image)</option>
+                                <option value="flux-flex">Flux Flex (Image)</option>
+                            </select>
+                        </div>
                         <Button
                             onClick={handleIngest}
                             disabled={isIngesting}

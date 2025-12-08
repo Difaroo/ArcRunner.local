@@ -79,7 +79,8 @@ export async function POST(request: Request) {
                         if (field === 'service') value = 'kie_api';
                         if (field === 'quality' && !value) value = 'fast';
                         if (field === 'ratio' && !value) value = '9:16';
-                        if (field === 'model' && !value && defaultModel) value = defaultModel;
+                        if (field === 'ratio' && !value) value = '9:16';
+                        // if (field === 'model' && !value && defaultModel) value = defaultModel; // Removed per user request
 
                         row[colIndex] = value;
                     }
