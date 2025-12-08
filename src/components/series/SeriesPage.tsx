@@ -308,7 +308,7 @@ export function SeriesPage({
 
             {/* Add Series Dialog */}
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[425px] border-stone-800 bg-stone-900 text-white">
                     <DialogHeader>
                         <DialogTitle>Add New Series</DialogTitle>
                     </DialogHeader>

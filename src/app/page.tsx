@@ -80,35 +80,37 @@ export default function Home() {
 
   const hasFetched = useRef(false);
 
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/clips');
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error);
+
+      setClips(data.clips);
+      if (data.episodeTitles) setEpisodeTitles(data.episodeTitles);
+      if (data.episodes) setAllEpisodes(data.episodes);
+      if (data.libraryItems) setLibraryItems(data.libraryItems);
+      if (data.series) {
+        setSeriesList(data.series);
+        // Default to first series if current is invalid
+        if (!data.series.find((s: Series) => s.id === currentSeriesId)) {
+          setCurrentSeriesId(data.series[0]?.id || "1");
+        }
+      }
+    } catch (err: any) {
+      console.error('Fetch error:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
-
-    fetch('/api/clips')
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
-        setClips(data.clips);
-        if (data.episodeTitles) setEpisodeTitles(data.episodeTitles);
-        if (data.episodes) setAllEpisodes(data.episodes);
-        if (data.libraryItems) setLibraryItems(data.libraryItems);
-        if (data.series) {
-          setSeriesList(data.series);
-          // Default to first series if current is invalid
-          if (!data.series.find((s: Series) => s.id === currentSeriesId)) {
-            setCurrentSeriesId(data.series[0]?.id || "1");
-          }
-        }
-      })
-      .catch((err) => {
-        console.error('Fetch error:', err);
-        setError(err.message);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    refreshData();
   }, []);
 
   // --- Editing Logic ---
@@ -117,8 +119,6 @@ export default function Home() {
     setEditingId(clip.id);
     setEditValues({ ...clip });
   };
-
-
 
   const handleSave = async (clipId: string, updates: Partial<Clip>) => {
     setSaving(true);
@@ -469,15 +469,17 @@ export default function Home() {
     const res = await fetch('/api/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ json, episodeId: currentEpKey, defaultModel }),
+      body: JSON.stringify({ json, episodeId: currentEpKey, seriesId: currentSeriesId, defaultModel }),
     });
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Ingest failed');
 
-    alert(`Successfully ingested ${data.count} clips!`);
-    // Refresh data
-    window.location.reload();
+    alert(`Successfully ingested ${data.clipsCount} clips and ${data.libraryCount} library items!`);
+
+    // Refresh and navigate
+    await refreshData();
+    handleViewChange('library');
   };
 
   return (
@@ -570,7 +572,7 @@ export default function Home() {
                   <Button
                     variant={currentView === 'series' ? 'secondary' : 'ghost'}
                     size="sm"
-                    onClick={() => setCurrentView('series')}
+                    onClick={() => handleViewChange('series')}
                     className={`text-xs ${currentView === 'series' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
                   >
                     Series
@@ -587,7 +589,7 @@ export default function Home() {
                   <Button
                     variant={currentView === 'script' ? 'secondary' : 'ghost'}
                     size="sm"
-                    onClick={() => setCurrentView('script')}
+                    onClick={() => handleViewChange('script')}
                     className={`text-xs ${currentView === 'script' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
                   >
                     Script
@@ -604,7 +606,7 @@ export default function Home() {
                   <Button
                     variant={currentView === 'library' ? 'secondary' : 'ghost'}
                     size="sm"
-                    onClick={() => setCurrentView('library')}
+                    onClick={() => handleViewChange('library')}
                     className={`text-xs ${currentView === 'library' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
                   >
                     Studio
@@ -621,7 +623,7 @@ export default function Home() {
                   <Button
                     variant={currentView === 'clips' ? 'secondary' : 'ghost'}
                     size="sm"
-                    onClick={() => setCurrentView('clips')}
+                    onClick={() => handleViewChange('clips')}
                     className={`text-xs ${currentView === 'clips' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
                   >
                     Episode
@@ -638,7 +640,7 @@ export default function Home() {
                   <Button
                     variant={currentView === 'settings' ? 'secondary' : 'ghost'}
                     size="sm"
-                    onClick={() => setCurrentView('settings')}
+                    onClick={() => handleViewChange('settings')}
                     className={`text-xs ${currentView === 'settings' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
                   >
                     Settings
@@ -769,9 +771,36 @@ export default function Home() {
                 seriesList={seriesList}
                 currentSeriesId={currentSeriesId}
                 onSeriesChange={setCurrentSeriesId}
-                onAddSeries={(title) => {
-                  // TODO: Implement Add Series API
-                  alert("Add Series not implemented yet (requires backend support)")
+                onAddSeries={async (title) => {
+                  try {
+                    const res = await fetch('/api/series', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ title })
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                      // Create new Series object
+                      const newSeries: Series = {
+                        id: data.id,
+                        title: data.title,
+                        totalEpisodes: '0',
+                        currentEpisodes: '0',
+                        status: 'Active'
+                      };
+
+                      // Optimistic Update
+                      setSeriesList(prev => [...prev, newSeries]);
+                      setCurrentSeriesId(data.id);
+
+                      alert(`Series "${title}" added!`);
+                    } else {
+                      alert('Failed to add series: ' + data.error);
+                    }
+                  } catch (e: any) {
+                    alert('Error adding series: ' + e.message);
+                  }
                 }}
                 clips={seriesClips}
                 episodes={seriesEpisodeList}
@@ -784,6 +813,8 @@ export default function Home() {
             ) : currentView === 'script' ? (
               <ScriptView
                 episodeId={currentEpKey}
+                seriesId={currentSeriesId}
+                seriesTitle={seriesList.find(s => s.id === currentSeriesId)?.title || 'Unknown Series'}
                 onIngest={handleIngest}
               />
             ) : currentView === 'library' ? (

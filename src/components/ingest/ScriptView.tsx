@@ -5,10 +5,12 @@ import { PageHeader } from "@/components/PageHeader"
 
 interface ScriptViewProps {
     episodeId: string
+    seriesId: string
+    seriesTitle: string
     onIngest: (json: string, defaultModel: string) => Promise<void>
 }
 
-export function ScriptView({ episodeId, onIngest }: ScriptViewProps) {
+export function ScriptView({ episodeId, seriesId, seriesTitle, onIngest }: ScriptViewProps) {
     const [jsonInput, setJsonInput] = useState("")
     const [isIngesting, setIsIngesting] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -38,7 +40,7 @@ export function ScriptView({ episodeId, onIngest }: ScriptViewProps) {
 
     return (
         <div className="flex flex-col h-full">
-            <PageHeader title="Script [JSON]" className="border-t-0 border-b border-white/5" />
+            <PageHeader title={seriesTitle} className="border-t-0 border-b border-white/5" />
 
             <div className="flex-1 p-6 flex flex-col gap-4">
                 <div className="bg-stone-900/50 p-4 rounded-lg border border-white/5 flex-1 flex flex-col">
