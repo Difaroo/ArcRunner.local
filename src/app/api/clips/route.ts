@@ -88,7 +88,7 @@ export async function GET() {
         });
 
         // Build Episode List (with Series ID)
-        const episodes: { series: string, id: string, title: string }[] = [];
+        const episodes: { series: string, id: string, title: string, model?: string }[] = [];
         const episodeTitles: Record<string, string> = {}; // Keep for backward compat / lookup
 
         episodesSheet.rows.forEach(row => {
@@ -99,9 +99,10 @@ export async function GET() {
             epNum = epNum.trim();
 
             const title = getValue(row, episodesSheet.headers, 'Title').trim();
+            const model = getValue(row, episodesSheet.headers, 'Model');
 
             if (epNum && title) {
-                episodes.push({ series: seriesId, id: epNum, title });
+                episodes.push({ series: seriesId, id: epNum, title, model });
                 episodeTitles[epNum] = title;
             }
         });

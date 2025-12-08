@@ -41,7 +41,7 @@ export default function Home() {
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [currentSeriesId, setCurrentSeriesId] = useState<string>("1");
   const [episodeTitles, setEpisodeTitles] = useState<Record<string, string>>({});
-  const [allEpisodes, setAllEpisodes] = useState<{ series: string, id: string, title: string }[]>([]);
+  const [allEpisodes, setAllEpisodes] = useState<{ series: string, id: string, title: string, model?: string }[]>([]);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -237,19 +237,24 @@ export default function Home() {
   };
 
   // --- Auto-Set Model from Episode Clips ---
+  // --- Auto-Set Model from Episode Settings ---
   useEffect(() => {
-    if (activeClips.length > 0) {
-      // Check if any clip has a defined model? Or just the first one?
-      // Let's check the first one as a heuristic for the Episode's default.
+    // Find current episode object
+    const currentEpObj = allEpisodes.find(e => e.series === currentSeriesId && e.id === currentEpKey);
+
+    if (currentEpObj?.model) {
+      // Explicit Episode Model exists, use it
+      if (currentEpObj.model !== selectedModel) {
+        setSelectedModel(currentEpObj.model);
+      }
+    } else if (activeClips.length > 0) {
+      // Fallback: Infer from first clip if Episode Model is not set (Migration/Legacy)
       const firstModel = activeClips[0].model;
-      if (firstModel && firstModel !== selectedModel) {
-        // Only update if it's a valid known model to avoid garbage
-        if (['veo-fast', 'veo-quality', 'flux-pro', 'flux-flex'].includes(firstModel)) {
-          setSelectedModel(firstModel);
-        }
+      if (firstModel && firstModel !== selectedModel && ['veo-fast', 'veo-quality', 'flux-pro', 'flux-flex'].includes(firstModel)) {
+        setSelectedModel(firstModel);
       }
     }
-  }, [currentEpisode, currentSeriesId, activeClips]); // Dependency on "Episode Switch" (indicated by ID change)
+  }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey]); // Added deps
 
   // --- Selection Logic (Clips) ---
   const toggleSelect = (id: string) => {
@@ -723,7 +728,31 @@ export default function Home() {
               onGenerateSelected={handleGenerateSelected}
               onDownloadSelected={handleDownloadSelected}
               selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
+              onModelChange={async (model) => {
+                setSelectedModel(model);
+                // Persist to Episode
+                try {
+                  await fetch('/api/update_episode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      seriesId: currentSeriesId,
+                      episodeId: currentEpKey,
+                      updates: { model }
+                    })
+                  });
+
+                  // Update local state to prevent "flicker" on next refresh or switch
+                  setAllEpisodes(prev => prev.map(e =>
+                    (e.series === currentSeriesId && e.id === currentEpKey)
+                      ? { ...e, model }
+                      : e
+                  ));
+
+                } catch (e) {
+                  console.error("Failed to save episode model", e);
+                }
+              }}
               currentStyle={episodeStyles[currentEpKey] || ''}
               onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
               availableStyles={uniqueValues.styles}

@@ -174,6 +174,7 @@ export async function POST(request: Request) {
                     setVal('Series', seriesId);
                     setVal('Episode', episodeId);
                     setVal('Title', `Episode ${episodeId}`); // Default title
+                    if (defaultModel) setVal('Model', defaultModel);
 
                     await sheets.spreadsheets.values.append({
                         spreadsheetId: SPREADSHEET_ID,

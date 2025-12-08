@@ -48,7 +48,7 @@ export function ScriptView({ episodeId, seriesId, seriesTitle, onIngest }: Scrip
                         <span>Paste your script JSON below.</span>
 
                         <div className="flex items-center gap-2">
-                            <label className="text-xs text-stone-500 uppercase tracking-wider font-semibold">Default Generation Model</label>
+                            <label className="text-xs text-stone-500 uppercase tracking-wider font-semibold">Default Episode Model</label>
                             <select
                                 value={defaultModel}
                                 onChange={(e) => setDefaultModel(e.target.value)}
