@@ -168,15 +168,14 @@ export function SeriesPage({
                                     const totalProgress = data.count > 0 ? Math.round((totalCount / data.count) * 100) : 0
 
                                     return (
-                                        <TableRow key={ep.id} className="border-white/5 hover:bg-white/5 group">
+                                        <TableRow
+                                            key={ep.id}
+                                            className="border-white/5 hover:bg-white/5 group cursor-pointer transition-colors"
+                                            onClick={() => onNavigateToEpisode(currentSeriesId, ep.id)}
+                                        >
                                             <TableCell className="text-xs text-stone-400">{ep.id}</TableCell>
-                                            <TableCell className="font-medium text-xs text-white">
-                                                <button
-                                                    onClick={() => onNavigateToEpisode(currentSeriesId, ep.id)}
-                                                    className="hover:text-primary hover:underline group-hover:text-primary transition-colors text-left"
-                                                >
-                                                    {ep.title}
-                                                </button>
+                                            <TableCell className="font-medium text-xs text-white group-hover:text-primary transition-colors">
+                                                {ep.title}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col gap-1">
