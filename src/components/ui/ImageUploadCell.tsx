@@ -25,9 +25,10 @@ interface ImageUploadCellProps {
     isEditing: boolean;
     autoOpen?: boolean;
     onAutoOpenComplete?: () => void;
+    episode?: string; // Add episode prop
 }
 
-export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOpenComplete }: ImageUploadCellProps) {
+export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOpenComplete, episode }: ImageUploadCellProps) {
     const [uploading, setUploading] = useState(false);
     const [imageToDelete, setImageToDelete] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +54,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
         try {
             const formData = new FormData();
             formData.append('file', file);
+            if (episode) formData.append('episode', episode);
 
             const res = await fetch('/api/upload', {
                 method: 'POST',
@@ -165,9 +167,18 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                             <AlertDialogTitle>Delete Image</AlertDialogTitle>
                             <AlertDialogDescription>
                                 Are you sure you want to delete this image?
-                                <br />
-                                <span className="font-mono text-xs mt-2 block break-all">{imageToDelete?.split('/').pop()}</span>
                             </AlertDialogDescription>
+                            <div className="flex justify-center py-4">
+                                {imageToDelete && (
+                                    <div className="w-32 h-32 rounded-md overflow-hidden border border-stone-700 bg-stone-900">
+                                        <img
+                                            src={imageToDelete.startsWith('/api/images') ? imageToDelete : `/api/proxy-image?url=${encodeURIComponent(imageToDelete)}`}
+                                            alt="To Delete"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel onClick={() => setImageToDelete(null)} className="bg-primary text-primary-foreground hover:bg-primary/90 border-0">Cancel</AlertDialogCancel>

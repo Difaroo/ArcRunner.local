@@ -31,16 +31,20 @@ export async function POST(req: Request) {
 
         console.log('Generated Library Flux Prompt:', prompt);
 
-        // 2. Prepare Payload (Default to Flux Pro for Studio)
+        // 2. Prepare Payload (Use verified model ID)
         const payload = {
-            prompt: prompt,
-            model: 'flux-kontext-pro',
-            aspectRatio: '16:9', // Default for now
-            enableTranslation: true,
+            model: 'flux-2/flex-text-to-image',
+            input: {
+                prompt: prompt,
+                aspect_ratio: '16:9',
+                resolution: '2K' // Required by this model
+            }
         };
 
-        // 3. Call Kie.ai Flux API
-        const kieRes = await fetch('https://api.kie.ai/api/v1/flux/kontext/generate', {
+        console.log('Library Flux v1/jobs Payload:', JSON.stringify(payload, null, 2));
+
+        // 3. Call Kie.ai v1/jobs API
+        const kieRes = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${process.env.KIE_API_KEY}`,
@@ -58,31 +62,39 @@ export async function POST(req: Request) {
         // 4. Handle Response
         let resultUrl = '';
 
-        if (kieData.data && kieData.data.images && kieData.data.images.length > 0) {
-            resultUrl = kieData.data.images[0].url;
-        } else if (kieData.data && kieData.data.url) {
-            resultUrl = kieData.data.url;
-        } else if (kieData.data && kieData.data.taskId) {
-            // If async, we have a problem because Library doesn't have a Status column for polling (yet).
-            // For now, let's just return the Task ID and hope the frontend can handle it or just fail gracefully.
-            // Ideally, we wait for it if it's fast, but we can't wait forever.
-            // Flux is usually fast.
-            resultUrl = kieData.data.taskId; // This is actually bad if we write it to the Ref Image column. 
-            // FIXME: If async, we can't write to Ref Image URL immediately.
-            // But Flux Pro is usually sync? 
+        if (kieData.data && kieData.data.taskId) {
+            resultUrl = `TASK:${kieData.data.taskId}`;
+        } else {
+            // Fallback/Error logging if no ID
+            console.error('No Task ID returned from v1/jobs:', kieData);
         }
 
         // 5. Update Sheet immediately (assuming Sync result for now)
-        // Library Sheet Structure:
-        // A: Type, B: Name, C: Description, D: Ref Image URL, E: Negatives, F: Notes, G: Episode, H: Series
-        // Ref Image URL is Column D
+        // Library Sheet Structure: Dynamically find column
+        const headerRes = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: 'LIBRARY!1:1',
+        });
+        const headers = headerRes.data.values?.[0] || [];
+        const refImageColIndex = headers.indexOf('Ref Image URLs');
+
+        if (refImageColIndex === -1) {
+            throw new Error('Could not find "Ref Image URLs" column in LIBRARY sheet');
+        }
+
+        const refImageColLetter = String.fromCharCode(65 + refImageColIndex); // 0=A, ... (Simple version for <26 cols)
 
         const sheetRow = rowIndex + 2;
 
-        if (resultUrl && !resultUrl.startsWith('task-')) {
+        // Handle Async Task ID
+        if (kieData.data?.taskId && !resultUrl) {
+            resultUrl = `TASK:${kieData.data.taskId}`;
+        }
+
+        if (resultUrl) {
             await sheets.spreadsheets.values.update({
                 spreadsheetId,
-                range: `LIBRARY!D${sheetRow}`,
+                range: `LIBRARY!${refImageColLetter}${sheetRow}`,
                 valueInputOption: 'USER_ENTERED',
                 requestBody: { values: [[resultUrl]] }
             });

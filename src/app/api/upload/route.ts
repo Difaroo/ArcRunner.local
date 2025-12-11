@@ -1,54 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs/promises';
-import { existsSync } from 'fs';
+import { getDriveClient } from '@/lib/drive';
+import { Readable } from 'stream';
+
+// Target Drive Folder ID (Provided by User)
+const DRIVE_ROOT_FOLDER_ID = '1rDr_GPXJuZfFG_fpAnfZGFyYzrXWtmZw';
 
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData();
         const file = formData.get('file') as File;
+        const episode = formData.get('episode') as string;
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
         }
 
+        // Authenticate Google Drive
+        const drive = await getDriveClient();
+
+        let targetFolderId = DRIVE_ROOT_FOLDER_ID;
+
+        // 1. Handle Episode Subfolder
+        if (episode) {
+            const folderName = `Episode ${episode}`;
+
+            // Search for existing folder
+            const q = `'${DRIVE_ROOT_FOLDER_ID}' in parents and name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+            const searchRes = await drive.files.list({
+                q,
+                fields: 'files(id, name)',
+                spaces: 'drive',
+            });
+
+            if (searchRes.data.files && searchRes.data.files.length > 0) {
+                targetFolderId = searchRes.data.files[0].id!;
+            } else {
+                // Create folder
+                const folderMetadata = {
+                    name: folderName,
+                    mimeType: 'application/vnd.google-apps.folder',
+                    parents: [DRIVE_ROOT_FOLDER_ID],
+                };
+                const folderRes = await drive.files.create({
+                    requestBody: folderMetadata,
+                    fields: 'id',
+                });
+                targetFolderId = folderRes.data.id!;
+            }
+        }
+
+        // 2. Upload File
         const buffer = Buffer.from(await file.arrayBuffer());
+        const stream = new Readable();
+        stream.push(buffer);
+        stream.push(null);
 
-        // Define the target directory: ../Images relative to the web project root
-        // process.cwd() is the 'web' directory
-        const imagesDir = path.join(process.cwd(), '../Images');
+        const fileMetadata = {
+            name: file.name,
+            parents: [targetFolderId],
+        };
 
-        // Ensure directory exists
-        if (!existsSync(imagesDir)) {
-            await fs.mkdir(imagesDir, { recursive: true });
-        }
+        const media = {
+            mimeType: file.type,
+            body: stream,
+        };
 
-        // Sanitize filename
-        const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filePath = path.join(imagesDir, sanitizedFilename);
+        const uploadRes = await drive.files.create({
+            requestBody: fileMetadata,
+            media: media,
+            fields: 'id, name, webViewLink, webContentLink',
+        });
 
-        // Handle duplicates by appending a timestamp if needed, or just overwrite?
-        // User didn't specify, but overwriting might be annoying if names clash. 
-        // Let's append a timestamp if it exists to be safe, or just keep it simple for now.
-        // Simple approach: if it exists, append timestamp.
-        let finalFilename = sanitizedFilename;
-        let finalPath = filePath;
+        const fileId = uploadRes.data.id!;
+        const webViewLink = uploadRes.data.webViewLink;
 
-        if (existsSync(finalPath)) {
-            const nameParts = sanitizedFilename.split('.');
-            const ext = nameParts.pop();
-            const name = nameParts.join('.');
-            finalFilename = `${name}_${Date.now()}.${ext}`;
-            finalPath = path.join(imagesDir, finalFilename);
-        }
+        // 3. Set Public Permission (Reader/Anyone)
+        await drive.permissions.create({
+            fileId: fileId,
+            requestBody: {
+                role: 'reader',
+                type: 'anyone',
+            },
+        });
 
-        await fs.writeFile(finalPath, buffer);
-
-        // Return the local URL
-        // We will serve these via /api/images/[filename]
-        const localUrl = `/api/images/${finalFilename}`;
-
-        return NextResponse.json({ url: localUrl });
+        // 4. Return Public Link
+        // We return a direct ID link for consistency or the view link.
+        // Convert to direct download link logic in frontend handles both.
+        // But let's return a construct that we know works well with the sheet.
+        // webViewLink is good for users. Our backend converts it.
+        return NextResponse.json({ url: webViewLink });
 
     } catch (error: any) {
         console.error('Upload error:', error);

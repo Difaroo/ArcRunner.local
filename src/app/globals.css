@@ -106,7 +106,7 @@
   }
 
   .btn-icon-action {
-    @apply h-8 w-8 text-primary border-[0.5px] border-primary border-opacity-50 hover:bg-primary hover:bg-opacity-10 hover:border-primary;
+    @apply h-8 w-8 text-primary border-[0.5px] border-primary border-opacity-50 hover:bg-primary hover:bg-opacity-10 hover:border-primary disabled:opacity-50 disabled:pointer-events-none disabled:border-stone-700 disabled:text-stone-500;
   }
 
   .btn-icon-action:hover {

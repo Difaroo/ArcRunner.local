@@ -64,7 +64,7 @@ export function ScriptView({ episodeId, seriesId, seriesTitle, onIngest }: Scrip
                         </div>
                     )}
 
-                    <div className="mt-4 flex justify-between items-center bg-stone-900/50 p-2 rounded-lg border border-white/5">
+                    <div className="mt-4 flex justify-end items-center gap-4 bg-stone-900/50 p-2 rounded-lg border border-white/5">
                         <div className="flex items-center gap-2 px-2">
                             <label className="text-[10px] text-stone-500 uppercase tracking-wider font-semibold">Default Episode Model:</label>
                             <select

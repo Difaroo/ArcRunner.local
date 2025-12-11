@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSheetData } from '@/lib/sheets';
+import { getSheetData, parseHeaders } from '@/lib/sheets';
+import { convertDriveUrl } from '@/lib/drive';
 
 export interface Clip {
     id: string;
@@ -12,6 +13,7 @@ export interface Clip {
     action: string;
     dialog: string;
     refImageUrls: string;
+    explicitRefUrls: string;
     status: string;
     resultUrl?: string;
     seed?: string;
@@ -41,11 +43,10 @@ export async function GET() {
         const seriesData = await getSheetData('SERIES!A1:ZZ');
 
         // Helper to parse sheet data (Headers + Rows)
+        // Helper to parse sheet data (Headers + Rows)
         const parseSheet = (data: any[][] | null | undefined) => {
             if (!data || data.length === 0) return { headers: new Map<string, number>(), rows: [] };
-            const headerRow = data[0];
-            const headers = new Map<string, number>();
-            headerRow.forEach((h, i) => headers.set(h.trim(), i));
+            const headers = parseHeaders(data);
             const rows = data.slice(1);
             return { headers, rows };
         };
@@ -67,23 +68,21 @@ export async function GET() {
             return String(row[index] || '');
         };
 
-        // Helper: Convert Drive URL to Direct Link
-        const convertDriveUrl = (url: string) => {
-            if (!url) return '';
-            const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-            if (match && match[1]) {
-                return `https://drive.google.com/uc?export=download&id=${match[1]}`;
-            }
-            return url;
-        };
 
-        // Build Library Map: Name -> Image URL
-        const libraryImages: Record<string, string> = {};
+
+        // Build Library Map: Series ID -> Name -> Image URL
+        const libraryImages: Record<string, Record<string, string>> = {};
+
         librarySheet.rows.forEach(row => {
             const name = getValue(row, librarySheet.headers, 'Name');
             const imageUrl = getValue(row, librarySheet.headers, 'Ref Image URLs');
+            const seriesId = getValue(row, librarySheet.headers, 'Series') || '1'; // Default to Series 1 if missing
+
             if (name && imageUrl) {
-                libraryImages[name.toLowerCase()] = convertDriveUrl(imageUrl.trim());
+                if (!libraryImages[seriesId]) {
+                    libraryImages[seriesId] = {};
+                }
+                libraryImages[seriesId][name.toLowerCase()] = convertDriveUrl(imageUrl.trim());
             }
         });
 
@@ -132,6 +131,8 @@ export async function GET() {
                 return scene !== 'Scene #' && scene; // Filter out header row (if somehow duplicated) AND empty scene numbers
             })
             .map(({ row, index }) => {
+                const series = getValue(row, clipsSheet.headers, 'Series') || '1';
+
                 let character = getValue(row, clipsSheet.headers, 'Character');
                 if (!character) character = getValue(row, clipsSheet.headers, 'Characters');
                 const location = getValue(row, clipsSheet.headers, 'Location');
@@ -140,22 +141,23 @@ export async function GET() {
                 const rawRefs = getValue(row, clipsSheet.headers, 'Ref Image URLs');
                 const clipRefUrls = rawRefs.split(',').map((url: string) => convertDriveUrl(url.trim())).filter(Boolean);
 
-                // 2. Look up Library refs
+                // 2. Look up Library refs (Scoped to Series)
                 const libraryRefUrls: string[] = [];
+                const seriesLibrary = libraryImages[series] || {};
 
                 // Character Image
                 if (character) {
                     const charNames = character.split(',').map((c: string) => c.trim().toLowerCase());
                     charNames.forEach((name: string) => {
-                        if (libraryImages[name] && !clipRefUrls.includes(libraryImages[name]) && !libraryRefUrls.includes(libraryImages[name])) {
-                            libraryRefUrls.push(libraryImages[name]);
+                        if (seriesLibrary[name] && !clipRefUrls.includes(seriesLibrary[name]) && !libraryRefUrls.includes(seriesLibrary[name])) {
+                            libraryRefUrls.push(seriesLibrary[name]);
                         }
                     });
                 }
 
                 // Location Image
-                if (location && libraryImages[location.toLowerCase()] && !clipRefUrls.includes(libraryImages[location.toLowerCase()]) && !libraryRefUrls.includes(libraryImages[location.toLowerCase()])) {
-                    libraryRefUrls.push(libraryImages[location.toLowerCase()]);
+                if (location && seriesLibrary[location.toLowerCase()] && !clipRefUrls.includes(seriesLibrary[location.toLowerCase()]) && !libraryRefUrls.includes(seriesLibrary[location.toLowerCase()])) {
+                    libraryRefUrls.push(seriesLibrary[location.toLowerCase()]);
                 }
 
                 // Combine: Library First, then Clip Refs
@@ -176,13 +178,20 @@ export async function GET() {
                     action: getValue(row, clipsSheet.headers, 'Action'),
                     dialog: getValue(row, clipsSheet.headers, 'Dialog'),
                     refImageUrls: processedRefs,
+                    explicitRefUrls: clipRefUrls.join(','), // Only the explicit ones
                     // Validate Result URL
-                    resultUrl: (resultUrlRaw && (resultUrlRaw.startsWith('http') || resultUrlRaw.length < 100))
+                    // Allow URLs (http), Task IDs (task_), or Prefixed IDs (TASK:)
+                    resultUrl: (resultUrlRaw && (
+                        resultUrlRaw.startsWith('http') ||
+                        resultUrlRaw.startsWith('task_') ||
+                        resultUrlRaw.startsWith('TASK:') ||
+                        resultUrlRaw.length < 200 // Increased limit just in case
+                    ))
                         ? convertDriveUrl(resultUrlRaw)
                         : '',
                     seed: getValue(row, clipsSheet.headers, 'Seed'),
                     episode: getValue(row, clipsSheet.headers, 'Episode') || '1',
-                    series: getValue(row, clipsSheet.headers, 'Series') || '1',
+                    series: series,
                     sortOrder: parseInt(getValue(row, clipsSheet.headers, 'Sort Order')) || 0,
                     model: getValue(row, clipsSheet.headers, 'Model'),
                 };

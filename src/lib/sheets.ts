@@ -53,21 +53,30 @@ export async function getSheetData(range: string, retries = 3) {
  * Fetches the first row of a sheet to map Header Names to Column Indices.
  * Returns a Map<HeaderName, ColumnIndex>.
  */
+/**
+ * Parses header row from data to map Header Names to Column Indices.
+ */
+export function parseHeaders(rows: any[][] | null | undefined): Map<string, number> {
+    if (!rows || rows.length === 0) return new Map();
+    const headers = rows[0];
+    const headerMap = new Map<string, number>();
+
+    headers.forEach((header: string, index: number) => {
+        if (header) {
+            headerMap.set(header.trim(), index);
+        }
+    });
+    return headerMap;
+}
+
+/**
+ * Fetches the first row of a sheet to map Header Names to Column Indices.
+ * Returns a Map<HeaderName, ColumnIndex>.
+ */
 export async function getHeaders(sheetName: string): Promise<Map<string, number>> {
     try {
         const rows = await getSheetData(`${sheetName}!1:1`);
-        if (!rows || rows.length === 0) return new Map();
-
-        const headers = rows[0];
-        const headerMap = new Map<string, number>();
-
-        headers.forEach((header: string, index: number) => {
-            if (header) {
-                headerMap.set(header.trim(), index);
-            }
-        });
-
-        return headerMap;
+        return parseHeaders(rows);
     } catch (error) {
         console.error(`Error fetching headers for ${sheetName}:`, error);
         return new Map();

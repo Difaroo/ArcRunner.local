@@ -43,12 +43,14 @@ interface LibraryTableProps {
     onSelectAll: () => void;
     onGenerate?: (item: LibraryItem) => void;
     isGenerating?: (id: string) => boolean;
+    onPlay?: (url: string) => void;
 }
 
-export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, onSelect, onSelectAll, onGenerate, isGenerating }: LibraryTableProps) {
+export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, onSelect, onSelectAll, onGenerate, isGenerating, onPlay }: LibraryTableProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValues, setEditValues] = useState<Partial<LibraryItem>>({});
     const [saving, setSaving] = useState(false);
+    const [autoOpenUpload, setAutoOpenUpload] = useState(false);
 
     // Filter items by series if provided (though passed items should already be filtered)
     // We assume 'items' prop is already the correct list to display.
@@ -80,6 +82,16 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
 
     const handleChange = (field: keyof LibraryItem, value: string) => {
         setEditValues(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleDownload = (url: string) => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = ''; // Browser might ignore this for cross-origin
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     };
 
     const LIBRARY_TYPES = ['LIB_CHARACTER', 'LIB_LOCATION', 'LIB_STYLE', 'LIB_CAMERA'];
@@ -232,13 +244,59 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
 
                                         {/* Ref Image */}
                                         <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
-                                            <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
+                                            {isEditing ? (
                                                 <ImageUploadCell
-                                                    value={isEditing ? editValues.refImageUrl || '' : item.refImageUrl || ''}
+                                                    value={editValues.refImageUrl || ''}
                                                     onChange={(url) => handleChange('refImageUrl', url)}
-                                                    isEditing={isEditing}
+                                                    isEditing={true}
+                                                    autoOpen={autoOpenUpload}
+                                                    onAutoOpenComplete={() => setAutoOpenUpload(false)}
+                                                    episode={item.episode}
                                                 />
-                                            </EditableCell>
+                                            ) : (
+                                                // View Mode
+                                                item.refImageUrl ? (
+                                                    item.refImageUrl.startsWith('TASK:') ? (
+                                                        <div className="w-24 h-24 rounded-md border border-stone-800 bg-stone-900 flex flex-col items-center justify-center ml-auto">
+                                                            <Loader2 className="h-6 w-6 text-primary animate-spin mb-2" />
+                                                            <span className="text-[10px] text-stone-500 font-mono">Generating...</span>
+                                                        </div>
+                                                    ) : (
+                                                        <EditableCell isEditing={false} onStartEdit={() => handleStartEdit(item)}>
+                                                            <ImageUploadCell
+                                                                value={item.refImageUrl}
+                                                                onChange={() => { }}
+                                                                isEditing={false}
+                                                            />
+                                                        </EditableCell>
+                                                    )
+                                                ) : (
+                                                    // Empty state - Show Add Button with Auto-Open behavior
+                                                    <div className="w-full h-full min-h-[40px] flex items-center justify-center">
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="btn-icon-action w-full"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setAutoOpenUpload(true);
+                                                                            handleStartEdit(item);
+                                                                        }}
+                                                                    >
+                                                                        <span className="material-symbols-outlined !text-lg">add</span>
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Add Reference Image</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </div>
+                                                )
+                                            )}
                                         </TableCell>
 
                                         {/* Actions */}
@@ -300,7 +358,7 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                                                                         <Button
                                                                             variant="outline"
                                                                             size="icon"
-                                                                            onClick={() => window.open(item.refImageUrl, '_blank')}
+                                                                            onClick={() => onPlay && onPlay(item.refImageUrl)}
                                                                             className="btn-icon-action h-8 w-8"
                                                                         >
                                                                             <span className="material-symbols-outlined !text-lg">play_arrow</span>
@@ -317,7 +375,7 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                                                                         <Button
                                                                             variant="outline"
                                                                             size="icon"
-                                                                            onClick={() => window.open(item.refImageUrl, '_blank')}
+                                                                            onClick={() => handleDownload(item.refImageUrl)}
                                                                             className="btn-icon-action h-8 w-8"
                                                                         >
                                                                             <span className="material-symbols-outlined !text-lg">download</span>

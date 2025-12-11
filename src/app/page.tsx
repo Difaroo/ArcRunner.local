@@ -33,7 +33,7 @@ export interface LibraryItem {
   negatives: string;
   notes: string;
   episode: string;
-  series: string;
+  series?: string;
 }
 
 export default function Home() {
@@ -300,7 +300,9 @@ export default function Home() {
   // --- Actions ---
   const handleGenerateSelected = async () => {
     const toGen = activeClips.filter(c => selectedIds.has(c.id));
-    alert(`Generating ${toGen.length} clips... (Check console for progress)`);
+    // Non-blocking notification
+    setCopyMessage(`Generating ${toGen.length} clips...`);
+    setTimeout(() => setCopyMessage(null), 3000);
 
     for (const clip of toGen) {
       // Find original index in full list for API
@@ -332,14 +334,25 @@ export default function Home() {
       const data = await res.json();
       console.log('Library Generate Result:', data);
 
+      // If we got a Task ID (or URL), update the item locally so polling picks it up
+      // The API should have updated the sheet, but local state needs to match
       if (data.resultUrl) {
-        // Update local state immediately logic?
-        // Reload page or re-fetch library
-        // For now, let's just complete the state. The user might need a refresh.
+        setLibraryItems(prev => prev.map(i => i.id === item.id ? { ...i, refImageUrl: data.resultUrl } : i));
+
+        // If it's a TASK, keep the spinner going by NOT removing it from 'generatingLibraryItems' immediately?
+        // Actually, the main polling loop drives the spinner now based on 'TASK:' prefix in refImageUrl.
+        // But LibraryTable checks 'generatingLibraryItems' prop OR refImageUrl.
+        // If we remove it here, the spinner might flicker if refImageUrl isn't updated?
+        // Wait, LibraryTable checks: item.refImageUrl.startsWith('TASK:') ? Spinner : ...
+        // So updating libraryItems is key.
       }
+
     } catch (e) {
       console.error(e);
+      alert("Generation failed: " + e);
     } finally {
+      // We only remove from 'generating' set if it failed or if we want to rely solely on refImageUrl
+      // Let's remove it to let the 'TASK:' detection take over
       setGeneratingLibraryItems(prev => {
         const next = new Set(prev);
         next.delete(item.id);
@@ -368,35 +381,51 @@ export default function Home() {
   };
 
   // --- Polling Logic ---
+  // --- Polling Logic ---
   useEffect(() => {
     const pollInterval = setInterval(async () => {
-      const generatingClips = clips.filter(c => c.status === 'Generating');
-      if (generatingClips.length === 0) return;
-
+      // Server-Side Scanning Mode: Just ping the endpoint
       try {
+        // Optional: Only poll if we THINK something is running, 
+        // OR always poll (safer for "Recovering" lost tasks). 
+        // Let's always poll for now, or check local "Syncing" state?
+        // User complained about stopping... so let's just RUN.
+        // To avoid swamping, maybe check if we have *any* generating items locally?
+        // Actually, to fix "lost state", we should NOT rely on local state.
+
+        // However, invalidating/refetching every 15s if nothing is happening is wasteful.
+        // Compromise: Poll if we see 'Generating' items OR every 4th cycle (1m) regardless?
+        // Let's stick to simple: Always poll. It's a local dev tool.
+
         const res = await fetch('/api/poll', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clips: generatingClips }),
+          body: JSON.stringify({}), // Empty body triggers scan (or we can be explicit)
         });
 
         const data = await res.json();
-        if (data.success && data.checked > 0) {
-          // Refresh clips to get new status/URLs
-          // In a real app we might just update local state, but fetching full list ensures sync
-          fetch('/api/clips')
-            .then(res => res.json())
-            .then(data => {
-              if (data.clips) setClips(data.clips);
-            });
+
+        // If the server checked items (meaning it found 'Generating' rows), we should refresh to see updates.
+        // Even if it didn't update anything yet (still generating), we don't *need* to refresh, 
+        // BUT if it *did* update (data.updated > 0), we MUST refresh.
+        // If data.checked > 0, it means the system is "Busy".
+
+        if (data.success && (data.updated > 0 || data.checked > 0)) {
+          // If updated, definitely refresh.
+          // If checked but not updated (still running), we might want to refresh 'loading' state?
+          // Actually, standard refresh is fine.
+          if (data.updated > 0) {
+            console.log(`Poll updated ${data.updated} items. Refreshing...`);
+            await refreshData();
+          }
         }
       } catch (err) {
         console.error('Polling error:', err);
       }
-    }, 15000); // Poll every 15 seconds
+    }, 15000); // 15s Interval
 
     return () => clearInterval(pollInterval);
-  }, [clips]);
+  }, []); // Empty deps = run forever (good)
 
   const handleGenerate = async (clip: Clip, index: number) => {
     try {
@@ -420,7 +449,7 @@ export default function Home() {
           library: seriesLibrary, // Use filtered library
           model: selectedModel,
           aspectRatio: aspectRatio, // Pass Aspect Ratio
-          rowIndex: index // Pass row index for Flux route update
+          rowIndex: parseInt(clip.id) // Use immutable ID (Sheet Row Index)
         }),
       });
 
@@ -431,8 +460,12 @@ export default function Home() {
       console.log('Task started:', data.taskId);
 
       // Update local state with Task ID in resultUrl (so poller can find it)
-      // We need to re-fetch or manually update the clip object
-      newClips[index].resultUrl = data.taskId;
+      // Use resultUrl (Flux) or taskId (Veo)
+      // Clone item to ensure React update
+      newClips[index] = {
+        ...newClips[index],
+        resultUrl: data.resultUrl || data.taskId
+      };
       setClips(newClips);
 
     } catch (error: any) {
@@ -551,13 +584,27 @@ export default function Home() {
               </div>
             </div>
 
-            <video
-              src={playingVideoUrl}
-              controls
-              autoPlay
-              className="w-full h-full object-contain"
-              onEnded={handleVideoEnded}
-            />
+            {(() => {
+              // Determine media type
+              const playingClip = clips.find(c => c.resultUrl === playingVideoUrl) || { model: '' };
+              const isImage = playingClip.model?.includes('flux') || playingVideoUrl?.match(/\.(jpeg|jpg|png|webp)$/i);
+
+              return isImage ? (
+                <img
+                  src={playingVideoUrl!}
+                  className="w-full h-full object-contain"
+                  alt="Generated Content"
+                />
+              ) : (
+                <video
+                  src={playingVideoUrl!}
+                  controls
+                  autoPlay
+                  className="w-full h-full object-contain"
+                  onEnded={handleVideoEnded}
+                />
+              );
+            })()}
           </div>
         </div>
       )}
@@ -860,6 +907,11 @@ export default function Home() {
                 onSelectAll={toggleLibrarySelectAll}
                 onGenerate={handleLibraryGenerate}
                 isGenerating={(id) => generatingLibraryItems.has(id)}
+                onPlay={(url) => {
+                  setPlayingVideoUrl(url);
+                  setPlaylist([url]);
+                  setCurrentPlayIndex(0);
+                }}
               />
             ) : (
               <ClipTable
@@ -879,12 +931,6 @@ export default function Home() {
                     return;
                   }
                   console.log('Play clicked with URL:', url);
-
-                  // Check if it's an image (simple check)
-                  if (url.match(/\.(jpeg|jpg|png|webp)$/i) || selectedModel.startsWith('flux')) { // Flux URLs might just be signed URLs
-                    window.open(url, '_blank');
-                    return;
-                  }
 
                   setPlayingVideoUrl(url);
                   setPlaylist([url]);

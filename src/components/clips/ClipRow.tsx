@@ -111,16 +111,84 @@ export function ClipRow({
         startEditing()
     }
 
-    const handleDownload = () => {
-        if (clip.resultUrl) {
-            onPlay(clip.resultUrl)
-            setDownloadCount(prev => prev + 1)
-            onSave(clip.id, { status: 'Saved' })
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (clip.resultUrl && !isDownloading) {
+            setIsDownloading(true);
+            try {
+                // 1. Calculate Version
+                let ver = 1;
+                const status = clip.status || '';
+                if (status.startsWith('Saved')) {
+                    const match = status.match(/Saved \[(\d+)\]/);
+                    if (match) {
+                        ver = parseInt(match[1]) + 1;
+                    } else if (status === 'Saved') {
+                        ver = 2;
+                    }
+                }
+
+                // 2. Construct Filename
+                const safeTitle = (clip.title || 'Untitled').replace(/[^a-z0-9 ]/gi, '');
+                const scene = clip.scene || '0';
+
+                let filename = `${scene} ${safeTitle}`;
+                if (ver > 1) {
+                    filename += ` ${ver.toString().padStart(2, '0')}`;
+                }
+                // Determine extension from URL or default to .mp4
+                const ext = clip.resultUrl.split('.').pop()?.split('?')[0] || 'mp4';
+                // Only append extension if not present in title (unlikely)
+                if (!filename.endsWith(`.${ext}`)) {
+                    filename += `.${ext}`;
+                }
+
+                // 3. Fetch Blob (Wait for it!)
+                // Use proxy to avoid CORS
+                const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(clip.resultUrl)}`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Download failed');
+
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+
+                // 4. Trigger Save Dialog
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                // Cleanup
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+                // 5. Update Status (Only on success)
+                setDownloadCount(prev => prev + 1)
+                const newStatus = ver > 1 ? `Saved [${ver}]` : 'Saved';
+                onSave(clip.id, { status: newStatus })
+
+            } catch (err) {
+                console.error('Download error:', err);
+                alert('Failed to download file.');
+            } finally {
+                setIsDownloading(false);
+            }
         }
     }
 
     const handleSave = () => {
-        onSave(clip.id, editValues)
+        // If we edited explicit refs, map them to the refImageUrls column key for saving
+        const payload = { ...editValues };
+        if (payload.explicitRefUrls !== undefined) {
+            payload.refImageUrls = payload.explicitRefUrls;
+            delete payload.explicitRefUrls; // Don't send this non-column key to API if API doesn't expect it
+            // Actually api/update might just ignore unknown keys, but let's be safe.
+            // Wait, does api/update_clip expect refImageUrls column? Yes.
+        }
+        onSave(clip.id, payload)
     }
 
     const handleChange = (field: keyof Clip, value: string) => {
@@ -292,6 +360,7 @@ export function ClipRow({
                         isEditing={true}
                         autoOpen={autoOpenUpload}
                         onAutoOpenComplete={() => setAutoOpenUpload(false)}
+                        episode={clip.episode}
                     />
                 ) : (
                     (() => {
@@ -406,9 +475,10 @@ export function ClipRow({
                                                     variant="outline"
                                                     size="icon"
                                                     onClick={handleDownload}
-                                                    className="btn-icon-action h-8 w-8"
+                                                    disabled={saving || !clip.resultUrl || isDownloading}
+                                                    className={`btn-icon-action h-8 w-8 ${!clip.resultUrl ? 'opacity-30' : ''}`}
                                                 >
-                                                    <span className="material-symbols-outlined !text-lg">download</span>
+                                                    {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">download</span>}
                                                 </Button>
                                             </TooltipTrigger>
                                             <TooltipContent>

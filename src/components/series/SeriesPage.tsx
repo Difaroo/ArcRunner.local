@@ -57,9 +57,10 @@ export function SeriesPage({
         }
         const data = progressMap.get(ep)!
         data.count++
-        if (clip.status === 'Saved') {
+        const status = clip.status || '';
+        if (status.startsWith('Saved')) {
             data.savedCount++
-        } else if (clip.status === 'Ready' || clip.status === 'Done') {
+        } else if (status === 'Ready' || status === 'Done') {
             data.readyCount++
         }
     })

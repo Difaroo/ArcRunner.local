@@ -1,18 +1,9 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { getGoogleSheetsClient } from '@/lib/sheets';
+import { convertDriveUrl } from '@/lib/drive';
 import { buildPrompt } from '@/lib/promptBuilder';
-
-// Helper to get authenticated sheets client
-async function getSheetsClient() {
-    const auth = new google.auth.GoogleAuth({
-        credentials: {
-            client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-            private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        },
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-    return google.sheets({ version: 'v4', auth });
-}
+import { getLibraryItems } from '@/lib/library';
+import { createFluxTask, FluxPayload } from '@/lib/kie';
 
 export async function POST(req: Request) {
     try {
@@ -22,90 +13,107 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing clip or rowIndex' }, { status: 400 });
         }
 
-        const sheets = await getSheetsClient();
+        const sheets = await getGoogleSheetsClient();
         const spreadsheetId = process.env.SPREADSHEET_ID;
 
         // 1. Fetch Library Data (for prompt building)
-        const libRes = await sheets.spreadsheets.values.get({
-            spreadsheetId,
-            range: 'LIBRARY!A2:F',
-        });
-        const libraryRows = libRes.data.values || [];
-        const libraryItems = libraryRows.map(row => ({
-            type: row[0],
-            name: row[1],
-            description: row[2],
-            refImageUrl: row[3]
-        }));
+        // 1. Fetch Library Data (for prompt building)
+        // Using shared utility which handles headers dynamically and converts URLs
+        const scopedLibraryItems = await getLibraryItems(clip.series);
 
         // 2. Build Prompt
-        const prompt = buildPrompt(clip, libraryItems);
-        // Flux specific: Add "Film Still" or similar if not present to ensure cinematic quality? 
-        // For now, let's stick to the raw prompt but maybe append a style hint if not strictly defined.
-
+        const prompt = buildPrompt(clip, scopedLibraryItems);
         console.log('Generated Flux Prompt:', prompt);
 
-        // 3. Prepare Payload
-        let model = 'flux-kontext-pro';
-        if (requestedModel === 'flux-flex') {
-            model = 'flux-kontext-flex';
+        // 2a. Gather Reference Images (Smart Switching)
+        let imageUrls: string[] = [];
+
+        // A. From Characters (Library Lookup)
+        if (clip.character) {
+            const charNames = clip.character.split(',').map((s: string) => s.trim());
+
+            // Loop through names and find ref images in scroped library items
+            charNames.forEach((name: string) => {
+                // Find loose match
+                const libItem = scopedLibraryItems.find((item: any) =>
+                    item.name.toLowerCase() === name.toLowerCase()
+                );
+
+                if (libItem && libItem.refImageUrl) {
+                    const converted = convertDriveUrl(libItem.refImageUrl);
+                    if (converted) imageUrls.push(converted);
+                }
+            });
         }
 
+        // B. From Location (Library Lookup)
+        if (clip.location) {
+            const locName = clip.location.trim();
+            const libItem = scopedLibraryItems.find((item: any) =>
+                item.name.toLowerCase() === locName.toLowerCase() && item.type === 'LIB_LOCATION'
+            );
+
+            if (libItem && libItem.refImageUrl) {
+                const converted = convertDriveUrl(libItem.refImageUrl);
+                if (converted) imageUrls.push(converted);
+            }
+        }
+
+        // B. From Clip Ref URL (Direct in Sheet)
+        if (clip.refImageUrls) {
+            const urls = clip.refImageUrls.split(',').map((s: string) => s.trim());
+            urls.forEach((u: string) => {
+                const converted = convertDriveUrl(u);
+                if (converted) imageUrls.push(converted);
+            });
+        }
+
+        // Limit images
+        imageUrls = imageUrls.slice(0, 1); // Flux usually focuses on one main input. 
+
+        // 3. Prepare Payload for v1/jobs API (Flux)
+        let model = 'flux-2/flex-text-to-image';
         const aspectRatio = requestedRatio || '16:9';
 
-        const payload = {
+        const input: any = {
             prompt: prompt,
-            model: model,
-            aspectRatio: aspectRatio,
-            enableTranslation: true,
-            // safetyTolerance: 'ALLOW_ALL' // Optional: if needed to override strict safety
+            aspect_ratio: aspectRatio,
+            resolution: '2K'
         };
 
-        console.log('Flux Payload:', JSON.stringify(payload, null, 2));
-
-        // 4. Call Kie.ai Flux API
-        // Endpoint verified via search: https://api.kie.ai/api/v1/flux/kontext/generate
-        const kieRes = await fetch('https://api.kie.ai/api/v1/flux/kontext/generate', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.KIE_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        const kieData = await kieRes.json();
-        console.log('Kie.ai Flux Response:', JSON.stringify(kieData, null, 2));
-
-        if (!kieRes.ok) {
-            throw new Error(kieData.error?.message || JSON.stringify(kieData) || 'Failed to call Kie.ai Flux');
+        if (imageUrls.length > 0) {
+            console.log('Switching to Image-to-Image mode for Flux');
+            model = 'flux-2/pro-image-to-image';
+            input.input_urls = imageUrls;
+            input.strength = 0.75; // Default strength
         }
 
+        const payload: FluxPayload = {
+            model: model,
+            input: input
+        };
+
+        console.log('Flux Jobs Payload:', JSON.stringify(payload, null, 2));
+
+        // 4. Call Kie.ai Jobs API
+        const kieResponse = await createFluxTask(payload);
+        const kieData = kieResponse; // Response wrapper for debugging if needed, but kieResponse.data contains task
+        // Note: kieFetch returns the whole response body, createFluxTask types the generic T
+        // Actually kieFetch: return data (json body). 
+        // createFluxTask returns Promise<KieResponse<{taskId: string}>>
+
+        console.log('Kie.ai Jobs Response:', JSON.stringify(kieResponse, null, 2));
+
         // 5. Handle Response
-        // Flux API usually returns a task ID or direct data.
-        // Assuming it works like Veo and returns a `taskId` to poll, OR a direct `data.imageUrl` if fast.
-        // Documentation says "Generated images are stored for 14 days", implying a URL is returned or retrieved.
-        // Common pattern for image gen is sync or fast-async.
-
-        // Let's assume it returns a Task ID for consistency with Veo, or check for `data.images` array.
-        // If sync: kieData.data[0].url
-        // If async: kieData.data.taskId
-
         let resultUrl = '';
         let status = 'Generating';
 
-        if (kieData.data && kieData.data.images && kieData.data.images.length > 0) {
-            // Synchronous return
-            resultUrl = kieData.data.images[0].url;
-            status = 'Done';
-        } else if (kieData.data && kieData.data.taskId) {
-            // Asynchronous return
-            resultUrl = kieData.data.taskId; // Store ID to poll later
+        if (kieResponse.data && kieResponse.data.taskId) {
+            const taskId = kieResponse.data.taskId;
+            resultUrl = `TASK:${taskId}`;
             status = 'Generating';
-        } else if (kieData.data && kieData.data.url) {
-            // Single URL return
-            resultUrl = kieData.data.url;
-            status = 'Done';
+        } else {
+            throw new Error('No Task ID returned from Jobs API');
         }
 
         // 6. Update Sheet
@@ -114,13 +122,13 @@ export async function POST(req: Request) {
         const updates = [
             sheets.spreadsheets.values.update({
                 spreadsheetId,
-                range: `CLIPS!B${sheetRow}`, // Status
+                range: `CLIPS!D${sheetRow}`, // Status (Col D)
                 valueInputOption: 'USER_ENTERED',
                 requestBody: { values: [[status]] }
             }),
             sheets.spreadsheets.values.update({
                 spreadsheetId,
-                range: `CLIPS!S${sheetRow}`, // Result URL
+                range: `CLIPS!V${sheetRow}`, // Result URL (Col V)
                 valueInputOption: 'USER_ENTERED',
                 requestBody: { values: [[resultUrl]] }
             })
@@ -128,7 +136,7 @@ export async function POST(req: Request) {
 
         await Promise.all(updates);
 
-        return NextResponse.json({ success: true, data: kieData });
+        return NextResponse.json({ success: true, data: kieData, resultUrl });
 
     } catch (error: any) {
         console.error('Flux Generate Error:', error);
