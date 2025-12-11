@@ -93,7 +93,14 @@ export function ClipRow({
     }
 
     const startEditing = () => {
-        setEditValues(clip)
+        // IMPORTANT: Initialize editValues with explicitRefUrls for the refImageUrls field.
+        // The clip.refImageUrls provided by API is a COMBINED list (Values + Library).
+        // We only want to edit the Explicit values (Column Data).
+        // Otherwise, we get "Zombie Images" where Library refs get hardcoded into the sheet on save.
+        setEditValues({
+            ...clip,
+            refImageUrls: clip.explicitRefUrls || ''
+        })
         onEdit(clip)
     }
 
@@ -180,15 +187,36 @@ export function ClipRow({
     }
 
     const handleSave = () => {
-        // If we edited explicit refs, map them to the refImageUrls column key for saving
-        const payload = { ...editValues };
-        if (payload.explicitRefUrls !== undefined) {
-            payload.refImageUrls = payload.explicitRefUrls;
-            delete payload.explicitRefUrls; // Don't send this non-column key to API if API doesn't expect it
-            // Actually api/update might just ignore unknown keys, but let's be safe.
-            // Wait, does api/update_clip expect refImageUrls column? Yes.
+        // Only send changed fields to avoid data corruption (Zombie Images)
+        // and to prevent overwriting correct data with empty defaults (Disappearing Thumbs)
+        const updates: Partial<Clip> = {};
+
+        // Helper to normalize values for comparison (treat undefined/null as empty string)
+        const normalize = (val: any) => val === undefined || val === null ? '' : String(val);
+
+        (Object.keys(editValues) as Array<keyof Clip>).forEach(key => {
+            const currentVal = editValues[key];
+
+            // Special handling for refImageUrls comparison
+            let originalVal;
+            if (key === 'refImageUrls') {
+                originalVal = clip.explicitRefUrls;
+            } else {
+                originalVal = clip[key];
+            }
+
+            if (normalize(currentVal) !== normalize(originalVal)) {
+                // @ts-ignore
+                updates[key] = currentVal;
+            }
+        });
+
+        if (Object.keys(updates).length > 0) {
+            onSave(clip.id, updates);
+        } else {
+            // Nothing changed, just close edit mode
+            onCancelEdit();
         }
-        onSave(clip.id, payload)
     }
 
     const handleChange = (field: keyof Clip, value: string) => {
@@ -354,14 +382,41 @@ export function ClipRow({
             </TableCell>
             <TableCell className="align-top py-3 w-auto">
                 {isEditing ? (
-                    <ImageUploadCell
-                        value={editValues.refImageUrls || ''}
-                        onChange={(url) => handleChange('refImageUrls', url)}
-                        isEditing={true}
-                        autoOpen={autoOpenUpload}
-                        onAutoOpenComplete={() => setAutoOpenUpload(false)}
-                        episode={clip.episode}
-                    />
+                    <div className="flex flex-col gap-2">
+                        {/* Show Library Images (Static/ReadOnly) to prevent them "disappearing" during edit */}
+                        {(() => {
+                            const explicitSet = new Set((clip.explicitRefUrls || '').split(',').map(s => s.trim()).filter(Boolean));
+                            const allUrls = (clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+                            const libraryOnlyUrls = allUrls.filter(url => !explicitSet.has(url));
+
+                            if (libraryOnlyUrls.length === 0) return null;
+
+                            return (
+                                <div className="flex gap-1 opacity-70" title="Reference from Library (Linked)">
+                                    {libraryOnlyUrls.slice(0, 3).map((url, i) => (
+                                        <img
+                                            key={`lib-${i}`}
+                                            src={url.startsWith('/api/images') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                            alt={`Library Ref ${i + 1}`}
+                                            className="w-[50px] h-[50px] object-cover rounded border border-blue-900/50 shadow-sm"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).style.display = 'none';
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            );
+                        })()}
+
+                        <ImageUploadCell
+                            value={editValues.refImageUrls || ''}
+                            onChange={(url) => handleChange('refImageUrls', url)}
+                            isEditing={true}
+                            autoOpen={autoOpenUpload}
+                            onAutoOpenComplete={() => setAutoOpenUpload(false)}
+                            episode={clip.episode}
+                        />
+                    </div>
                 ) : (
                     (() => {
                         const urls = clip.refImageUrls ? clip.refImageUrls.split(',').map(s => s.trim()).filter(Boolean) : [];

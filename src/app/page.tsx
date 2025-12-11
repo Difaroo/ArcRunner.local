@@ -134,8 +134,53 @@ export default function Home() {
 
       if (!res.ok) throw new Error('Failed to save');
 
-      // Update local state
-      setClips(prev => prev.map(c => c.id === clipId ? { ...c, ...updates } : c));
+      // Update local state with Optimistic Library Lookup
+      // We want to show the new thumbnails instantly without waiting for a refresh.
+      // But we MUST NOT save these derived URLs to the 'explicitRefUrls' or sends them to backend.
+      setClips(prev => prev.map(c => {
+        if (c.id !== clipId) return c;
+
+        const merged = { ...c, ...updates };
+
+        // Re-calculate Derived Ref Image URLs for display
+        // 1. Get Explicit URLs (from update or existing)
+        // Note: When saving, we write to 'refImageUrls' column, so updates.refImageUrls IS the new explicit value.
+        const explicitStr = updates.refImageUrls !== undefined
+          ? updates.refImageUrls
+          : (updates.explicitRefUrls !== undefined ? updates.explicitRefUrls : c.explicitRefUrls);
+
+        const explicitUrls = (explicitStr || '').split(',').map(s => s.trim()).filter(Boolean);
+
+        // 2. Lookup Library URLs based on NEW Character/Location
+        const libraryUrls: string[] = [];
+        const seriesLib = libraryItems.filter(i => i.series === currentSeriesId);
+
+        // Helper to find URL
+        const findUrl = (name: string) => {
+          const item = seriesLib.find(i => i.name.toLowerCase() === name.toLowerCase());
+          return item?.refImageUrl;
+        }
+
+        // Characters
+        if (merged.character) {
+          merged.character.split(',').map(s => s.trim()).forEach(char => {
+            const url = findUrl(char);
+            if (url && !explicitUrls.includes(url) && !libraryUrls.includes(url)) libraryUrls.push(url);
+          });
+        }
+
+        // Location
+        if (merged.location) {
+          const url = findUrl(merged.location);
+          if (url && !explicitUrls.includes(url) && !libraryUrls.includes(url)) libraryUrls.push(url);
+        }
+
+        // 3. Combine for Display
+        const fullRefs = [...libraryUrls, ...explicitUrls].join(',');
+
+        return { ...merged, refImageUrls: fullRefs, explicitRefUrls: explicitStr };
+      }));
+
       setEditingId(null);
       setEditValues({});
 
