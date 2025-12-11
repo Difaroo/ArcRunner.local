@@ -9,7 +9,12 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const response = await fetch(url);
+        let targetUrl = url;
+        if (targetUrl.startsWith('/')) {
+            targetUrl = `${request.nextUrl.origin}${targetUrl}`;
+        }
+
+        const response = await fetch(targetUrl);
         if (!response.ok) {
             return new NextResponse(`Failed to fetch file: ${response.statusText}`, { status: response.status });
         }

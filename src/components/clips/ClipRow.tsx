@@ -396,7 +396,7 @@ export function ClipRow({
                                     {libraryOnlyUrls.slice(0, 3).map((url, i) => (
                                         <img
                                             key={`lib-${i}`}
-                                            src={url.startsWith('/api/images') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                            src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                             alt={`Library Ref ${i + 1}`}
                                             className="w-[50px] h-[50px] object-cover rounded border border-blue-900/50 shadow-sm"
                                             onError={(e) => {
@@ -425,7 +425,7 @@ export function ClipRow({
                                 {urls.slice(0, 3).map((url, i) => (
                                     <img
                                         key={i}
-                                        src={url.startsWith('/api/images') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                        src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                         alt={`Ref ${i + 1}`}
                                         className="w-[50px] h-[50px] object-cover rounded border border-black shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                                         onError={(e) => {

@@ -134,7 +134,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                         <div key={idx} className="relative group">
                             <div className="w-10 h-10 rounded overflow-hidden border border-stone-700 bg-stone-900">
                                 <img
-                                    src={url.startsWith('/api/images') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                    src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                     alt="Thumbnail"
                                     className="w-full h-full object-cover"
                                 />
@@ -172,7 +172,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                                 {imageToDelete && (
                                     <div className="w-32 h-32 rounded-md overflow-hidden border border-stone-700 bg-stone-900">
                                         <img
-                                            src={imageToDelete.startsWith('/api/images') ? imageToDelete : `/api/proxy-image?url=${encodeURIComponent(imageToDelete)}`}
+                                            src={imageToDelete.startsWith('/api/') ? imageToDelete : `/api/proxy-image?url=${encodeURIComponent(imageToDelete)}`}
                                             alt="To Delete"
                                             className="w-full h-full object-cover"
                                         />
@@ -195,7 +195,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
         return (
             <div className="relative w-24 h-24 rounded-md overflow-hidden border border-black bg-stone-900 ml-auto group">
                 <img
-                    src={imageUrl.startsWith('/api/images') ? imageUrl : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`}
+                    src={imageUrl.startsWith('/api/') ? imageUrl : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`}
                     alt="Ref"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     loading="lazy"

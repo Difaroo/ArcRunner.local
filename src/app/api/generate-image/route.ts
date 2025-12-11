@@ -4,6 +4,42 @@ import { convertDriveUrl } from '@/lib/drive';
 import { buildPrompt } from '@/lib/promptBuilder';
 import { getLibraryItems } from '@/lib/library';
 import { createFluxTask, FluxPayload } from '@/lib/kie';
+import { getFilePath, getFileContent } from '@/lib/storage';
+import mime from 'mime';
+
+async function processRefUrls(urls: string[]): Promise<string[]> {
+    const processed: string[] = [];
+    for (const url of urls) {
+        // Check if local media URL
+        if (url.includes('/api/media/')) {
+            try {
+                // Extract path parts: /api/media/upload/filename.jpg -> ['upload', 'filename.jpg']
+                // Use a safer split around the known api route
+                const parts = url.split('/api/media/')[1].split('/');
+                const filePath = await getFilePath(parts);
+
+                if (filePath) {
+                    const buffer = await getFileContent(filePath);
+                    // Determine mime type
+                    const ext = filePath.split('.').pop()?.toLowerCase();
+                    const mimeType = mime.getType(ext || '') || 'application/octet-stream';
+
+                    const base64 = buffer.toString('base64');
+                    processed.push(`data:${mimeType};base64,${base64}`);
+                    console.log(`Converted local file ${parts.join('/')} to Base64`);
+                } else {
+                    console.warn(`Local file not found: ${url}`);
+                }
+            } catch (e) {
+                console.error(`Failed to process local url ${url}:`, e);
+            }
+        } else {
+            // Keep remote/drive URLs
+            processed.push(url);
+        }
+    }
+    return processed;
+}
 
 export async function POST(req: Request) {
     try {
@@ -16,62 +52,66 @@ export async function POST(req: Request) {
         const sheets = await getGoogleSheetsClient();
         const spreadsheetId = process.env.SPREADSHEET_ID;
 
-        // 1. Fetch Library Data (for prompt building)
-        // 1. Fetch Library Data (for prompt building)
-        // Using shared utility which handles headers dynamically and converts URLs
+        // 1. Fetch Library Data
         const scopedLibraryItems = await getLibraryItems(clip.series);
 
         // 2. Build Prompt
         const prompt = buildPrompt(clip, scopedLibraryItems);
         console.log('Generated Flux Prompt:', prompt);
 
-        // 2a. Gather Reference Images (Smart Switching)
+        // 2a. Gather Reference Images
         let imageUrls: string[] = [];
 
         // A. From Characters (Library Lookup)
         if (clip.character) {
             const charNames = clip.character.split(',').map((s: string) => s.trim());
-
-            // Loop through names and find ref images in scroped library items
             charNames.forEach((name: string) => {
-                // Find loose match
                 const libItem = scopedLibraryItems.find((item: any) =>
                     item.name.toLowerCase() === name.toLowerCase()
                 );
-
                 if (libItem && libItem.refImageUrl) {
-                    const converted = convertDriveUrl(libItem.refImageUrl);
-                    if (converted) imageUrls.push(converted);
+                    const refs = libItem.refImageUrl.split(',').map((u: string) => u.trim());
+                    refs.forEach((ref: string) => {
+                        const converted = convertDriveUrl(ref);
+                        if (converted) imageUrls.push(converted);
+                    });
                 }
             });
         }
 
         // B. From Location (Library Lookup)
         if (clip.location) {
-            const locName = clip.location.trim();
-            const libItem = scopedLibraryItems.find((item: any) =>
-                item.name.toLowerCase() === locName.toLowerCase() && item.type === 'LIB_LOCATION'
-            );
-
-            if (libItem && libItem.refImageUrl) {
-                const converted = convertDriveUrl(libItem.refImageUrl);
-                if (converted) imageUrls.push(converted);
-            }
+            const locNames = clip.location.split(',').map((s: string) => s.trim());
+            locNames.forEach((name: string) => {
+                const libItem = scopedLibraryItems.find((item: any) =>
+                    item.name.toLowerCase() === name.toLowerCase() && item.type === 'LIB_LOCATION'
+                );
+                if (libItem && libItem.refImageUrl) {
+                    const refs = libItem.refImageUrl.split(',').map((u: string) => u.trim());
+                    refs.forEach((ref: string) => {
+                        const converted = convertDriveUrl(ref);
+                        if (converted) imageUrls.push(converted);
+                    });
+                }
+            });
         }
 
-        // B. From Clip Ref URL (Direct in Sheet)
+        // C. From Clip Ref URL (Direct or Local)
         if (clip.refImageUrls) {
             const urls = clip.refImageUrls.split(',').map((s: string) => s.trim());
             urls.forEach((u: string) => {
-                const converted = convertDriveUrl(u);
+                const converted = convertDriveUrl(u); // Keeps local URLs intact, converts Drive
                 if (converted) imageUrls.push(converted);
             });
         }
 
         // Limit images
-        imageUrls = imageUrls.slice(0, 1); // Flux usually focuses on one main input. 
+        imageUrls = imageUrls.slice(0, 1);
 
-        // 3. Prepare Payload for v1/jobs API (Flux)
+        // CRITICAL: Process URLs (Convert Local to Base64)
+        imageUrls = await processRefUrls(imageUrls);
+
+        // 3. Prepare Payload
         let model = 'flux-2/flex-text-to-image';
         const aspectRatio = requestedRatio || '16:9';
 
@@ -85,7 +125,7 @@ export async function POST(req: Request) {
             console.log('Switching to Image-to-Image mode for Flux');
             model = 'flux-2/pro-image-to-image';
             input.input_urls = imageUrls;
-            input.strength = 0.75; // Default strength
+            input.strength = 0.75;
         }
 
         const payload: FluxPayload = {
@@ -97,10 +137,7 @@ export async function POST(req: Request) {
 
         // 4. Call Kie.ai Jobs API
         const kieResponse = await createFluxTask(payload);
-        const kieData = kieResponse; // Response wrapper for debugging if needed, but kieResponse.data contains task
-        // Note: kieFetch returns the whole response body, createFluxTask types the generic T
-        // Actually kieFetch: return data (json body). 
-        // createFluxTask returns Promise<KieResponse<{taskId: string}>>
+        const kieData = kieResponse;
 
         console.log('Kie.ai Jobs Response:', JSON.stringify(kieResponse, null, 2));
 
@@ -122,13 +159,13 @@ export async function POST(req: Request) {
         const updates = [
             sheets.spreadsheets.values.update({
                 spreadsheetId,
-                range: `CLIPS!D${sheetRow}`, // Status (Col D)
+                range: `CLIPS!D${sheetRow}`,
                 valueInputOption: 'USER_ENTERED',
                 requestBody: { values: [[status]] }
             }),
             sheets.spreadsheets.values.update({
                 spreadsheetId,
-                range: `CLIPS!V${sheetRow}`, // Result URL (Col V)
+                range: `CLIPS!V${sheetRow}`,
                 valueInputOption: 'USER_ENTERED',
                 requestBody: { values: [[resultUrl]] }
             })

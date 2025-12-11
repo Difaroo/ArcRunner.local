@@ -26,15 +26,18 @@ export async function POST(request: Request) {
             return index !== undefined ? indexToColumnLetter(index) : null;
         };
 
+        // Dynamically find the Ref Image header
+        const refHeader = ['Ref Image URLs', 'Ref Image URL', 'Ref Images', 'Ref Image'].find(h => headers.has(h)) || 'Ref Image URLs';
+
         // Map field names to Header Names
         const fieldToHeader: Record<string, string> = {
             type: 'Type',
             name: 'Name',
             description: 'Description',
-            refImageUrl: 'Ref Image URLs',
+            refImageUrl: refHeader,
             negatives: 'Negatives',
             notes: 'Notes',
-            episode: 'Episode',
+            episode: 'Episode', // Fallback, not always standard
             series: 'Series'
         };
 

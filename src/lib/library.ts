@@ -38,7 +38,7 @@ export async function getLibraryItems(filterSeriesId?: string): Promise<LibraryI
                 type: getValue(row, 'Type'),
                 name: getValue(row, 'Name'),
                 description: getValue(row, 'Description'),
-                refImageUrl: convertDriveUrl(getValue(row, 'Ref Image URLs')),
+                refImageUrl: convertDriveUrl(getValue(row, 'Ref Image URLs') || getValue(row, 'Ref Images') || getValue(row, 'Ref Image')),
                 negatives: getValue(row, 'Negatives'),
                 notes: getValue(row, 'Notes'),
                 episode: getValue(row, 'Episode') || '1',

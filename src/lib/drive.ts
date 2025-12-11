@@ -46,7 +46,10 @@ export const convertDriveUrl = (url: string): string => {
     // 4. Fallback: If it's a valid absolute HTTP URL, allow it (e.g. public web image)
     if (url.startsWith('http')) return url;
 
-    // 5. Reject relative/local URLs
+    // 5. Allow local URLs
+    if (url.startsWith('/api/')) return url;
+
+    // 6. Reject other relative/local URLs
     console.warn(`[convertDriveUrl] Skipping invalid/local URL: ${url}`);
     return '';
 };

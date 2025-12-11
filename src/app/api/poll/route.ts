@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getGoogleSheetsClient, getHeaders, indexToColumnLetter, getSheetData, parseHeaders } from '@/lib/sheets';
 import { getFluxTask, getVeoTask } from '@/lib/kie';
+import { saveFile, downloadAndSave } from '@/lib/storage';
+import mime from 'mime';
 
 export async function POST(req: Request) {
     try {
@@ -140,6 +142,21 @@ export async function POST(req: Request) {
 
             // 5. Prepare Updates
             if ((status === 'Done' && resultUrl) || status === 'Error') {
+
+                // CRITICAL: Download result to local storage to prevent expiry
+                if (status === 'Done' && resultUrl) {
+                    try {
+                        const localUrl = await downloadAndSave(resultUrl, taskId);
+                        if (localUrl) {
+                            console.log(`Saved ${resultUrl} -> ${localUrl}`);
+                            resultUrl = localUrl;
+                        }
+                    } catch (e) {
+                        console.error(`Failed to download result for task ${taskId}:`, e);
+                        // Fallback: Use remote URL (better than nothing, but will expire)
+                    }
+                }
+
                 if (item.type === 'LIBRARY') {
                     // Update Library Ref Image URL matches Result URL
                     const colIndex = librarySheet.headers.get('Ref Image URLs')!; // We know it exists
