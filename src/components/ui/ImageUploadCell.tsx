@@ -61,7 +61,10 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                 body: formData,
             });
 
-            if (!res.ok) throw new Error('Upload failed');
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || 'Upload failed');
+            }
 
             const data = await res.json();
             const newUrl = data.url;
@@ -71,9 +74,9 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
             const newUrls = [...currentUrls, newUrl];
             onChange(newUrls.join(','));
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('Upload error:', err);
-            alert('Failed to upload image');
+            alert(`Failed to upload image: ${err.message}`);
         } finally {
             setUploading(false);
             // Reset input so same file can be selected again if needed

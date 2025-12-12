@@ -27,10 +27,26 @@ const ensureDirs = async () => {
 // Initialize on import (safe for server-side)
 ensureDirs();
 
-export async function saveFile(buffer: Buffer, filename: string, type: 'upload' | 'generated'): Promise<string> {
+// Helper to separate name and extension
+function splitName(filename: string) {
+    const ext = path.extname(filename);
+    const name = path.basename(filename, ext);
+    return { name, ext };
+}
+
+export async function saveFile(buffer: Buffer, filename: string, type: 'upload' | 'generated', options: { overwrite?: boolean } = {}): Promise<string> {
     await ensureDirs();
     const targetDir = type === 'upload' ? UPLOADS_DIR : GENERATED_DIR;
     const filePath = path.join(targetDir, filename);
+
+    // Deduplication / Reuse Logic
+    if (!options.overwrite && fs.existsSync(filePath)) {
+        // If file exists and we are not overwriting, return the existing file URL.
+        // This effectively "deduplicates" uploads by name.
+        const urlType = type === 'upload' ? 'uploads' : type;
+        return `/api/media/${urlType}/${filename}`;
+    }
+
     await writeFile(filePath, buffer);
     const urlType = type === 'upload' ? 'uploads' : type;
     return `/api/media/${urlType}/${filename}`;
@@ -59,7 +75,7 @@ export async function getFileContent(filePath: string): Promise<Buffer> {
 
 import mime from 'mime';
 
-export async function downloadAndSave(url: string, taskId: string, type: 'generated' | 'upload' = 'generated'): Promise<string | null> {
+export async function downloadAndSave(url: string, taskId: string, type: 'generated' | 'upload' = 'generated', overwrite = true): Promise<string | null> {
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.statusText}`);
@@ -74,7 +90,7 @@ export async function downloadAndSave(url: string, taskId: string, type: 'genera
         const arrayBuffer = await res.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        return await saveFile(buffer, filename, type);
+        return await saveFile(buffer, filename, type, { overwrite });
     } catch (error) {
         console.error('Download and Save Error:', error);
         return null;

@@ -143,19 +143,12 @@ export async function POST(req: Request) {
             // 5. Prepare Updates
             if ((status === 'Done' && resultUrl) || status === 'Error') {
 
-                // CRITICAL: Download result to local storage to prevent expiry
-                if (status === 'Done' && resultUrl) {
-                    try {
-                        const localUrl = await downloadAndSave(resultUrl, taskId);
-                        if (localUrl) {
-                            console.log(`Saved ${resultUrl} -> ${localUrl}`);
-                            resultUrl = localUrl;
-                        }
-                    } catch (e) {
-                        console.error(`Failed to download result for task ${taskId}:`, e);
-                        // Fallback: Use remote URL (better than nothing, but will expire)
-                    }
-                }
+                /* 
+                 * OPT-IN ARCHIVAL STRATEGY:
+                 * We do NOT download automatically here.
+                 * We simply update the sheet with the remote resultUrl.
+                 * The user will click "Save Reference Image" in the UI to archive it.
+                 */
 
                 if (item.type === 'LIBRARY') {
                     // Update Library Ref Image URL matches Result URL

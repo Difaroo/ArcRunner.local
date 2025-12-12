@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Loader2 } from "lucide-react";
 import { Clip, Series } from './api/clips/route';
 import { Button } from "@/components/ui/button"
 import {
@@ -36,6 +37,8 @@ export interface LibraryItem {
   series?: string;
 }
 
+import { useMediaArchiver } from "@/hooks/useMediaArchiver"
+
 export default function Home() {
   const [clips, setClips] = useState<Clip[]>([]);
   const [seriesList, setSeriesList] = useState<Series[]>([]);
@@ -48,6 +51,9 @@ export default function Home() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentEpisode, setCurrentEpisode] = useState(1);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+
+
+
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Clip>>({});
@@ -216,6 +222,16 @@ export default function Home() {
       throw err; // Propagate to component
     }
   };
+
+  const { archiveMedia, isArchiving } = useMediaArchiver({
+    clips,
+    setClips,
+    libraryItems,
+    setLibraryItems,
+    onClipSave: handleSave,
+    onLibrarySave: handleLibrarySave,
+    setPlayingVideoUrl
+  });
 
   const handleCancelEdit = () => {
     setEditingId(null);
@@ -573,55 +589,8 @@ export default function Home() {
           <div className="relative w-[90vw] max-w-5xl aspect-video bg-black border border-zinc-800 shadow-2xl rounded-lg overflow-hidden group/player" onClick={e => e.stopPropagation()}>
             {/* Top Right Controls */}
             {/* Top Right Controls */}
+            {/* Top Right Controls */}
             <div className="absolute top-4 right-4 z-50 flex gap-2">
-              {playingVideoUrl && !playingVideoUrl.startsWith('/api/media') && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="bg-orange-500/80 hover:bg-orange-600 text-white backdrop-blur-md border-0"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    if (confirm("Download this video to local storage? This will save it permanently.")) {
-                      try {
-                        // Find Owner
-                        const clip = clips.find(c => c.resultUrl === playingVideoUrl);
-                        const libItem = libraryItems.find(l => l.refImageUrl === playingVideoUrl);
-
-                        if (!clip && !libItem) return;
-
-                        const id = clip ? clip.id : libItem?.id || '';
-                        const type = clip ? 'clip' : 'library';
-
-                        const res = await fetch('/api/archive', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ url: playingVideoUrl, id, type })
-                        });
-
-                        if (!res.ok) throw new Error("Archive failed");
-
-                        const data = await res.json();
-                        if (data.url) {
-                          // Update State Immediately
-                          setPlayingVideoUrl(data.url); // Use local URL for player
-                          if (clip) {
-                            setClips(prev => prev.map(c => c.id === clip.id ? { ...c, resultUrl: data.url } : c));
-                          } else if (libItem) {
-                            setLibraryItems(prev => prev.map(l => l.id === libItem.id ? { ...l, refImageUrl: data.url } : l));
-                          }
-                          alert("Archived successfully to local storage! 💾");
-                        }
-                      } catch (err) {
-                        console.error(err);
-                        alert("Failed to archive video.");
-                      }
-                    }
-                  }}
-                >
-                  <span className="material-symbols-outlined text-sm mr-1">download</span>
-                  Archive
-                </Button>
-              )}
               <button
                 onClick={() => { setPlayingVideoUrl(null); setPlaylist([]); }}
                 className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
@@ -642,88 +611,28 @@ export default function Home() {
               </div>
 
               <div className="pointer-events-auto">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    const currentUrl = playingVideoUrl;
-                    if (!currentUrl) return;
-
-                    // 1. Find Owner (Clip or Library Item)
-                    const clip = clips.find(c => c.resultUrl === currentUrl);
-                    const libItem = libraryItems.find(l => l.refImageUrl === currentUrl); // Library results overwrite refImageUrl
-
-                    if (!clip && !libItem) {
-                      alert("Could not find source item for this media.");
-                      return;
-                    }
-
-                    // 2. Ingest Remote URL (Localize)
-                    let finalUrl = currentUrl;
-                    if (!currentUrl.startsWith('/api/media')) {
-                      try {
-                        // alert("Localizing remote file..."); // Optional feedback
-                        const res = await fetch(currentUrl);
-                        const blob = await res.blob();
-
-                        const type = blob.type;
-                        let ext = 'bin';
-                        if (type.includes('jpeg') || type.includes('jpg')) ext = 'jpg';
-                        else if (type.includes('png')) type.includes('png');
-                        else if (type.includes('webp')) ext = 'webp';
-                        else if (type.includes('mp4')) ext = 'mp4';
-
-                        const file = new File([blob], `ref_ingest_${Date.now()}.${ext}`, { type });
-                        const formData = new FormData();
-                        formData.append('file', file);
-
-                        const upRes = await fetch('/api/upload', { method: 'POST', body: formData });
-                        const upData = await upRes.json();
-
-                        if (upData.url) {
-                          finalUrl = upData.url;
-                        } else {
-                          throw new Error("Upload failed");
-                        }
-                      } catch (err) {
-                        console.error("Ingest failed", err);
-                        alert("Failed to save remote file locally. Using original link.");
-                      }
-                    }
-
-                    // 3. Update Response
-                    if (clip) {
-                      // Append to Clip Refs
-                      const currentRefs = clip.refImageUrls || '';
-                      if (currentRefs.includes(finalUrl)) {
-                        alert("Image already added!");
-                        return;
-                      }
-                      const newRefs = currentRefs ? `${currentRefs}, ${finalUrl}` : finalUrl;
-
-                      setClips(prev => prev.map(c => c.id === clip.id ? { ...c, refImageUrls: newRefs } : c));
-                      handleSave(clip.id, { refImageUrls: newRefs });
-                      alert("Added to Clip References!");
-                    } else if (libItem) {
-                      // Update Library Ref (Single field)
-                      // If it's already the same (and local), nothing to do.
-                      // If we localized it, we update it.
-                      if (libItem.refImageUrl === finalUrl) {
-                        alert("Reference is already up to date.");
-                        return;
-                      }
-
-                      setLibraryItems(prev => prev.map(l => l.id === libItem.id ? { ...l, refImageUrl: finalUrl } : l));
-                      handleLibrarySave(libItem.id, { refImageUrl: finalUrl }); // Function must exist
-                      alert("Library Reference Updated (Localized)!");
-                    }
-                  }}
-                >
-                  <span className="material-symbols-outlined !text-sm mr-2">add_photo_alternate</span>
-                  Add Source Image
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await archiveMedia(playingVideoUrl);
+                        }}
+                        disabled={isArchiving}
+                      >
+                        {isArchiving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <span className="material-symbols-outlined !text-sm mr-2">save</span>}
+                        {isArchiving ? "Saving..." : "Save Reference Image"}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Download to local storage and set as permanent reference</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
 

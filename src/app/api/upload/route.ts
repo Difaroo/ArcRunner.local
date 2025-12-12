@@ -14,13 +14,12 @@ export async function POST(request: NextRequest) {
 
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        // Clean filename to remove weird chars
-        const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const timestamp = Date.now();
-        const finalName = `${timestamp}_${cleanName}`;
+        // Clean filename to remove weird chars (but keep dot)
+        // Note: storage.ts now handles smart renaming if file exists
+        const finalName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
 
-        // Save to local storage
-        const url = await saveFile(buffer, finalName, 'upload');
+        // Save to local storage (explicitly do not overwrite uploads)
+        const url = await saveFile(buffer, finalName, 'upload', { overwrite: false });
 
         return NextResponse.json({ url });
 
