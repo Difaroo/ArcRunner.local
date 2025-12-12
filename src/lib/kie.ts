@@ -66,3 +66,12 @@ export async function getFluxTask(taskId: string) {
 export async function getVeoTask(taskId: string) {
     return kieFetch<{ status: string, videoUrl?: string, url?: string, images?: { url: string }[] }>(`/veo/record-info?taskId=${taskId}`, { method: 'GET' });
 }
+
+export async function uploadFileBase64(base64Data: string, fileName?: string) {
+    // Uses /file-base64-upload endpoint (assuming v1)
+    // Payload: { base64Data: "data:...", fileName: "optional.jpg" }
+    return kieFetch<{ url: string }>('/file-base64-upload', {
+        method: 'POST',
+        body: { base64Data, fileName }
+    });
+}

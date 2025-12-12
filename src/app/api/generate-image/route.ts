@@ -3,9 +3,26 @@ import { getGoogleSheetsClient } from '@/lib/sheets';
 import { convertDriveUrl } from '@/lib/drive';
 import { buildPrompt } from '@/lib/promptBuilder';
 import { getLibraryItems } from '@/lib/library';
-import { createFluxTask, FluxPayload } from '@/lib/kie';
+import { createFluxTask, FluxPayload, uploadFileBase64 } from '@/lib/kie';
 import { getFilePath, getFileContent } from '@/lib/storage';
 import mime from 'mime';
+
+// Helper to detect MIME from Buffer (Magic Bytes)
+function detectMimeFromBuffer(buffer: Buffer): string {
+    if (buffer.length < 4) return 'application/octet-stream';
+
+    // PNG: 89 50 4E 47
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return 'image/png';
+
+    // JPEG: FF D8 FF
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return 'image/jpeg';
+
+    // WEBP: RIFF....WEBP (Offset 8)
+    if (buffer.length >= 12 && buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+        buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return 'image/webp';
+
+    return 'application/octet-stream';
+}
 
 async function processRefUrls(urls: string[]): Promise<string[]> {
     const processed: string[] = [];
@@ -13,20 +30,32 @@ async function processRefUrls(urls: string[]): Promise<string[]> {
         // Check if local media URL
         if (url.includes('/api/media/')) {
             try {
-                // Extract path parts: /api/media/upload/filename.jpg -> ['upload', 'filename.jpg']
-                // Use a safer split around the known api route
                 const parts = url.split('/api/media/')[1].split('/');
                 const filePath = await getFilePath(parts);
 
                 if (filePath) {
                     const buffer = await getFileContent(filePath);
-                    // Determine mime type
-                    const ext = filePath.split('.').pop()?.toLowerCase();
-                    const mimeType = mime.getType(ext || '') || 'application/octet-stream';
 
-                    const base64 = buffer.toString('base64');
-                    processed.push(`data:${mimeType};base64,${base64}`);
-                    console.log(`Converted local file ${parts.join('/')} to Base64`);
+                    // Detect MIME
+                    let mimeType = detectMimeFromBuffer(buffer);
+                    if (mimeType === 'application/octet-stream') mimeType = 'image/jpeg';
+
+                    console.log(`Debug Processing: File=${parts.join('/')}, Detected Mime=${mimeType}`);
+
+                    const base64Str = buffer.toString('base64');
+                    const dataUri = `data:${mimeType};base64,${base64Str}`;
+
+                    // UPLOAD TO KIE TEMP STORAGE
+                    console.log(`Uploading local file to Kie Temp Storage...`);
+                    const uploadRes = await uploadFileBase64(dataUri, parts[parts.length - 1]);
+
+                    if (uploadRes.data && uploadRes.data.url) {
+                        console.log(`Upload successful: ${uploadRes.data.url}`);
+                        processed.push(uploadRes.data.url);
+                    } else {
+                        throw new Error(`Upload failed, no URL returned: ${JSON.stringify(uploadRes)}`);
+                    }
+
                 } else {
                     console.warn(`Local file not found: ${url}`);
                 }
@@ -34,8 +63,40 @@ async function processRefUrls(urls: string[]): Promise<string[]> {
                 console.error(`Failed to process local url ${url}:`, e);
             }
         } else {
-            // Keep remote/drive URLs
-            processed.push(url);
+            // Remote URL (Drive, etc.) -> Fetch -> Base64 -> Upload -> Public URL
+            try {
+                console.log(`Fetching remote URL: ${url}`);
+                const res = await fetch(url);
+                if (!res.ok) {
+                    console.warn(`Failed to fetch remote image: ${url} (${res.status})`);
+                    continue;
+                }
+
+                const arrayBuffer = await res.arrayBuffer();
+                const buffer = Buffer.from(arrayBuffer);
+
+                // Detect MIME
+                let mimeType = detectMimeFromBuffer(buffer);
+                if (mimeType === 'application/octet-stream') mimeType = 'image/jpeg';
+
+                const base64Str = buffer.toString('base64');
+                const dataUri = `data:${mimeType};base64,${base64Str}`;
+
+                // UPLOAD TO KIE TEMP STORAGE
+                console.log(`Uploading remote content to Kie Temp Storage...`);
+                // Use a default name for remote files if unknown
+                const uploadRes = await uploadFileBase64(dataUri, 'remote_ref.jpg');
+
+                if (uploadRes.data && uploadRes.data.url) {
+                    console.log(`Upload successful: ${uploadRes.data.url}`);
+                    processed.push(uploadRes.data.url);
+                } else {
+                    throw new Error(`Upload failed, no URL returned: ${JSON.stringify(uploadRes)}`);
+                }
+
+            } catch (e) {
+                console.error(`Error processing remote url ${url}:`, e);
+            }
         }
     }
     return processed;
@@ -62,7 +123,7 @@ export async function POST(req: Request) {
         // 2a. Gather Reference Images
         let imageUrls: string[] = [];
 
-        // A. From Characters (Library Lookup)
+        // A. From Characters
         if (clip.character) {
             const charNames = clip.character.split(',').map((s: string) => s.trim());
             charNames.forEach((name: string) => {
@@ -79,7 +140,7 @@ export async function POST(req: Request) {
             });
         }
 
-        // B. From Location (Library Lookup)
+        // B. From Location
         if (clip.location) {
             const locNames = clip.location.split(',').map((s: string) => s.trim());
             locNames.forEach((name: string) => {
@@ -96,11 +157,11 @@ export async function POST(req: Request) {
             });
         }
 
-        // C. From Clip Ref URL (Direct or Local)
+        // C. From Clip Ref URL
         if (clip.refImageUrls) {
             const urls = clip.refImageUrls.split(',').map((s: string) => s.trim());
             urls.forEach((u: string) => {
-                const converted = convertDriveUrl(u); // Keeps local URLs intact, converts Drive
+                const converted = convertDriveUrl(u);
                 if (converted) imageUrls.push(converted);
             });
         }
@@ -124,7 +185,7 @@ export async function POST(req: Request) {
         if (imageUrls.length > 0) {
             console.log('Switching to Image-to-Image mode for Flux');
             model = 'flux-2/pro-image-to-image';
-            input.input_urls = imageUrls;
+            input.input_urls = imageUrls; // Reverted to input_urls as array
             input.strength = 0.75;
         }
 
@@ -150,7 +211,8 @@ export async function POST(req: Request) {
             resultUrl = `TASK:${taskId}`;
             status = 'Generating';
         } else {
-            throw new Error('No Task ID returned from Jobs API');
+            // Dump response for debugging
+            throw new Error(`No Task ID returned. Response: ${JSON.stringify(kieResponse)}`);
         }
 
         // 6. Update Sheet
