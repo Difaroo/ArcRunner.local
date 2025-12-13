@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient, getHeaders } from '@/lib/sheets';
+export const dynamic = 'force-dynamic';
+import { getSheetData, parseHeaders } from '@/lib/sheets';
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 

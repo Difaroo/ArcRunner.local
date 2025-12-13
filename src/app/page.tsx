@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2 } from "lucide-react";
 import { Clip, Series } from './api/clips/route';
 import { Button } from "@/components/ui/button"
@@ -90,10 +90,10 @@ export default function Home() {
 
   // State Refs for Polling Access
 
-  const refreshData = async (silent = false) => {
+  const refreshData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch('/api/clips');
+      const res = await fetch('/api/clips', { cache: 'no-store' });
       const data = await res.json();
 
       if (data.error) throw new Error(data.error);
@@ -115,7 +115,9 @@ export default function Home() {
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, [currentSeriesId]);
+
+  usePolling({ clips, libraryItems, refreshData });
 
   useEffect(() => {
     if (hasFetched.current) return;

@@ -1,11 +1,13 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient, getHeaders, indexToColumnLetter, getSheetData, parseHeaders } from '@/lib/sheets';
-import { getFluxTask, getVeoTask } from '@/lib/kie';
-import { saveFile, downloadAndSave } from '@/lib/storage';
-import mime from 'mime';
+import { getGoogleSheetsClient, indexToColumnLetter, getSheetData, parseHeaders } from '@/lib/sheets';
+import { checkKieTaskStatus } from '@/lib/kie';
+
 
 export async function POST(req: Request) {
     try {
+
         console.log('Poll started (Server Scan Mode)...');
 
         // 1. Fetch ALL Data from Sheets (Source of Truth)
@@ -42,11 +44,17 @@ export async function POST(req: Request) {
                     // Double check it's not already a URL
                     if (url && String(url).startsWith('http')) return;
 
+                    // ZOMBIE CHECK: If Generating but no valid TASK ID, it's stuck.
+                    let tId = url;
+                    if (status === 'Generating' && (!url || !String(url).startsWith('TASK:'))) {
+                        tId = 'ZOMBIE';
+                    }
+
                     targets.push({
                         type: 'CLIP',
                         id: index.toString(), // 0-based index relative to data rows
                         sheetRow: index + 2, // 1-based index including header
-                        taskId: url, // expecting TASK: ID here
+                        taskId: tId, // expecting TASK: ID or ZOMBIE here
                         model: clipsModelIdx !== undefined ? row[clipsModelIdx] : ''
                     });
                 }
@@ -104,61 +112,23 @@ export async function POST(req: Request) {
             let resultUrl = '';
 
             try {
-                if (isFlux) {
-                    const kieRes = await getFluxTask(taskId);
-                    const state = kieRes.data?.state;
+                const apiType = isFlux ? 'flux' : 'veo';
+                const check = await checkKieTaskStatus(taskId, apiType);
 
-                    // Architectural Change: explicit check for Active/Success, default to Error
-                    const activeStates = ['queued', 'generating', 'processing', 'created'];
+                status = check.status;
 
-                    if (activeStates.includes(state?.toLowerCase() || '')) {
-                        status = 'Generating';
-                    } else if (state === 'success') {
-                        status = 'Done';
-                    } else {
-                        // Catch-all for 'fail', 'error', or any unknown state
-                        status = 'Error';
-                    }
-
-                    if (status === 'Done' && kieRes.data?.resultJson) {
-                        try {
-                            const results = JSON.parse(kieRes.data.resultJson);
-                            if (results.images?.length > 0) {
-                                resultUrl = results.images[0].url;
-                            } else if (results.resultUrls?.length > 0) {
-                                resultUrl = results.resultUrls[0];
-                            }
-                        } catch (e) {
-                            console.error(`Error parsing resultJson for task ${taskId}:`, e);
-                            status = 'Error';
-                        }
-                    }
-                } else {
-                    const kieRes = await getVeoTask(taskId);
-                    const s = kieRes.data?.status;
-
-                    // Architectural Change: explicit check for Active/Success, default to Error
-                    const activeStates = ['QUEUED', 'PENDING', 'RUNNING', 'CREATED', 'PROCESSING'];
-                    const successStates = ['COMPLETED', 'SUCCEEDED'];
-
-                    if (activeStates.includes(s || '')) {
-                        status = 'Generating';
-                    } else if (successStates.includes(s || '')) {
-                        status = 'Done';
-                    } else {
-                        // Catch-all for FAILED, ERROR, REJECTED, TIMED_OUT, etc.
-                        status = 'Error';
-                    }
-
-                    if (status === 'Done') {
-                        resultUrl = kieRes.data?.videoUrl || kieRes.data?.url || kieRes.data?.images?.[0]?.url || '';
-                    } else if (status === 'Error') {
-                        // Capture error for display
-                        resultUrl = `ERROR: ${kieRes.data?.failureReason || kieRes.data?.msg || kieRes.data?.error || s || 'Unknown Error'}`;
-                    }
+                if (status === 'Generating') {
+                    continue; // No update
                 }
-            } catch (err) {
-                console.warn(`Polling failed for ${taskId}:`, err);
+
+                if (status === 'Error') {
+                    resultUrl = check.errorMsg || 'Processing Error';
+                } else {
+                    resultUrl = check.resultUrl || '';
+                }
+
+            } catch (err: any) {
+                console.warn(`Poll loop error for ${taskId}:`, err);
                 continue;
             }
 
@@ -227,3 +197,4 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

@@ -37,6 +37,7 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
 
     const res = await fetch(url, {
         method,
+        cache: 'no-store',
         headers: {
             'Authorization': `Bearer ${KIE_API_KEY}`,
             'Content-Type': 'application/json'
@@ -84,4 +85,79 @@ export async function uploadFileBase64(base64Data: string, fileName?: string) {
         method: 'POST',
         body: { base64Data, fileName, uploadPath: "temp_uploads" }
     });
+}
+
+export type AppStatus = 'Generating' | 'Done' | 'Error';
+
+export async function checkKieTaskStatus(taskId: string, type: 'flux' | 'veo'): Promise<{ status: AppStatus, resultUrl?: string, errorMsg?: string }> {
+    try {
+        let status: AppStatus = 'Generating';
+        let resultUrl = '';
+        let errorMsg = '';
+
+        if (type === 'flux') {
+            const res = await getFluxTask(taskId);
+            const state = (res.data?.state || '').toLowerCase();
+
+            // Flux Normalization
+            const activeStates = ['queued', 'generating', 'processing', 'created', 'starting'];
+            if (activeStates.includes(state)) {
+                status = 'Generating';
+            } else if (['success', 'succeeded', 'completed', 'done'].includes(state)) {
+                status = 'Done';
+                // URL Extraction Logic
+                if (res.data?.resultJson) {
+                    try {
+                        const results = JSON.parse(res.data.resultJson);
+                        resultUrl = results.images?.[0]?.url || results.resultUrls?.[0] || results.url || '';
+                    } catch (e) {
+                        status = 'Error';
+                        errorMsg = 'JSON_PARSE_ERR';
+                    }
+                } else {
+                    status = 'Error';
+                    errorMsg = 'NO_RESULT_JSON';
+                }
+            } else {
+                status = 'Error';
+                errorMsg = state || 'Unknown Error';
+            }
+        } else {
+            const res = await getVeoTask(taskId);
+            const s = res.data?.status || '';
+
+            // Veo Normalization
+            const activeStates = ['QUEUED', 'PENDING', 'RUNNING', 'CREATED', 'PROCESSING'];
+            const successStates = ['COMPLETED', 'SUCCEEDED'];
+
+            if (activeStates.includes(s)) {
+                status = 'Generating';
+            } else if (successStates.includes(s)) {
+                status = 'Done';
+                resultUrl = res.data?.videoUrl || res.data?.url || res.data?.images?.[0]?.url || '';
+            } else {
+                status = 'Error';
+                errorMsg = res.data?.failureReason || res.data?.msg || res.data?.error || s;
+            }
+        }
+
+        // Universal URL Check
+        if (status === 'Done' && !resultUrl) {
+            status = 'Error';
+            errorMsg = errorMsg || 'MISSING_URL';
+        }
+
+        return { status, resultUrl, errorMsg };
+
+    } catch (e: any) {
+        const msg = e.message || '';
+        // ZOMBIE / 404 Check
+        if (msg.includes('404') || msg.includes('Not Found') || msg.includes('does not exist')) {
+            return { status: 'Error', errorMsg: `POLL_ERR: ${msg}` };
+        }
+        // Transient Error (Network/Timeout) -> Assume logic should retry later
+        console.warn(`Transient Poll Error for ${taskId}:`, e);
+        // Return Generating allows the system to retry next loop without updating sheet
+        return { status: 'Generating' };
+    }
 }

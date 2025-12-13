@@ -21,11 +21,15 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
 
     useEffect(() => {
         const pollInterval = setInterval(async () => {
-            // Smart Polling: Only poll if we have known active tasks
-            const hasActiveClips = clipsRef.current.some(c => c.status === 'Generating' || (c.resultUrl && c.resultUrl.startsWith('TASK:')));
-            const hasActiveLib = libraryRef.current.some(i => i.refImageUrl && i.refImageUrl.startsWith('TASK:'));
+            // Smart Polling Logic
+            const clips = clipsRef.current;
+            const libItems = libraryRef.current;
 
-            if (!hasActiveClips && !hasActiveLib) {
+            const activeClipsCount = clips.filter(c => c.status === 'Generating' || (c.resultUrl && c.resultUrl.startsWith('TASK:'))).length;
+            const activeLibCount = libItems.filter(i => i.refImageUrl && i.refImageUrl.startsWith('TASK:')).length;
+            const hasActiveTasks = activeClipsCount > 0 || activeLibCount > 0;
+
+            if (!hasActiveTasks) {
                 return;
             }
 

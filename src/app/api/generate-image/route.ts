@@ -89,38 +89,21 @@ export async function POST(req: Request) {
         imageUrls = await processRefUrls(imageUrls);
 
         // 3. Prepare Payload
-        // Map UI selection to Kie Model ID
-        let model = 'flux-1.1-pro'; // Default (Pro)
-        if (requestedModel === 'flux-flex') {
-            model = 'flux-schnell';
-        }
+        // Reverting to legacy Model IDs validated by Probe 9
+        let model = 'flux-2/flex-text-to-image';
+        // Note: Previous code defaulted to this. If we want Pro T2I, we can try 'flux-2/pro-text-to-image' later.
 
         const aspectRatio = requestedRatio || '16:9';
 
         const input: any = {
             prompt: prompt,
             aspect_ratio: aspectRatio,
-            // resolution: '2K' // Not always supported by Schnell? Remove to be safe or keep if Pro
+            resolution: '2K' // Required by this endpoint (Must be Uppercase)
         };
-
-        // Flux 1.1 Pro supports 'safety_tolerance' etc.
-        if (model === 'flux-1.1-pro') {
-            input.safety_tolerance = 2; // Allow some edge
-        }
 
         if (imageUrls.length > 0) {
             console.log('Switching to Image-to-Image mode for Flux');
-            // Kie specific: model name might change for Img2Img? 
-            // Usually Flux handles it via input params. 
-            // But previous code used 'flux-2/pro-image-to-image'.
-            // Let's stick to the standard 'flux-1.1-pro' if it supports input_image, 
-            // OR use the specific endpoint if Kie requires it.
-            // Safe bet: keep `model` as is but add `image_url` param (singular?).
-            // Kie typically uses `input_image` or `result_image`.
-            // Previous code used `input_urls` (array).
-
-            // Reverting to the logic found in previous code which seemed intentional for Kie:
-            model = 'flux-2/pro-image-to-image'; // Forced for Ref2Img for now until confirmed otherwise
+            model = 'flux-2/pro-image-to-image';
             input.input_urls = imageUrls;
             input.strength = 0.75;
         }

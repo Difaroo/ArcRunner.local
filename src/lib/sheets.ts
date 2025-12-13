@@ -91,7 +91,7 @@ export function indexToColumnLetter(index: number): string {
     while (index >= 0) {
         temp = (index) % 26;
         letter = String.fromCharCode(temp + 65) + letter;
-        index = (index - temp - 1) / 26 - 1; // Adjust for 0-based index
+        index = Math.floor(index / 26) - 1; // Correct logic for 0-based column index
         if (index < 0) break; // Break if we've processed all
     }
     return letter;

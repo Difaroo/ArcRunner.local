@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { getSheetData, parseHeaders } from '@/lib/sheets';
 import { convertDriveUrl } from '@/lib/drive';
 
