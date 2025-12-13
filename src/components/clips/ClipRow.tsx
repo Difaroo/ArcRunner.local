@@ -242,12 +242,12 @@ export function ClipRow({
             style={style}
             className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''} ${isDragging ? 'opacity-50 bg-stone-800' : ''}`}
         >
-            <TableCell className="w-[1px] p-0 pl-1 pr-0 align-top py-3 cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
+            <TableCell className="w-[30px] p-0 pl-1 pr-0 align-top py-3 cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
                 <div className="flex items-center justify-center h-4 w-4">
                     <span className="material-symbols-outlined text-stone-600 hover:text-stone-400 !text-base leading-none">drag_indicator</span>
                 </div>
             </TableCell>
-            <TableCell className="w-6 px-0 text-center align-top py-3">
+            <TableCell className="w-[40px] px-0 text-center align-top py-3">
                 <Checkbox
                     checked={isSelected}
                     onCheckedChange={() => onSelect(clip.id)}
@@ -256,7 +256,7 @@ export function ClipRow({
             <TableCell className="align-top font-sans font-extralight text-stone-500 text-xs py-3">
                 {clip.scene}
             </TableCell>
-            <TableCell className={`align-top w-[13%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[12%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="font-medium text-white block">
                     {isEditing ? (
                         <Input
@@ -269,7 +269,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-16 ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[9%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
                     {isEditing ? (
                         <DropdownMenu>
@@ -292,15 +292,31 @@ export function ClipRow({
                             </DropdownMenuContent>
                         </DropdownMenu>
                     ) : (
-                        clip.character
-                            ? clip.character.split(',').map((char, i) => (
-                                <div key={i} className="leading-tight">{char.trim()}</div>
-                            ))
-                            : <span className="text-stone-500 italic">-</span>
+                        <div className="flex flex-col gap-2">
+                            {clip.character
+                                ? clip.character.split(',').map((char, i) => (
+                                    <div key={i} className="leading-tight">{char.trim()}</div>
+                                ))
+                                : <span className="text-stone-500 italic">-</span>
+                            }
+                            {clip.characterImageUrls && clip.characterImageUrls.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {clip.characterImageUrls.map((url, i) => (
+                                        <img
+                                            key={i}
+                                            src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                            alt="Char Ref"
+                                            className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-32 ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[9%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <DropdownMenu>
@@ -322,11 +338,26 @@ export function ClipRow({
                             </DropdownMenuContent>
                         </DropdownMenu>
                     ) : (
-                        <span className="table-text">{clip.location || '-'}</span>
+                        <div className="flex flex-col gap-2">
+                            <span className="table-text">{clip.location || '-'}</span>
+                            {clip.locationImageUrls && clip.locationImageUrls.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {clip.locationImageUrls.map((url, i) => (
+                                        <img
+                                            key={i}
+                                            src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                            alt="Loc Ref"
+                                            className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     )}
-                </EditableCell>
-            </TableCell>
-            <TableCell className={`align-top text-white text-xs w-32 ${isEditing ? "p-1" : "py-3"}`}>
+                </EditableCell >
+            </TableCell >
+            <TableCell className={`align-top text-white text-xs w-[9%] ${isEditing ? "p-1" : "py-3"}`}>
                 <div>
                     <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
                         {isEditing ? (
@@ -354,7 +385,7 @@ export function ClipRow({
                     </EditableCell>
                 </div>
             </TableCell>
-            <TableCell className={`align-top text-white w-1/4 ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[22%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
                     {isEditing ? (
                         <AutoResizeTextarea
@@ -367,7 +398,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white w-1/6 ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[18%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <AutoResizeTextarea
@@ -380,34 +411,9 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className="align-top py-3 w-auto">
+            <TableCell className="align-top py-3 w-[140px] pr-[10px] pl-0">
                 {isEditing ? (
-                    <div className="flex flex-col gap-2">
-                        {/* Show Library Images (Static/ReadOnly) to prevent them "disappearing" during edit */}
-                        {(() => {
-                            const explicitSet = new Set((clip.explicitRefUrls || '').split(',').map(s => s.trim()).filter(Boolean));
-                            const allUrls = (clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-                            const libraryOnlyUrls = allUrls.filter(url => !explicitSet.has(url));
-
-                            if (libraryOnlyUrls.length === 0) return null;
-
-                            return (
-                                <div className="flex gap-1 opacity-70" title="Reference from Library (Linked)">
-                                    {libraryOnlyUrls.slice(0, 3).map((url, i) => (
-                                        <img
-                                            key={`lib-${i}`}
-                                            src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                            alt={`Library Ref ${i + 1}`}
-                                            className="w-[50px] h-[50px] object-cover rounded border border-blue-900/50 shadow-sm"
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                            );
-                        })()}
-
+                    <div className="flex flex-col gap-2 items-end">
                         <ImageUploadCell
                             value={editValues.refImageUrls || ''}
                             onChange={(url) => handleChange('refImageUrls', url)}
@@ -419,15 +425,16 @@ export function ClipRow({
                     </div>
                 ) : (
                     (() => {
-                        const urls = clip.refImageUrls ? clip.refImageUrls.split(',').map(s => s.trim()).filter(Boolean) : [];
+                        // Use explicitRefUrls only
+                        const urls = clip.explicitRefUrls ? clip.explicitRefUrls.split(',').map(s => s.trim()).filter(Boolean) : [];
                         return urls.length > 0 ? (
-                            <div className="flex gap-1" onClick={handleStartEdit}>
+                            <div className="flex gap-1 justify-end" onClick={handleStartEdit}>
                                 {urls.slice(0, 3).map((url, i) => (
                                     <img
                                         key={i}
                                         src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                         alt={`Ref ${i + 1}`}
-                                        className="w-[50px] h-[50px] object-cover rounded border border-black shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                        className="w-[40px] h-[40px] object-cover rounded border border-stone-600 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                                         onError={(e) => {
                                             (e.target as HTMLImageElement).style.display = 'none';
                                         }}
@@ -435,7 +442,7 @@ export function ClipRow({
                                 ))}
                             </div>
                         ) : (
-                            <div className="w-full">
+                            <div className="w-full flex justify-end">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -447,9 +454,9 @@ export function ClipRow({
                                                     setAutoOpenUpload(true);
                                                     handleStartEdit();
                                                 }}
-                                                className="btn-icon-action w-full"
+                                                className="btn-icon-action w-[40px] h-[40px] p-0 opacity-50 hover:opacity-100 border-dashed border-stone-700"
                                             >
-                                                <span className="material-symbols-outlined !text-lg">add</span>
+                                                <span className="material-symbols-outlined !text-lg text-primary">add</span>
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
@@ -462,9 +469,59 @@ export function ClipRow({
                     })()
                 )}
             </TableCell>
-            <TableCell className="align-top text-right py-3">
+            <TableCell className="align-top py-3 w-[75px] pr-[10px] pl-0">
+                {/* RESULT Column */}
+                {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && clip.resultUrl && (
+                    <div className="flex justify-end">
+                        <div
+                            className="relative group cursor-pointer w-[60px] h-[40px]"
+                            onClick={() => onPlay(clip.resultUrl!)}
+                        >
+                            {(() => {
+                                const isImage = clip.model?.includes('flux') || clip.resultUrl?.match(/\.(jpeg|jpg|png|webp)($|\?)/i);
+
+                                if (isImage) {
+                                    return (
+                                        <>
+                                            <img
+                                                src={clip.resultUrl.startsWith('/api/') ? clip.resultUrl : `/api/proxy-image?url=${encodeURIComponent(clip.resultUrl)}`}
+                                                className="w-full h-full object-cover rounded border border-stone-600 shadow-sm"
+                                                alt="Result"
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
+                                                <span className="material-symbols-outlined text-white/80 text-[20px] drop-shadow-md group-hover:scale-110 transition-transform">visibility</span>
+                                            </div>
+                                        </>
+                                    )
+                                } else {
+                                    return (
+                                        <>
+                                            <video
+                                                src={clip.resultUrl.startsWith('/api/') ? clip.resultUrl : `/api/proxy-download?url=${encodeURIComponent(clip.resultUrl)}`}
+                                                className="w-full h-full object-cover rounded border border-stone-600 shadow-sm"
+                                                preload="metadata"
+                                                muted
+                                                playsInline
+                                                onMouseOver={e => e.currentTarget.play()}
+                                                onMouseOut={e => {
+                                                    e.currentTarget.pause();
+                                                    e.currentTarget.currentTime = 0;
+                                                }}
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/0 transition-colors">
+                                                <span className="material-symbols-outlined text-white/80 text-[20px] drop-shadow-md group-hover:scale-110 transition-transform">play_circle</span>
+                                            </div>
+                                        </>
+                                    )
+                                }
+                            })()}
+                        </div>
+                    </div>
+                )}
+            </TableCell>
+            <TableCell className="align-top text-right py-3 w-[60px] pr-[25px] pl-0">
                 {isEditing ? (
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-col items-end gap-1">
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -502,46 +559,28 @@ export function ClipRow({
                         </TooltipProvider>
                     </div>
                 ) : (
-                    <div className="flex flex-col items-end gap-2">
-                        <div className="flex justify-end gap-2">
+                    <div className="flex flex-col items-end gap-1">
+                        {/* Controls Stack */}
+                        <div className="flex flex-col gap-2 items-end">
                             {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && clip.resultUrl && (
-                                <div className="flex gap-2">
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    onClick={() => onPlay(clip.resultUrl!)}
-                                                    className="btn-icon-action h-8 w-8"
-                                                >
-                                                    <span className="material-symbols-outlined !text-lg">play_arrow</span>
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Play video</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    onClick={handleDownload}
-                                                    disabled={saving || !clip.resultUrl || isDownloading}
-                                                    className={`btn-icon-action h-8 w-8 ${!clip.resultUrl ? 'opacity-30' : ''}`}
-                                                >
-                                                    {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">download</span>}
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Download video</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                </div>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={handleDownload}
+                                                disabled={saving || !clip.resultUrl || isDownloading}
+                                                className={`btn-icon-action h-8 w-8 ${!clip.resultUrl ? 'opacity-30' : ''}`}
+                                            >
+                                                {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">download</span>}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Download video</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             )}
 
                             {(!clip.status || clip.status === '' || clip.status === 'Error' || ((clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && !clip.resultUrl)) && (
@@ -574,29 +613,29 @@ export function ClipRow({
                             )}
                         </div>
 
-                        {/* Status Readout */}
-                        <div className="text-[10px] text-stone-500 font-medium h-4 flex items-center justify-end">
+                        {/* Status Readout (Stacked below) */}
+                        <div className="text-[10px] text-stone-500 font-medium text-right w-full mt-1">
                             {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && clip.resultUrl && (
                                 (downloadCount > 0 || clip.status === 'Saved' || clip.status?.startsWith('Saved')) ? (
-                                    <span className="text-stone-500 flex items-center gap-1">
+                                    <span className="text-stone-500 block">
                                         {clip.status?.startsWith('Saved') ? clip.status : `Saved${downloadCount > 1 ? ` [${downloadCount}]` : ''}`}
                                     </span>
                                 ) : (
-                                    <span className="text-primary/80">
+                                    <span className="text-primary/80 block">
                                         Ready
                                     </span>
                                 )
                             )}
                             {clip.status === 'Generating' && (
-                                <span className="text-primary/70">Generating...</span>
+                                <span className="text-primary/70 block">Gen...</span>
                             )}
                             {clip.status === 'Error' && (
-                                <span className="text-destructive">Error</span>
+                                <span className="text-destructive block">Error</span>
                             )}
                         </div>
                     </div>
                 )}
-            </TableCell>
+            </TableCell >
             <AlertDialog open={showEditGuard} onOpenChange={setShowEditGuard}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -611,6 +650,6 @@ export function ClipRow({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </TableRow>
+        </TableRow >
     )
 }

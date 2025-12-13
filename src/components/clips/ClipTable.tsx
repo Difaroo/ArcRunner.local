@@ -100,25 +100,26 @@ export function ClipTable({
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
             >
-                <Table>
+                <Table className="table-fixed border-collapse">
                     <TableHeader className="sticky top-0 bg-black backdrop-blur-sm z-10">
                         <TableRow>
-                            <TableHead className="w-[1px] p-0"></TableHead>
-                            <TableHead className="w-6 px-0 text-center align-top py-3">
+                            <TableHead className="w-[30px] p-0"></TableHead>
+                            <TableHead className="w-[40px] px-0 text-center align-top py-3">
                                 <Checkbox
                                     checked={allSelected}
                                     onCheckedChange={onSelectAll}
                                 />
                             </TableHead>
                             <TableHead className="w-[60px] font-semibold text-stone-500 text-left align-top py-3">SCN</TableHead>
-                            <TableHead className="w-[13%] font-semibold text-stone-500 text-left align-top py-3 pl-1">TITLE</TableHead>
-                            <TableHead className="w-16 font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
-                            <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>
-                            <TableHead className="w-32 font-semibold text-stone-500 text-left align-top py-3">CAMERA</TableHead>
-                            <TableHead className="w-1/4 font-semibold text-stone-500 text-left align-top py-3">ACTION</TableHead>
-                            <TableHead className="w-1/6 font-semibold text-stone-500 text-left align-top py-3">DIALOG</TableHead>
-                            <TableHead className="w-24 font-semibold text-stone-500 text-left align-top py-3">REF IMG</TableHead>
-                            <TableHead className="text-right w-24 font-semibold text-stone-500 align-top py-3">STATUS</TableHead>
+                            <TableHead className="w-[12%] font-semibold text-stone-500 text-left align-top py-3 pl-1">TITLE</TableHead>
+                            <TableHead className="w-[9%] font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
+                            <TableHead className="w-[9%] font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>
+                            <TableHead className="w-[9%] font-semibold text-stone-500 text-left align-top py-3">CAMERA</TableHead>
+                            <TableHead className="w-[22%] font-semibold text-stone-500 text-left align-top py-3">ACTION</TableHead>
+                            <TableHead className="w-[18%] font-semibold text-stone-500 text-left align-top py-3">DIALOG</TableHead>
+                            <TableHead className="w-[140px] font-semibold text-stone-500 text-right align-top py-3 pr-[10px] pl-0">REF IMAGES</TableHead>
+                            <TableHead className="w-[75px] font-semibold text-stone-500 text-right align-top py-3 pr-[10px] pl-0">RESULT</TableHead>
+                            <TableHead className="w-[60px] font-semibold text-stone-500 text-right align-top py-3 pr-[25px] pl-0">STATUS</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

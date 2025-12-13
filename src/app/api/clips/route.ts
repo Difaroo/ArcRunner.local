@@ -14,6 +14,8 @@ export interface Clip {
     dialog: string;
     refImageUrls: string;
     explicitRefUrls: string;
+    characterImageUrls?: string[];
+    locationImageUrls?: string[];
     status: string;
     resultUrl?: string;
     seed?: string;
@@ -143,21 +145,37 @@ export async function GET() {
 
                 // 2. Look up Library refs (Scoped to Series)
                 const libraryRefUrls: string[] = [];
+                const characterImageUrls: string[] = [];
+                const locationImageUrls: string[] = [];
+
                 const seriesLibrary = libraryImages[series] || {};
 
                 // Character Image
                 if (character) {
                     const charNames = character.split(',').map((c: string) => c.trim().toLowerCase());
                     charNames.forEach((name: string) => {
-                        if (seriesLibrary[name] && !clipRefUrls.includes(seriesLibrary[name]) && !libraryRefUrls.includes(seriesLibrary[name])) {
-                            libraryRefUrls.push(seriesLibrary[name]);
+                        if (seriesLibrary[name]) {
+                            const url = seriesLibrary[name];
+                            if (!characterImageUrls.includes(url)) characterImageUrls.push(url);
+                            // Add to legacy combined list if not present
+                            if (!clipRefUrls.includes(url) && !libraryRefUrls.includes(url)) {
+                                libraryRefUrls.push(url);
+                            }
                         }
                     });
                 }
 
                 // Location Image
-                if (location && seriesLibrary[location.toLowerCase()] && !clipRefUrls.includes(seriesLibrary[location.toLowerCase()]) && !libraryRefUrls.includes(seriesLibrary[location.toLowerCase()])) {
-                    libraryRefUrls.push(seriesLibrary[location.toLowerCase()]);
+                if (location) {
+                    const locName = location.toLowerCase();
+                    if (seriesLibrary[locName]) {
+                        const url = seriesLibrary[locName];
+                        if (!locationImageUrls.includes(url)) locationImageUrls.push(url);
+                        // Add to legacy combined list if not present
+                        if (!clipRefUrls.includes(url) && !libraryRefUrls.includes(url)) {
+                            libraryRefUrls.push(url);
+                        }
+                    }
                 }
 
                 // Combine: Library First, then Clip Refs
@@ -179,6 +197,8 @@ export async function GET() {
                     dialog: getValue(row, clipsSheet.headers, 'Dialog'),
                     refImageUrls: processedRefs,
                     explicitRefUrls: clipRefUrls.join(','), // Only the explicit ones
+                    characterImageUrls,
+                    locationImageUrls,
                     // Validate Result URL
                     // Allow URLs (http), Task IDs (task_), or Prefixed IDs (TASK:)
                     resultUrl: (resultUrlRaw && (

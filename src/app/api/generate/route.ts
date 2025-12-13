@@ -2,10 +2,18 @@ import { NextResponse } from 'next/server';
 import { buildPrompt } from '@/lib/promptBuilder';
 import { convertDriveUrl } from '@/lib/drive';
 import { getLibraryItems } from '@/lib/library';
-import { getGoogleSheetsClient } from '@/lib/sheets';
-import { createVeoTask, VeoPayload } from '@/lib/kie';
+import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
+import { createVeoTask, VeoPayload, uploadFileBase64 } from '@/lib/kie';
+import { getFilePath, getFileContent } from '@/lib/storage';
+import mime from 'mime';
+import { processRefUrls } from '@/lib/image-processing';
 
 export async function POST(req: Request) {
+    // Shared setup for error handling
+    let sheets: any;
+    let spreadsheetId: string | undefined;
+    let sheetRow: number | undefined;
+
     try {
         const { clip, rowIndex } = await req.json(); // rowIndex is 0-based index in the array
 
@@ -13,14 +21,23 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing clip or rowIndex' }, { status: 400 });
         }
 
-        const sheets = await getGoogleSheetsClient();
-        const spreadsheetId = process.env.SPREADSHEET_ID;
+        sheets = await getGoogleSheetsClient();
+        spreadsheetId = process.env.SPREADSHEET_ID;
+        sheetRow = rowIndex + 2;
+
+        // 0. Update Status to "Generating" immediately to give feedback
+        // This failsafe ensures that if the process hangs, at least the sheet knows it started.
+        // It also overrides any "Error" state from previous runs immediately.
+        if (sheets && spreadsheetId && sheetRow) {
+            await sheets.spreadsheets.values.update({
+                spreadsheetId,
+                range: `CLIPS!D${sheetRow}`, // Status Column
+                valueInputOption: 'USER_ENTERED',
+                requestBody: { values: [['Generating']] }
+            });
+        }
 
         // 1. Fetch Library Data
-        // Using shared library which correctly handles header mapping and series filtering
-        // We fetch for this clip's series (if available in clip, otherwise fetch all and filtering happens in param?)
-        // The clip object from api/clips usually has 'series' property.
-        // Assuming clip.series exists. If not, we fetch all.
         const libraryItems = await getLibraryItems(clip.series);
 
         // 2. Build Prompt
@@ -28,7 +45,7 @@ export async function POST(req: Request) {
         console.log('Generated Prompt:', prompt);
 
         // 3. Build Image Params (Ref2Vid)
-        let imageUrls: string[] = [];
+        let rawImageUrls: string[] = [];
 
         // A. From Characters (Library Lookup)
         if (clip.character) {
@@ -36,7 +53,7 @@ export async function POST(req: Request) {
             charNames.forEach((name: string) => {
                 const item = libraryItems.find(i => i.name && i.name.toLowerCase() === name.toLowerCase() && i.type === 'LIB_CHARACTER');
                 if (item && item.refImageUrl) {
-                    imageUrls.push(convertDriveUrl(item.refImageUrl));
+                    rawImageUrls.push(convertDriveUrl(item.refImageUrl));
                 }
             });
         }
@@ -46,20 +63,36 @@ export async function POST(req: Request) {
             const locName = clip.location.trim();
             const item = libraryItems.find(i => i.name && i.name.toLowerCase() === locName.toLowerCase() && i.type === 'LIB_LOCATION');
             if (item && item.refImageUrl) {
-                imageUrls.push(convertDriveUrl(item.refImageUrl));
+                rawImageUrls.push(convertDriveUrl(item.refImageUrl));
             }
         }
 
-        // B. From Clip (Direct URL)
+        // C. From Clip (Direct URL)
         if (clip.refImageUrls) {
             const clipRefs = clip.refImageUrls.split(',').map((s: string) => s.trim());
             clipRefs.forEach((url: string) => {
-                if (url) imageUrls.push(convertDriveUrl(url));
+                if (url) rawImageUrls.push(convertDriveUrl(url));
             });
         }
 
         // Limit to 3 images
-        imageUrls = imageUrls.slice(0, 3);
+        rawImageUrls = rawImageUrls.slice(0, 3);
+
+        // ...
+
+
+        // ...
+
+        // Limit to 3 images
+        rawImageUrls = rawImageUrls.slice(0, 3);
+
+        // --- PROCESS IMAGES FOR KIE ---
+        // Use Shared Utility
+        const finalImageUrls = await processRefUrls(rawImageUrls);
+
+        if (finalImageUrls.length > 0) {
+            console.log('Images uploaded to Kie:', finalImageUrls);
+        }
 
         // Determine model based on Request Param OR Quality column (default to veo3_fast)
         const { model: requestedModel, aspectRatio: requestedRatio } = await req.json().then(data => data).catch(() => ({}));
@@ -70,16 +103,13 @@ export async function POST(req: Request) {
         // 1. Check Request Param (from UI Menu)
         if (requestedModel === 'veo-quality') {
             model = 'veo3';
-        } else if (requestedModel === 'veo-fast') {
-            model = 'veo3_fast';
         } else {
-            // 2. Fallback to 'Quality' column if no param (legacy support)
-            const quality = (clip['Quality'] || 'fast').toLowerCase();
-            model = quality === 'quality' ? 'veo3' : 'veo3_fast';
+            // Default to fast if unspecified or unknown
+            model = 'veo3_fast';
         }
 
         // Force veo3_fast and 16:9 if using images (Veo requirement)
-        if (imageUrls.length > 0) {
+        if (finalImageUrls.length > 0) {
             console.log('Ref2Vid Active: Forcing veo3_fast and 16:9');
             model = 'veo3_fast';
             aspectRatio = '16:9'; // Veo Ref2Vid only supports 16:9
@@ -94,8 +124,8 @@ export async function POST(req: Request) {
             enableTranslation: true,
         };
 
-        if (imageUrls.length > 0) {
-            payload.imageUrls = imageUrls;
+        if (finalImageUrls.length > 0) {
+            payload.imageUrls = finalImageUrls;
             payload.generationType = 'REFERENCE_2_VIDEO';
         }
 
@@ -106,33 +136,55 @@ export async function POST(req: Request) {
 
         console.log('Kie.ai Success Response:', JSON.stringify(kieResponse, null, 2));
 
-        const taskId = kieResponse.data?.taskId; // Correct path based on user screenshot
+        const taskId = kieResponse.data?.taskId;
 
-        // 4. Update Sheet with Task ID and Status
-        // Status is Col B (Index 1), Log is Col T (Index 19) or Result URL (Index 18)
-        // We'll put Task ID in Result URL for now to track it.
+        // 4. Update Sheet with Task ID 
+        // We leave Status as "Generating" (set at start) or could re-assert it.
+        const headers = await getHeaders('CLIPS');
+        const modelColIdx = headers.get('Model');
 
-        // Row number in sheet = rowIndex + 2 (Header is 1, 0-based index)
-        const sheetRow = rowIndex + 2;
+        const updates = [
+            sheets.spreadsheets.values.update({
+                spreadsheetId,
+                range: `CLIPS!V${sheetRow}`, // Result URL Column (storing ID temporarily)
+                valueInputOption: 'USER_ENTERED',
+                requestBody: { values: [[`TASK:${taskId}` || 'ID_MISSING']] }
+            })
+        ];
 
-        await sheets.spreadsheets.values.update({
-            spreadsheetId,
-            range: `CLIPS!D${sheetRow}`, // Status Column
-            valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [['Generating']] }
-        });
+        if (modelColIdx !== undefined) {
+            const colLetter = indexToColumnLetter(modelColIdx);
+            updates.push(sheets.spreadsheets.values.update({
+                spreadsheetId,
+                range: `CLIPS!${colLetter}${sheetRow}`,
+                valueInputOption: 'USER_ENTERED',
+                requestBody: { values: [[requestedModel || 'veo-fast']] }
+            }));
+        }
 
-        await sheets.spreadsheets.values.update({
-            spreadsheetId,
-            range: `CLIPS!V${sheetRow}`, // Result URL Column (storing ID temporarily)
-            valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [[`TASK:${taskId}` || 'ID_MISSING']] }
-        });
+        await Promise.all(updates);
 
-        return NextResponse.json({ success: true, taskId, kieData: kieResponse }); // Send back full data for debugging
+        return NextResponse.json({ success: true, taskId, kieData: kieResponse });
 
     } catch (error: any) {
         console.error('Generate error:', error);
+
+        // UPDATE SHEET STATUS TO ERROR
+        // This prevents the 'spinning forever' UI bug
+        if (sheets && spreadsheetId && sheetRow) {
+            try {
+                await sheets.spreadsheets.values.update({
+                    spreadsheetId,
+                    range: `CLIPS!D${sheetRow}`, // Status Column
+                    valueInputOption: 'USER_ENTERED',
+                    requestBody: { values: [['Error']] }
+                });
+                console.log('Updated sheet status to Error');
+            } catch (sheetErr) {
+                console.error('Failed to update sheet status to error:', sheetErr);
+            }
+        }
+
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

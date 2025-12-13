@@ -108,8 +108,17 @@ export async function POST(req: Request) {
                     const kieRes = await getFluxTask(taskId);
                     const state = kieRes.data?.state;
 
-                    status = state === 'success' ? 'Done' :
-                        state === 'fail' ? 'Error' : 'Generating';
+                    // Architectural Change: explicit check for Active/Success, default to Error
+                    const activeStates = ['queued', 'generating', 'processing', 'created'];
+
+                    if (activeStates.includes(state?.toLowerCase() || '')) {
+                        status = 'Generating';
+                    } else if (state === 'success') {
+                        status = 'Done';
+                    } else {
+                        // Catch-all for 'fail', 'error', or any unknown state
+                        status = 'Error';
+                    }
 
                     if (status === 'Done' && kieRes.data?.resultJson) {
                         try {
@@ -128,11 +137,24 @@ export async function POST(req: Request) {
                     const kieRes = await getVeoTask(taskId);
                     const s = kieRes.data?.status;
 
-                    status = (s === 'COMPLETED' || s === 'SUCCEEDED') ? 'Done' :
-                        (s === 'FAILED' || s === 'ERROR') ? 'Error' : 'Generating';
+                    // Architectural Change: explicit check for Active/Success, default to Error
+                    const activeStates = ['QUEUED', 'PENDING', 'RUNNING', 'CREATED', 'PROCESSING'];
+                    const successStates = ['COMPLETED', 'SUCCEEDED'];
+
+                    if (activeStates.includes(s || '')) {
+                        status = 'Generating';
+                    } else if (successStates.includes(s || '')) {
+                        status = 'Done';
+                    } else {
+                        // Catch-all for FAILED, ERROR, REJECTED, TIMED_OUT, etc.
+                        status = 'Error';
+                    }
 
                     if (status === 'Done') {
                         resultUrl = kieRes.data?.videoUrl || kieRes.data?.url || kieRes.data?.images?.[0]?.url || '';
+                    } else if (status === 'Error') {
+                        // Capture error for display
+                        resultUrl = `ERROR: ${kieRes.data?.failureReason || kieRes.data?.msg || kieRes.data?.error || s || 'Unknown Error'}`;
                     }
                 }
             } catch (err) {
@@ -157,7 +179,7 @@ export async function POST(req: Request) {
 
                     // If Error, maybe just leave as TASK:? Or clear? 
                     // Let's clear or mark ERROR:
-                    const val = status === 'Error' ? 'ERROR_GENERATING' : resultUrl;
+                    const val = status === 'Error' ? (resultUrl || 'ERROR_GENERATING') : resultUrl;
 
                     updates.push(sheets.spreadsheets.values.update({
                         spreadsheetId,
@@ -180,8 +202,8 @@ export async function POST(req: Request) {
                         requestBody: { values: [[cellStatus]] }
                     }));
 
-                    // Update URL (Only if Done)
-                    if (status === 'Done' && resultUrl) {
+                    // Update URL (For Success OR Error Message)
+                    if (resultUrl) {
                         updates.push(sheets.spreadsheets.values.update({
                             spreadsheetId,
                             range: `CLIPS!${indexToColumnLetter(urlCol)}${item.sheetRow}`,

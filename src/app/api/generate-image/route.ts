@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient } from '@/lib/sheets';
+import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
 import { convertDriveUrl } from '@/lib/drive';
 import { buildPrompt } from '@/lib/promptBuilder';
 import { getLibraryItems } from '@/lib/library';
@@ -7,102 +7,17 @@ import { createFluxTask, FluxPayload, uploadFileBase64 } from '@/lib/kie';
 import { getFilePath, getFileContent } from '@/lib/storage';
 import mime from 'mime';
 
-// Helper to detect MIME from Buffer (Magic Bytes)
-function detectMimeFromBuffer(buffer: Buffer): string {
-    if (buffer.length < 4) return 'application/octet-stream';
+import { processRefUrls } from '@/lib/image-processing';
 
-    // PNG: 89 50 4E 47
-    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return 'image/png';
+// ... (Imports)
 
-    // JPEG: FF D8 FF
-    if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return 'image/jpeg';
-
-    // WEBP: RIFF....WEBP (Offset 8)
-    if (buffer.length >= 12 && buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
-        buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return 'image/webp';
-
-    return 'application/octet-stream';
-}
-
-async function processRefUrls(urls: string[]): Promise<string[]> {
-    const processed: string[] = [];
-    for (const url of urls) {
-        // Check if local media URL
-        if (url.includes('/api/media/')) {
-            try {
-                const parts = url.split('/api/media/')[1].split('/');
-                const filePath = await getFilePath(parts);
-
-                if (filePath) {
-                    const buffer = await getFileContent(filePath);
-
-                    // Detect MIME
-                    let mimeType = detectMimeFromBuffer(buffer);
-                    if (mimeType === 'application/octet-stream') mimeType = 'image/jpeg';
-
-                    console.log(`Debug Processing: File=${parts.join('/')}, Detected Mime=${mimeType}`);
-
-                    const base64Str = buffer.toString('base64');
-                    const dataUri = `data:${mimeType};base64,${base64Str}`;
-
-                    // UPLOAD TO KIE TEMP STORAGE
-                    console.log(`Uploading local file to Kie Temp Storage...`);
-                    const uploadRes = await uploadFileBase64(dataUri, parts[parts.length - 1]);
-
-                    if (uploadRes.data && uploadRes.data.url) {
-                        console.log(`Upload successful: ${uploadRes.data.url}`);
-                        processed.push(uploadRes.data.url);
-                    } else {
-                        throw new Error(`Upload failed, no URL returned: ${JSON.stringify(uploadRes)}`);
-                    }
-
-                } else {
-                    console.warn(`Local file not found: ${url}`);
-                }
-            } catch (e) {
-                console.error(`Failed to process local url ${url}:`, e);
-            }
-        } else {
-            // Remote URL (Drive, etc.) -> Fetch -> Base64 -> Upload -> Public URL
-            try {
-                console.log(`Fetching remote URL: ${url}`);
-                const res = await fetch(url);
-                if (!res.ok) {
-                    console.warn(`Failed to fetch remote image: ${url} (${res.status})`);
-                    continue;
-                }
-
-                const arrayBuffer = await res.arrayBuffer();
-                const buffer = Buffer.from(arrayBuffer);
-
-                // Detect MIME
-                let mimeType = detectMimeFromBuffer(buffer);
-                if (mimeType === 'application/octet-stream') mimeType = 'image/jpeg';
-
-                const base64Str = buffer.toString('base64');
-                const dataUri = `data:${mimeType};base64,${base64Str}`;
-
-                // UPLOAD TO KIE TEMP STORAGE
-                console.log(`Uploading remote content to Kie Temp Storage...`);
-                // Use a default name for remote files if unknown
-                const uploadRes = await uploadFileBase64(dataUri, 'remote_ref.jpg');
-
-                if (uploadRes.data && uploadRes.data.url) {
-                    console.log(`Upload successful: ${uploadRes.data.url}`);
-                    processed.push(uploadRes.data.url);
-                } else {
-                    throw new Error(`Upload failed, no URL returned: ${JSON.stringify(uploadRes)}`);
-                }
-
-            } catch (e) {
-                console.error(`Error processing remote url ${url}:`, e);
-            }
-        }
-    }
-    return processed;
-}
+// (Removed duplicated fragment)
 
 export async function POST(req: Request) {
+    let sheets: any;
+    let spreadsheetId: string | undefined;
+    let sheetRow: number | undefined;
+
     try {
         const { clip, rowIndex, model: requestedModel, aspectRatio: requestedRatio } = await req.json();
 
@@ -110,8 +25,9 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing clip or rowIndex' }, { status: 400 });
         }
 
-        const sheets = await getGoogleSheetsClient();
-        const spreadsheetId = process.env.SPREADSHEET_ID;
+        sheets = await getGoogleSheetsClient();
+        spreadsheetId = process.env.SPREADSHEET_ID;
+        sheetRow = rowIndex + 2;
 
         // 1. Fetch Library Data
         const scopedLibraryItems = await getLibraryItems(clip.series);
@@ -173,19 +89,39 @@ export async function POST(req: Request) {
         imageUrls = await processRefUrls(imageUrls);
 
         // 3. Prepare Payload
-        let model = 'flux-2/flex-text-to-image';
+        // Map UI selection to Kie Model ID
+        let model = 'flux-1.1-pro'; // Default (Pro)
+        if (requestedModel === 'flux-flex') {
+            model = 'flux-schnell';
+        }
+
         const aspectRatio = requestedRatio || '16:9';
 
         const input: any = {
             prompt: prompt,
             aspect_ratio: aspectRatio,
-            resolution: '2K'
+            // resolution: '2K' // Not always supported by Schnell? Remove to be safe or keep if Pro
         };
+
+        // Flux 1.1 Pro supports 'safety_tolerance' etc.
+        if (model === 'flux-1.1-pro') {
+            input.safety_tolerance = 2; // Allow some edge
+        }
 
         if (imageUrls.length > 0) {
             console.log('Switching to Image-to-Image mode for Flux');
-            model = 'flux-2/pro-image-to-image';
-            input.input_urls = imageUrls; // Reverted to input_urls as array
+            // Kie specific: model name might change for Img2Img? 
+            // Usually Flux handles it via input params. 
+            // But previous code used 'flux-2/pro-image-to-image'.
+            // Let's stick to the standard 'flux-1.1-pro' if it supports input_image, 
+            // OR use the specific endpoint if Kie requires it.
+            // Safe bet: keep `model` as is but add `image_url` param (singular?).
+            // Kie typically uses `input_image` or `result_image`.
+            // Previous code used `input_urls` (array).
+
+            // Reverting to the logic found in previous code which seemed intentional for Kie:
+            model = 'flux-2/pro-image-to-image'; // Forced for Ref2Img for now until confirmed otherwise
+            input.input_urls = imageUrls;
             input.strength = 0.75;
         }
 
@@ -216,7 +152,10 @@ export async function POST(req: Request) {
         }
 
         // 6. Update Sheet
-        const sheetRow = rowIndex + 2;
+        // sheetRow is already defined above
+
+        const headers = await getHeaders('CLIPS');
+        const modelColIdx = headers.get('Model');
 
         const updates = [
             sheets.spreadsheets.values.update({
@@ -233,12 +172,38 @@ export async function POST(req: Request) {
             })
         ];
 
+        if (modelColIdx !== undefined) {
+            const colLetter = indexToColumnLetter(modelColIdx);
+            updates.push(sheets.spreadsheets.values.update({
+                spreadsheetId,
+                range: `CLIPS!${colLetter}${sheetRow}`,
+                valueInputOption: 'USER_ENTERED',
+                requestBody: { values: [[requestedModel || 'flux-pro']] }
+            }));
+        }
+
         await Promise.all(updates);
 
         return NextResponse.json({ success: true, data: kieData, resultUrl });
 
     } catch (error: any) {
         console.error('Flux Generate Error:', error);
+
+        // FAIL-SAFE: Update Sheet Status to Error to stop UI spinner
+        if (sheets && spreadsheetId && sheetRow) {
+            try {
+                await sheets.spreadsheets.values.update({
+                    spreadsheetId,
+                    range: `CLIPS!D${sheetRow}`, // Status Column
+                    valueInputOption: 'USER_ENTERED',
+                    requestBody: { values: [['Error']] }
+                });
+                console.log('Updated Flux sheet status to Error');
+            } catch (sheetErr) {
+                console.error('Failed to update sheet status to error:', sheetErr);
+            }
+        }
+
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

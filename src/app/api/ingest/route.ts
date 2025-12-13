@@ -32,114 +32,129 @@ export async function POST(request: Request) {
 
         const sheets = await getGoogleSheetsClient();
 
+        const reports: string[] = [];
+
         // --- 1. Process CLIPS ---
-        if (clips.length > 0) {
-            const headers = await getHeaders('CLIPS');
-            const maxColIndex = Math.max(...Array.from(headers.values()));
+        try {
+            if (clips.length > 0) {
+                const headers = await getHeaders('CLIPS');
+                const maxColIndex = Math.max(...Array.from(headers.values()));
 
-            // Debug Validation
-            if (!headers.has('Series')) throw new Error("Missing 'Series' column in CLIPS sheet");
-            if (!headers.has('Episode')) throw new Error("Missing 'Episode' column in CLIPS sheet");
+                // Debug Validation
+                if (!headers.has('Series')) throw new Error("Missing 'Series' column in CLIPS sheet");
+                if (!headers.has('Episode')) throw new Error("Missing 'Episode' column in CLIPS sheet");
 
-            // Map JSON keys to Header Names
-            const fieldToHeader: Record<string, string> = {
-                scene: 'Scene #',
-                status: 'Status',
-                title: 'Title',
-                character: 'Characters',
-                location: 'Location',
-                style: 'Style',
-                camera: 'Camera',
-                action: 'Action',
-                dialog: 'Dialog',
-                refImageUrls: 'Ref Image URLs',
-                refVideoUrl: 'Ref Video URL',
-                seed: 'Seed',
-                duration: 'DurationSec',
-                quality: 'Quality',
-                ratio: 'Ratio',
-                negatives: 'Negatives',
-                service: 'Service',
-                episode: 'Episode',
-                series: 'Series',
-                model: 'Model'
-            };
+                // Map JSON keys to Header Names
+                const fieldToHeader: Record<string, string> = {
+                    scene: 'Scene #',
+                    status: 'Status',
+                    title: 'Title',
+                    character: 'Characters',
+                    location: 'Location',
+                    style: 'Style',
+                    camera: 'Camera',
+                    action: 'Action',
+                    dialog: 'Dialog',
+                    refImageUrls: 'Ref Image URLs',
+                    refVideoUrl: 'Ref Video URL',
+                    seed: 'Seed',
+                    duration: 'DurationSec',
+                    quality: 'Quality',
+                    ratio: 'Ratio',
+                    negatives: 'Negatives',
+                    service: 'Service',
+                    episode: 'Episode',
+                    series: 'Series',
+                    model: 'Model'
+                };
 
-            const clipRows = clips.map((clip: any) => {
-                const row = new Array(maxColIndex + 1).fill('');
+                const clipRows = clips.map((clip: any) => {
+                    const row = new Array(maxColIndex + 1).fill('');
 
-                // Fill mapped fields
-                Object.entries(fieldToHeader).forEach(([field, header]) => {
-                    const colIndex = headers.get(header);
-                    if (colIndex !== undefined) {
-                        // Handle special defaults or transforms
-                        let value = clip[field] || '';
-                        if (field === 'episode') value = episodeId;
-                        if (field === 'series') value = seriesId;
-                        if (field === 'service') value = 'kie_api';
-                        if (field === 'quality' && !value) value = 'fast';
-                        if (field === 'ratio' && !value) value = '9:16';
-                        if (field === 'ratio' && !value) value = '9:16';
-                        // if (field === 'model' && !value && defaultModel) value = defaultModel; // Removed per user request
+                    // Fill mapped fields
+                    Object.entries(fieldToHeader).forEach(([field, header]) => {
+                        const colIndex = headers.get(header);
+                        if (colIndex !== undefined) {
+                            // Handle special defaults or transforms
+                            let value = clip[field] || '';
+                            if (field === 'episode') value = episodeId;
+                            if (field === 'series') value = seriesId;
+                            if (field === 'service') value = 'kie_api';
+                            if (field === 'quality' && !value) value = 'fast';
+                            if (field === 'ratio' && !value) value = '9:16';
+                            // Duplicate check for ratio removed
+                            // if (field === 'model' && !value && defaultModel) value = defaultModel; // Removed per user request
 
-                        row[colIndex] = value;
-                    }
+                            row[colIndex] = value;
+                        }
+                    });
+
+                    return row;
                 });
 
-                return row;
-            });
-
-            console.log(`Appending ${clipRows.length} rows to CLIPS...`);
-            const appendRes = await sheets.spreadsheets.values.append({
-                spreadsheetId: SPREADSHEET_ID,
-                range: 'CLIPS!A:ZZ',
-                valueInputOption: 'USER_ENTERED',
-                requestBody: { values: clipRows },
-            });
-            console.log('Clips Append Result:', appendRes.data);
+                console.log(`Appending ${clipRows.length} rows to CLIPS...`);
+                // Use 'any' to bypass strict typing on append result if needed, or rely on Sheets API type
+                const appendRes: any = await sheets.spreadsheets.values.append({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: 'CLIPS!A:ZZ',
+                    valueInputOption: 'USER_ENTERED',
+                    requestBody: { values: clipRows },
+                });
+                console.log('Clips Append Result:', appendRes.data);
+                reports.push(`Clips: ${clips.length} imported.`);
+            }
+        } catch (clipErr: any) {
+            console.error('Ingest Clips Error:', clipErr);
+            reports.push(`Clips Failed: ${clipErr.message}`);
         }
 
         // --- 2. Process LIBRARY ---
-        if (library.length > 0) {
-            const headers = await getHeaders('LIBRARY');
-            const maxColIndex = Math.max(...Array.from(headers.values()));
+        try {
+            if (library.length > 0) {
+                const headers = await getHeaders('LIBRARY');
+                const maxColIndex = Math.max(...Array.from(headers.values()));
 
-            const fieldToHeader: Record<string, string> = {
-                type: 'Type',
-                name: 'Name',
-                description: 'Description',
-                refImageUrl: 'Ref Image URLs',
-                negatives: 'Negatives',
-                notes: 'Notes',
-                episode: 'Episode',
-                series: 'Series'
-            };
+                const fieldToHeader: Record<string, string> = {
+                    type: 'Type',
+                    name: 'Name',
+                    description: 'Description',
+                    refImageUrl: 'Ref Image URLs',
+                    negatives: 'Negatives',
+                    notes: 'Notes',
+                    episode: 'Episode',
+                    series: 'Series'
+                };
 
-            const libRows = library.map((item: any) => {
-                const row = new Array(maxColIndex + 1).fill('');
+                const libRows = library.map((item: any) => {
+                    const row = new Array(maxColIndex + 1).fill('');
 
-                // Pre-process aliases
-                item['description'] = item['description'] || item['prompt'] || '';
+                    // Pre-process aliases
+                    item['description'] = item['description'] || item['prompt'] || '';
 
-                Object.entries(fieldToHeader).forEach(([field, header]) => {
-                    const colIndex = headers.get(header);
-                    if (colIndex !== undefined) {
-                        let value = item[field] || '';
-                        if (field === 'episode') value = episodeId;
-                        if (field === 'series') value = seriesId;
-                        row[colIndex] = value;
-                    }
+                    Object.entries(fieldToHeader).forEach(([field, header]) => {
+                        const colIndex = headers.get(header);
+                        if (colIndex !== undefined) {
+                            let value = item[field] || '';
+                            if (field === 'episode') value = episodeId;
+                            if (field === 'series') value = seriesId;
+                            row[colIndex] = value;
+                        }
+                    });
+
+                    return row;
                 });
 
-                return row;
-            });
-
-            await sheets.spreadsheets.values.append({
-                spreadsheetId: SPREADSHEET_ID,
-                range: 'LIBRARY!A:ZZ',
-                valueInputOption: 'USER_ENTERED',
-                requestBody: { values: libRows },
-            });
+                await sheets.spreadsheets.values.append({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: 'LIBRARY!A:ZZ',
+                    valueInputOption: 'USER_ENTERED',
+                    requestBody: { values: libRows },
+                });
+                reports.push(`Library: ${library.length} imported.`);
+            }
+        } catch (libErr: any) {
+            console.error('Ingest Library Error:', libErr);
+            reports.push(`Library Failed: ${libErr.message}`);
         }
 
         // --- 3. Ensure Episode Exists in EPISODES ---
@@ -196,7 +211,8 @@ export async function POST(request: Request) {
         return NextResponse.json({
             success: true,
             clipsCount: clips.length,
-            libraryCount: library.length
+            libraryCount: library.length,
+            reports // Include detailed status
         });
 
     } catch (error: any) {

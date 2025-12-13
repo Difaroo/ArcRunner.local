@@ -5,6 +5,10 @@ import { google } from 'googleapis';
  * Returns an authenticated Google Drive client (service account).
  */
 export async function getDriveClient(version: 'v3' = 'v3') {
+    if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+        throw new Error("Missing Google Credentials in .env (GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_PRIVATE_KEY)");
+    }
+
     const auth = new google.auth.GoogleAuth({
         credentials: {
             client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,

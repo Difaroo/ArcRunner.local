@@ -38,6 +38,7 @@ export interface LibraryItem {
 }
 
 import { useMediaArchiver } from "@/hooks/useMediaArchiver"
+import { usePolling } from "@/hooks/usePolling"
 
 export default function Home() {
   const [clips, setClips] = useState<Clip[]>([]);
@@ -84,10 +85,13 @@ export default function Home() {
     setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
   }, [])
 
+
   const hasFetched = useRef(false);
 
-  const refreshData = async () => {
-    setLoading(true);
+  // State Refs for Polling Access
+
+  const refreshData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch('/api/clips');
       const data = await res.json();
@@ -109,7 +113,7 @@ export default function Home() {
       console.error('Fetch error:', err);
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -246,7 +250,8 @@ export default function Home() {
 
   // Filter Clips by Series
   const seriesClips = clips.filter(c => c.series === currentSeriesId);
-  const seriesLibrary = libraryItems.filter(i => i.series === currentSeriesId);
+  // Get ALL library items for the series (not just current episode) for Dropdowns
+  const allSeriesAssets = libraryItems.filter(i => i.series === currentSeriesId);
 
   seriesClips.forEach(clip => {
     const ep = clip.episode || '1';
@@ -289,12 +294,12 @@ export default function Home() {
   const currentEpKey = sortedEpKeys[currentEpisode - 1] || '1';
   const currentEpTitle = seriesEpisodeTitles[currentEpKey] ? `: ${seriesEpisodeTitles[currentEpKey]}` : '';
 
-  // Unique Values for Dropdowns (Filtered by Series)
+  // Unique Values for Dropdowns (Filtered by Series, includes ALL episodes)
   const uniqueValues = {
-    characters: Array.from(new Set(seriesLibrary.filter(i => i.type === 'LIB_CHARACTER').map(i => i.name))).sort(),
-    locations: Array.from(new Set(seriesLibrary.filter(i => i.type === 'LIB_LOCATION').map(i => i.name))).sort(),
-    styles: Array.from(new Set(seriesLibrary.filter(i => i.type === 'LIB_STYLE').map(i => i.name))).sort(),
-    cameras: Array.from(new Set(seriesLibrary.filter(i => i.type === 'LIB_CAMERA').map(i => i.name))).sort(),
+    characters: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_CHARACTER').map(i => i.name))).sort(),
+    locations: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_LOCATION').map(i => i.name))).sort(),
+    styles: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_STYLE').map(i => i.name))).sort(),
+    cameras: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_CAMERA').map(i => i.name))).sort(),
   };
 
   // --- Auto-Set Model from Episode Clips ---
@@ -308,14 +313,9 @@ export default function Home() {
       if (currentEpObj.model !== selectedModel) {
         setSelectedModel(currentEpObj.model);
       }
-    } else if (activeClips.length > 0) {
-      // Fallback: Infer from first clip if Episode Model is not set (Migration/Legacy)
-      const firstModel = activeClips[0].model;
-      if (firstModel && firstModel !== selectedModel && ['veo-fast', 'veo-quality', 'flux-pro', 'flux-flex'].includes(firstModel)) {
-        setSelectedModel(firstModel);
-      }
     }
-  }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey]); // Added deps
+    // REMOVED: Fallback to activeClips[0].model (Strict Episode Model Authority)
+  }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey]);
 
   // --- Selection Logic (Clips) ---
   const toggleSelect = (id: string) => {
@@ -339,8 +339,8 @@ export default function Home() {
 
   // Need filtered items for "Select All". Filter happens in render.
   // Replicate filtering logic here or hoist it.
-  // Currently filtered in render: seriesLibrary.filter(item => item.episode === currentEpKey)
-  const currentLibraryItems = seriesLibrary.filter(item => item.episode === currentEpKey);
+  // Currently filtered in render: allSeriesAssets.filter(item => item.episode === currentEpKey)
+  const currentLibraryItems = allSeriesAssets.filter(item => item.episode === currentEpKey);
 
   const toggleLibrarySelect = (id: string) => {
     const newSet = new Set(selectedLibraryIds);
@@ -443,50 +443,10 @@ export default function Home() {
 
   // --- Polling Logic ---
   // --- Polling Logic ---
-  useEffect(() => {
-    const pollInterval = setInterval(async () => {
-      // Server-Side Scanning Mode: Just ping the endpoint
-      try {
-        // Optional: Only poll if we THINK something is running, 
-        // OR always poll (safer for "Recovering" lost tasks). 
-        // Let's always poll for now, or check local "Syncing" state?
-        // User complained about stopping... so let's just RUN.
-        // To avoid swamping, maybe check if we have *any* generating items locally?
-        // Actually, to fix "lost state", we should NOT rely on local state.
+  // --- Polling Logic ---
+  // --- Polling Logic ---
+  // (Maintained by usePolling hook)
 
-        // However, invalidating/refetching every 15s if nothing is happening is wasteful.
-        // Compromise: Poll if we see 'Generating' items OR every 4th cycle (1m) regardless?
-        // Let's stick to simple: Always poll. It's a local dev tool.
-
-        const res = await fetch('/api/poll', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}), // Empty body triggers scan (or we can be explicit)
-        });
-
-        const data = await res.json();
-
-        // If the server checked items (meaning it found 'Generating' rows), we should refresh to see updates.
-        // Even if it didn't update anything yet (still generating), we don't *need* to refresh, 
-        // BUT if it *did* update (data.updated > 0), we MUST refresh.
-        // If data.checked > 0, it means the system is "Busy".
-
-        if (data.success && (data.updated > 0 || data.checked > 0)) {
-          // If updated, definitely refresh.
-          // If checked but not updated (still running), we might want to refresh 'loading' state?
-          // Actually, standard refresh is fine.
-          if (data.updated > 0) {
-            console.log(`Poll updated ${data.updated} items. Refreshing...`);
-            await refreshData();
-          }
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
-    }, 15000); // 15s Interval
-
-    return () => clearInterval(pollInterval);
-  }, []); // Empty deps = run forever (good)
 
   const handleGenerate = async (clip: Clip, index: number) => {
     try {
@@ -507,7 +467,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clip: { ...clip, style: styleToUse }, // Override style
-          library: seriesLibrary, // Use filtered library
+          library: allSeriesAssets, // Use filtered library
           model: selectedModel,
           aspectRatio: aspectRatio, // Pass Aspect Ratio
           rowIndex: parseInt(clip.id) // Use immutable ID (Sheet Row Index)

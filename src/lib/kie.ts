@@ -33,7 +33,9 @@ interface KieResponse<T = any> {
 
 async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', body?: any }): Promise<KieResponse<T>> {
     const { method, body } = options;
-    const res = await fetch(`${KIE_BASE_URL}${endpoint}`, {
+    const url = endpoint.startsWith('http') ? endpoint : `${KIE_BASE_URL}${endpoint}`;
+
+    const res = await fetch(url, {
         method,
         headers: {
             'Authorization': `Bearer ${KIE_API_KEY}`,
@@ -64,14 +66,22 @@ export async function getFluxTask(taskId: string) {
 }
 
 export async function getVeoTask(taskId: string) {
-    return kieFetch<{ status: string, videoUrl?: string, url?: string, images?: { url: string }[] }>(`/veo/record-info?taskId=${taskId}`, { method: 'GET' });
+    return kieFetch<{
+        status: string,
+        videoUrl?: string,
+        url?: string,
+        images?: { url: string }[],
+        failureReason?: string,
+        msg?: string,
+        error?: string
+    }>(`/veo/record-info?taskId=${taskId}`, { method: 'GET' });
 }
 
 export async function uploadFileBase64(base64Data: string, fileName?: string) {
-    // Uses /file-base64-upload endpoint (assuming v1)
-    // Payload: { base64Data: "data:...", fileName: "optional.jpg" }
-    return kieFetch<{ url: string }>('/file-base64-upload', {
+    // Uses /api/file-base64-upload endpoint (Note: NO /v1 prefix based on docs)
+    // We use absolute URL to bypass the default /api/v1 base
+    return kieFetch<{ url: string }>('https://kieai.redpandaai.co/api/file-base64-upload', {
         method: 'POST',
-        body: { base64Data, fileName }
+        body: { base64Data, fileName, uploadPath: "temp_uploads" }
     });
 }
