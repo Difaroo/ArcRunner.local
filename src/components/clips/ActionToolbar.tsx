@@ -187,6 +187,29 @@ export function ActionToolbar({
             </TooltipProvider>
 
 
+            <div className="h-4 w-px bg-zinc-700 mx-2"></div>
+
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                    const btn = document.activeElement as HTMLElement;
+                    btn.classList.add('animate-spin');
+                    try {
+                        const res = await fetch('/api/poll', { method: 'POST' });
+                        const json = await res.json();
+                        alert('Manual Poll Completed.\nActive Items Scanned: ' + (json.checked || 0) + '\nResult: ' + JSON.stringify(json));
+                    } catch (e: any) {
+                        alert('Poll Failed: ' + e.message);
+                    } finally {
+                        btn.classList.remove('animate-spin');
+                    }
+                }}
+                className="h-8 px-2 text-xs text-zinc-600 hover:text-white"
+                title="Force Background Check (Debug)"
+            >
+                <span className="material-symbols-outlined !text-sm">sync</span>
+            </Button>
         </div>
     )
 }

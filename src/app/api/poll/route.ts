@@ -85,7 +85,15 @@ export async function POST(req: Request) {
         console.log(`Found ${targets.length} items to poll.`);
 
         if (targets.length === 0) {
-            return NextResponse.json({ success: true, checked: 0 });
+            return NextResponse.json({
+                success: true,
+                checked: 0,
+                debug: {
+                    headers: Array.from(clipsSheet.headers.keys()),
+                    statusIdx: clipsStatusIdx,
+                    urlIdx: clipsUrlIdx
+                }
+            });
         }
 
         // 4. Poll Kie.ai
@@ -129,7 +137,9 @@ export async function POST(req: Request) {
 
             } catch (err: any) {
                 console.warn(`Poll loop error for ${taskId}:`, err);
-                continue;
+                // DEBUG: Expose the error to the sheet so we can see it
+                status = 'Error';
+                resultUrl = `POLL_ERR_TRANSIENT: ${err.message}`;
             }
 
             // 5. Prepare Updates
@@ -190,7 +200,17 @@ export async function POST(req: Request) {
             console.log(`Updated ${updates.length} sheets cells.`);
         }
 
-        return NextResponse.json({ success: true, checked: targets.length, updated: updates.length });
+        return NextResponse.json({
+            success: true,
+            checked: targets.length,
+            updated: updates.length,
+            debug: {
+                headers: Array.from(clipsSheet.headers.keys()),
+                statusIdx: clipsStatusIdx,
+                urlIdx: clipsUrlIdx,
+                foundTargets: targets.length
+            }
+        });
 
     } catch (error: any) {
         console.error('Poll error:', error);
