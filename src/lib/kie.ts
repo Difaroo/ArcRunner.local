@@ -1,9 +1,7 @@
-import { KieClient, AppStatus as PAppStatus, FluxPayload as PFluxPayload, VeoPayload as PVeoPayload } from './kie-strategies';
+import { KieClient } from './kie-strategies';
+import { FluxPayload, VeoPayload, AppStatus } from './kie-types';
 
-// Re-export types
-export type FluxPayload = PFluxPayload;
-export type VeoPayload = PVeoPayload;
-export type AppStatus = PAppStatus;
+export type { FluxPayload, VeoPayload, AppStatus };
 
 // Delegate create functions
 /**

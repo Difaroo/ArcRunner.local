@@ -1,194 +1,145 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient, indexToColumnLetter, getSheetData, parseHeaders } from '@/lib/sheets';
+import { getGoogleSheetsClient, indexToColumnLetter, getHeaders } from '@/lib/sheets';
 import { checkKieTaskStatus } from '@/lib/kie';
 
 
 export async function POST(req: Request) {
     try {
+        const body = await req.json();
+        const targets = body.targets || [];
 
-        console.log('Poll started (Server Scan Mode)...');
+        console.log(`Poll started (Target Mode). Received ${targets.length} targets.`);
 
-        // 1. Fetch ALL Data from Sheets (Source of Truth)
-        // We need headers and data to identify which rows to poll
-        const [clipsData, libraryData] = await Promise.all([
-            getSheetData('CLIPS!A1:ZZ'),
-            getSheetData('LIBRARY!A1:ZZ')
+        if (!targets || targets.length === 0) {
+            return NextResponse.json({ success: true, checked: 0, updated: 0 });
+        }
+
+        // 1. Fetch Headers ONLY (Optimized)
+        // We need headers to know column indices (Status, Result URL, Ref Image URLs)
+        // We assume headers don't change often, but we must fetch them to be safe.
+        // Parallel fetch for Clips and Library headers if needed.
+        const [clipsHeaders, libHeaders] = await Promise.all([
+            getHeaders('CLIPS'),
+            getHeaders('LIBRARY')
         ]);
 
-        const parseSheet = (data: any[][] | null | undefined) => {
-            if (!data || data.length === 0) return { headers: new Map<string, number>(), rows: [] };
-            const headers = parseHeaders(data);
-            const rows = data.slice(1);
-            return { headers, rows };
-        };
-
-        const clipsSheet = parseSheet(clipsData);
-        const librarySheet = parseSheet(libraryData);
-
-        const targets: any[] = [];
-
-        // 2. Scan CLIPS Sheet
-        const clipsStatusIdx = clipsSheet.headers.get('Status');
-        const clipsUrlIdx = clipsSheet.headers.get('Result URL');
-        const clipsModelIdx = clipsSheet.headers.get('Model');
-
-        if (clipsStatusIdx !== undefined && clipsUrlIdx !== undefined) {
-            clipsSheet.rows.forEach((row, index) => {
-                const status = row[clipsStatusIdx];
-                const url = row[clipsUrlIdx];
-
-                // Identify candidates: Status is Generating OR URL has TASK: prefix (and not done/http)
-                if (status === 'Generating' || (url && String(url).startsWith('TASK:'))) {
-                    // Double check it's not already a URL
-                    if (url && String(url).startsWith('http')) return;
-
-                    // ZOMBIE CHECK: If Generating but no valid TASK ID, it's stuck.
-                    let tId = url;
-                    if (status === 'Generating' && (!url || !String(url).startsWith('TASK:'))) {
-                        tId = 'ZOMBIE';
-                    }
-
-                    targets.push({
-                        type: 'CLIP',
-                        id: index.toString(), // 0-based index relative to data rows
-                        sheetRow: index + 2, // 1-based index including header
-                        taskId: tId, // expecting TASK: ID or ZOMBIE here
-                        model: clipsModelIdx !== undefined ? row[clipsModelIdx] : ''
-                    });
-                }
-            });
-        }
-
-        // 3. Scan LIBRARY Sheet
-        const libUrlIdx = librarySheet.headers.get('Ref Image URLs');
-        const libTypeIdx = librarySheet.headers.get('Type');
-
-        if (libUrlIdx !== undefined) {
-            librarySheet.rows.forEach((row, index) => {
-                const url = row[libUrlIdx];
-
-                // Identify candidates: URL starts with TASK:
-                if (url && String(url).startsWith('TASK:')) {
-                    targets.push({
-                        type: 'LIBRARY',
-                        id: index.toString(),
-                        sheetRow: index + 2,
-                        taskId: url,
-                        model: 'flux' // Library items are generally Flux images
-                    });
-                }
-            });
-        }
-
-        console.log(`Found ${targets.length} items to poll.`);
-
-        if (targets.length === 0) {
-            return NextResponse.json({
-                success: true,
-                checked: 0,
-                debug: {
-                    headers: Array.from(clipsSheet.headers.keys()),
-                    statusIdx: clipsStatusIdx,
-                    urlIdx: clipsUrlIdx
-                }
-            });
-        }
-
-        // 4. Poll Kie.ai
         const sheets = await getGoogleSheetsClient();
         const spreadsheetId = process.env.SPREADSHEET_ID;
         const updates: any[] = [];
 
+        // 2. Poll Kie.ai for each target
         for (const item of targets) {
-            let taskId = item.taskId;
-            if (taskId && taskId.startsWith('TASK:')) {
-                taskId = taskId.replace('TASK:', '');
-            } else if (taskId && taskId.startsWith('task_')) {
-                // Clean mapping
-            }
-
+            const taskId = item.taskId;
             if (!taskId) continue;
 
+            const idInt = parseInt(item.id);
+            if (isNaN(idInt)) continue;
+
+            // Compute Sheet Row: 
+            // ID is 0-based index of DATA rows.
+            // Sheet has 1 Header Row.
+            // So Row 1 (Header), Row 2 (Data 0), Row 3 (Data 1)...
+            const sheetRow = idInt + 2;
+
             // Determine API Type
+            // Library items are generally Flux images
+            // Clips can be mixed, but we don't have the 'Model' from the sheet anymore since we didn't fetch it.
+            // However, we can infer from the Task ID sometimes, or just try both?
+            // Actually, for Robustness, we should probably store 'type' in resultUrl or pass it from frontend?
+            // The frontend has 'model' in the Clip object! Ideally frontend passes it.
+            // For now, let's keep the heuristic: Library = flux, Clips = try infer or default veo?
+            // Wait, the previous logic scanned the sheet for 'Model'.
+            // Let's rely on a safe heuristic or ask frontend to pass 'model' in target.
+            // If we fail, we might get a 404 from Kie, which is fine (handled).
+
+            // Heuristic:
             const isLibrary = item.type === 'LIBRARY';
-            const model = (item.model || '').toLowerCase();
-            const isFlux = isLibrary || model.includes('flux') || model.includes('journey');
+            let apiType: 'flux' | 'veo' = isLibrary ? 'flux' : 'veo';
+
+            // If frontend passes model, better. For now default VEO for clips unless we know it's Flux.
+            // Refinement: Try Veo first for clips.
 
             let status = '';
             let resultUrl = '';
+            let errorMsg = '';
 
             try {
-                const apiType = isFlux ? 'flux' : 'veo';
+                // We'll trust the default strategy. If we really need model, we should update usePolling to pass it.
+                // Assuming most Clips are Veo, Library is Flux.
                 const check = await checkKieTaskStatus(taskId, apiType);
+                status = check.status; // 'Generating', 'Done', 'Error'
+                resultUrl = check.resultUrl;
+                errorMsg = check.errorMsg;
 
-                status = check.status;
+                // Mixed Model Fallback (Hack for robustness if type mismatch):
+                if (status === 'Error' && errorMsg && (errorMsg.includes('not found') || errorMsg.includes('404'))) {
+                    const altType = apiType === 'flux' ? 'veo' : 'flux';
+                    // console.log(`Task not found as ${apiType}, trying ${altType}...`);
+                    const checkAlt = await checkKieTaskStatus(taskId, altType);
+                    if (checkAlt.status !== 'Error' || !checkAlt.errorMsg.includes('not found')) {
+                        status = checkAlt.status;
+                        resultUrl = checkAlt.resultUrl;
+                        errorMsg = checkAlt.errorMsg;
+                    }
+                }
 
                 if (status === 'Generating') {
                     continue; // No update
                 }
 
                 if (status === 'Error') {
-                    resultUrl = check.errorMsg || 'Processing Error';
-                } else {
-                    resultUrl = check.resultUrl || '';
+                    resultUrl = errorMsg || 'Processing Error';
                 }
 
             } catch (err: any) {
                 console.warn(`Poll loop error for ${taskId}:`, err);
-                // DEBUG: Expose the error to the sheet so we can see it
                 status = 'Error';
-                resultUrl = `POLL_ERR_TRANSIENT: ${err.message}`;
+                resultUrl = `POLL_ERR: ${err.message}`;
             }
 
-            // 5. Prepare Updates
-            if ((status === 'Done' && resultUrl) || status === 'Error') {
+            // 3. Prepare Updates
+            if (status === 'Done' || status === 'Error') {
 
-                /* 
-                 * OPT-IN ARCHIVAL STRATEGY:
-                 * We do NOT download automatically here.
-                 * We simply update the sheet with the remote resultUrl.
-                 * The user will click "Save Reference Image" in the UI to archive it.
-                 */
+                const finalResult = status === 'Done' ? (resultUrl || '') : (resultUrl || 'Error'); // resultUrl holds error msg on Error status
 
                 if (item.type === 'LIBRARY') {
-                    // Update Library Ref Image URL matches Result URL
-                    const colIndex = librarySheet.headers.get('Ref Image URLs')!; // We know it exists
-                    const range = `LIBRARY!${indexToColumnLetter(colIndex)}${item.sheetRow}`;
-
-                    // If Error, maybe just leave as TASK:? Or clear? 
-                    // Let's clear or mark ERROR:
-                    const val = status === 'Error' ? (resultUrl || 'ERROR_GENERATING') : resultUrl;
-
-                    updates.push(sheets.spreadsheets.values.update({
-                        spreadsheetId,
-                        range,
-                        valueInputOption: 'USER_ENTERED',
-                        requestBody: { values: [[val]] }
-                    }));
+                    const colIndex = libHeaders.get('Ref Image URLs');
+                    if (colIndex !== undefined) {
+                        const colLetter = indexToColumnLetter(colIndex);
+                        const range = `LIBRARY!${colLetter}${sheetRow}`;
+                        updates.push(sheets.spreadsheets.values.update({
+                            spreadsheetId,
+                            range,
+                            valueInputOption: 'USER_ENTERED',
+                            requestBody: { values: [[finalResult]] }
+                        }));
+                    }
 
                 } else {
                     // Update CLIPS
-                    const statusCol = clipsSheet.headers.get('Status')!;
-                    const urlCol = clipsSheet.headers.get('Result URL')!;
+                    const statusCol = clipsHeaders.get('Status');
+                    const urlCol = clipsHeaders.get('Result URL');
 
                     // Update Status
-                    const cellStatus = status === 'Done' ? 'Done' : 'Error';
-                    updates.push(sheets.spreadsheets.values.update({
-                        spreadsheetId,
-                        range: `CLIPS!${indexToColumnLetter(statusCol)}${item.sheetRow}`,
-                        valueInputOption: 'USER_ENTERED',
-                        requestBody: { values: [[cellStatus]] }
-                    }));
-
-                    // Update URL (For Success OR Error Message)
-                    if (resultUrl) {
+                    if (statusCol !== undefined) {
+                        const cellStatus = status === 'Done' ? 'Done' : 'Error';
                         updates.push(sheets.spreadsheets.values.update({
                             spreadsheetId,
-                            range: `CLIPS!${indexToColumnLetter(urlCol)}${item.sheetRow}`,
+                            range: `CLIPS!${indexToColumnLetter(statusCol)}${sheetRow}`,
                             valueInputOption: 'USER_ENTERED',
-                            requestBody: { values: [[resultUrl]] }
+                            requestBody: { values: [[cellStatus]] }
+                        }));
+                    }
+
+                    // Update URL
+                    if (urlCol !== undefined) {
+                        updates.push(sheets.spreadsheets.values.update({
+                            spreadsheetId,
+                            range: `CLIPS!${indexToColumnLetter(urlCol)}${sheetRow}`,
+                            valueInputOption: 'USER_ENTERED',
+                            requestBody: { values: [[finalResult]] }
                         }));
                     }
                 }
@@ -203,13 +154,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
             success: true,
             checked: targets.length,
-            updated: updates.length,
-            debug: {
-                headers: Array.from(clipsSheet.headers.keys()),
-                statusIdx: clipsStatusIdx,
-                urlIdx: clipsUrlIdx,
-                foundTargets: targets.length
-            }
+            updated: updates.length
         });
 
     } catch (error: any) {

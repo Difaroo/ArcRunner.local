@@ -39,7 +39,7 @@ export async function GET(
         const filename = pathSegments[pathSegments.length - 1];
         const contentType = getMimeType(filename);
 
-        return new NextResponse(fileBuffer, {
+        return new NextResponse(fileBuffer as any, {
             headers: {
                 'Content-Type': contentType,
                 'Cache-Control': 'public, max-age=31536000, immutable',

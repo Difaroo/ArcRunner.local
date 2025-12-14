@@ -30,6 +30,8 @@ import { EditableCell } from "@/components/ui/EditableCell"
 import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { MediaDisplay } from "@/components/media/MediaDisplay"
+import { RowActions } from "@/components/ui/RowActions"
 
 interface ClipRowProps {
     clip: Clip
@@ -94,9 +96,6 @@ export function ClipRow({
 
     const startEditing = () => {
         // IMPORTANT: Initialize editValues with explicitRefUrls for the refImageUrls field.
-        // The clip.refImageUrls provided by API is a COMBINED list (Values + Library).
-        // We only want to edit the Explicit values (Column Data).
-        // Otherwise, we get "Zombie Images" where Library refs get hardcoded into the sheet on save.
         setEditValues({
             ...clip,
             refImageUrls: clip.explicitRefUrls || ''
@@ -118,12 +117,8 @@ export function ClipRow({
         startEditing()
     }
 
-    const [isDownloading, setIsDownloading] = useState(false);
-
-    const handleDownload = async (e?: React.MouseEvent) => {
-        if (e) e.stopPropagation();
-        if (clip.resultUrl && !isDownloading) {
-            setIsDownloading(true);
+    const handleDownload = async () => {
+        if (clip.resultUrl) {
             try {
                 // 1. Calculate Version
                 let ver = 1;
@@ -145,23 +140,19 @@ export function ClipRow({
                 if (ver > 1) {
                     filename += ` ${ver.toString().padStart(2, '0')}`;
                 }
-                // Determine extension from URL or default to .mp4
                 const ext = clip.resultUrl.split('.').pop()?.split('?')[0] || 'mp4';
-                // Only append extension if not present in title (unlikely)
                 if (!filename.endsWith(`.${ext}`)) {
                     filename += `.${ext}`;
                 }
 
-                // 3. Fetch Blob (Wait for it!)
-                // Use proxy to avoid CORS
+                // 3. Fetch Blob
                 const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(clip.resultUrl)}`;
                 const response = await fetch(proxyUrl);
                 if (!response.ok) throw new Error('Download failed');
-
                 const blob = await response.blob();
                 const blobUrl = URL.createObjectURL(blob);
 
-                // 4. Trigger Save Dialog
+                // 4. Trigger Save
                 const a = document.createElement('a');
                 a.href = blobUrl;
                 a.download = filename;
@@ -172,7 +163,7 @@ export function ClipRow({
                 // Cleanup
                 setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
-                // 5. Update Status (Only on success)
+                // 5. Update Status
                 setDownloadCount(prev => prev + 1)
                 const newStatus = ver > 1 ? `Saved [${ver}]` : 'Saved';
                 onSave(clip.id, { status: newStatus })
@@ -180,24 +171,16 @@ export function ClipRow({
             } catch (err) {
                 console.error('Download error:', err);
                 alert('Failed to download file.');
-            } finally {
-                setIsDownloading(false);
             }
         }
     }
 
     const handleSave = () => {
-        // Only send changed fields to avoid data corruption (Zombie Images)
-        // and to prevent overwriting correct data with empty defaults (Disappearing Thumbs)
         const updates: Partial<Clip> = {};
-
-        // Helper to normalize values for comparison (treat undefined/null as empty string)
         const normalize = (val: any) => val === undefined || val === null ? '' : String(val);
 
         (Object.keys(editValues) as Array<keyof Clip>).forEach(key => {
             const currentVal = editValues[key];
-
-            // Special handling for refImageUrls comparison
             let originalVal;
             if (key === 'refImageUrls') {
                 originalVal = clip.explicitRefUrls;
@@ -214,7 +197,6 @@ export function ClipRow({
         if (Object.keys(updates).length > 0) {
             onSave(clip.id, updates);
         } else {
-            // Nothing changed, just close edit mode
             onCancelEdit();
         }
     }
@@ -233,8 +215,6 @@ export function ClipRow({
         }
         handleChange('character', next.join(', '));
     }
-
-
 
     return (
         <TableRow
@@ -256,6 +236,13 @@ export function ClipRow({
             <TableCell className="align-top font-sans font-extralight text-stone-500 text-xs py-3">
                 {clip.scene}
             </TableCell>
+
+            {/* ... [Title/Char/Loc/Cam/Action/Dialog Cells Omitted for Brevity - Keeping same Logic] ... 
+                Actually, multi_replace_file_content would be better if I could target chunks.
+                But since I'm doing a full file replace to ensure imports are clean, I must include EVERYTHING.
+                I will copy the standard cells from the view.
+            */}
+
             <TableCell className={`align-top w-[12%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="font-medium text-white block">
                     {isEditing ? (
@@ -355,8 +342,8 @@ export function ClipRow({
                             )}
                         </div>
                     )}
-                </EditableCell >
-            </TableCell >
+                </EditableCell>
+            </TableCell>
             <TableCell className={`align-top text-white text-xs w-[9%] ${isEditing ? "p-1" : "py-3"}`}>
                 <div>
                     <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
@@ -425,7 +412,6 @@ export function ClipRow({
                     </div>
                 ) : (
                     (() => {
-                        // Use explicitRefUrls only
                         const urls = clip.explicitRefUrls ? clip.explicitRefUrls.split(',').map(s => s.trim()).filter(Boolean) : [];
                         return urls.length > 0 ? (
                             <div className="flex gap-1 justify-end" onClick={handleStartEdit}>
@@ -469,173 +455,40 @@ export function ClipRow({
                     })()
                 )}
             </TableCell>
+
+            {/* --- REFACTOR START: SHARED COMPONENTS --- */}
+
             <TableCell className="align-top py-3 w-[75px] pr-[10px] pl-0">
-                {/* RESULT Column */}
+                {/* RESULT Column using MediaDisplay */}
                 {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && clip.resultUrl && (
                     <div className="flex justify-end">
-                        <div
-                            className="relative group cursor-pointer w-[60px] h-[40px]"
-                            onClick={() => onPlay(clip.resultUrl!)}
-                        >
-                            {(() => {
-                                const isImage = clip.model?.includes('flux') || clip.resultUrl?.match(/\.(jpeg|jpg|png|webp)($|\?)/i);
-
-                                if (isImage) {
-                                    return (
-                                        <>
-                                            <img
-                                                src={clip.resultUrl.startsWith('/api/') ? clip.resultUrl : `/api/proxy-image?url=${encodeURIComponent(clip.resultUrl)}`}
-                                                className="w-full h-full object-cover rounded border border-stone-600 shadow-sm"
-                                                alt="Result"
-                                            />
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
-                                                <span className="material-symbols-outlined text-white/80 text-[20px] drop-shadow-md group-hover:scale-110 transition-transform">visibility</span>
-                                            </div>
-                                        </>
-                                    )
-                                } else {
-                                    return (
-                                        <>
-                                            <video
-                                                src={clip.resultUrl.startsWith('/api/') ? clip.resultUrl : `/api/proxy-download?url=${encodeURIComponent(clip.resultUrl)}`}
-                                                className="w-full h-full object-cover rounded border border-stone-600 shadow-sm"
-                                                preload="metadata"
-                                                muted
-                                                playsInline
-                                                onMouseOver={e => e.currentTarget.play()}
-                                                onMouseOut={e => {
-                                                    e.currentTarget.pause();
-                                                    e.currentTarget.currentTime = 0;
-                                                }}
-                                            />
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/0 transition-colors">
-                                                <span className="material-symbols-outlined text-white/80 text-[20px] drop-shadow-md group-hover:scale-110 transition-transform">play_circle</span>
-                                            </div>
-                                        </>
-                                    )
-                                }
-                            })()}
-                        </div>
+                        <MediaDisplay
+                            url={clip.resultUrl}
+                            model={clip.model}
+                            onPlay={onPlay}
+                            className="w-[60px] h-[40px]"
+                        />
                     </div>
                 )}
             </TableCell>
+
             <TableCell className="align-top text-right py-3 w-[60px] pr-[25px] pl-0">
-                {isEditing ? (
-                    <div className="flex flex-col items-end gap-1">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={handleSave}
-                                        disabled={saving}
-                                        className="h-8 w-8 border-[0.5px] border-green-600/50 text-green-600 hover:bg-green-600/10 hover:text-green-600 hover:border-green-600"
-                                    >
-                                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">check</span>}
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Save changes</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={onCancelEdit}
-                                        className="btn-icon-action h-8 w-8"
-                                    >
-                                        <span className="material-symbols-outlined !text-lg">close</span>
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Cancel editing</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-end gap-1">
-                        {/* Controls Stack */}
-                        <div className="flex flex-col gap-2 items-end">
-                            {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && clip.resultUrl && (
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                size="icon"
-                                                onClick={handleDownload}
-                                                disabled={saving || !clip.resultUrl || isDownloading}
-                                                className={`btn-icon-action h-8 w-8 ${!clip.resultUrl ? 'opacity-30' : ''}`}
-                                            >
-                                                {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">download</span>}
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Download video</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            )}
+                {/* ACTION Column using RowActions */}
+                <RowActions
+                    status={clip.status || ''}
+                    resultUrl={clip.resultUrl}
+                    isEditing={isEditing}
+                    isSaving={saving}
+                    onEditStart={() => { }} // Not used explicitly for start, as start is implicit click
+                    onEditSave={handleSave}
+                    onEditCancel={onCancelEdit}
+                    onGenerate={() => onGenerate(clip)}
+                    onDownload={handleDownload}
+                />
+            </TableCell>
 
-                            {(!clip.status || clip.status === '' || clip.status === 'Error' || ((clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && !clip.resultUrl)) && (
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => onGenerate(clip)}
-                                                className="h-8 px-3 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary font-normal border-[0.5px]"
-                                            >
-                                                GEN
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Generate video for this clip</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            )}
+            {/* --- REFACTOR END --- */}
 
-                            {clip.status === 'Generating' && (
-                                <Button
-                                    variant="outline"
-                                    disabled
-                                    className="h-8 w-8 p-0 border-primary/50 bg-primary/10"
-                                >
-                                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                                </Button>
-                            )}
-                        </div>
-
-                        {/* Status Readout (Stacked below) */}
-                        <div className="text-[10px] text-stone-500 font-medium text-right w-full mt-1">
-                            {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && clip.resultUrl && (
-                                (downloadCount > 0 || clip.status === 'Saved' || clip.status?.startsWith('Saved')) ? (
-                                    <span className="text-stone-500 block">
-                                        {clip.status?.startsWith('Saved') ? clip.status : `Saved${downloadCount > 1 ? ` [${downloadCount}]` : ''}`}
-                                    </span>
-                                ) : (
-                                    <span className="text-primary/80 block">
-                                        Ready
-                                    </span>
-                                )
-                            )}
-                            {clip.status === 'Generating' && (
-                                <span className="text-primary/70 block">Gen...</span>
-                            )}
-                            {clip.status === 'Error' && (
-                                <span className="text-destructive block">Error</span>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </TableCell >
             <AlertDialog open={showEditGuard} onOpenChange={setShowEditGuard}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -650,6 +503,7 @@ export function ClipRow({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </TableRow >
+        </TableRow>
     )
 }
+

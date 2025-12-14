@@ -21,6 +21,8 @@ import { ImageUploadCell } from "@/components/ui/ImageUploadCell";
 import { EditableCell } from "@/components/ui/EditableCell";
 import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea";
 import { LibraryActionToolbar } from "./LibraryActionToolbar";
+import { MediaDisplay } from "@/components/media/MediaDisplay";
+import { RowActions } from "@/components/ui/RowActions";
 
 export interface LibraryItem {
     id: string; // Added ID (index)
@@ -57,7 +59,10 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
 
     const handleStartEdit = (item: LibraryItem) => {
         setEditingId(item.id);
-        setEditValues({ ...item });
+        const { refImageUrl, ...rest } = item;
+        // Strip TASK: prefix if present to avoid editing internal state
+        const safeUrl = refImageUrl?.startsWith('TASK:') ? '' : refImageUrl;
+        setEditValues({ ...rest, refImageUrl: safeUrl });
     };
 
     const handleCancelEdit = () => {
@@ -84,14 +89,34 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
         setEditValues(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleDownload = (url: string) => {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = ''; // Browser might ignore this for cross-origin
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+    const handleDownload = async (url: string, name: string) => {
+        if (!url || url.startsWith('TASK:')) return;
+
+        try {
+            // Determine extension or default
+            const ext = url.split('.').pop()?.split('?')[0] || 'png';
+            const filename = `${name.replace(/[^a-z0-9 ]/gi, '')}.${ext}`;
+
+            // Use the proxy to avoid CORS issues
+            const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(url)}`;
+            const response = await fetch(proxyUrl);
+            if (!response.ok) throw new Error('Download failed');
+
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch (error) {
+            console.error('Download error:', error);
+            alert('Failed to download file');
+        }
     };
 
     const LIBRARY_TYPES = ['LIB_CHARACTER', 'LIB_LOCATION', 'LIB_STYLE', 'LIB_CAMERA'];
@@ -130,6 +155,8 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                             items.map((item, index) => {
                                 const isEditing = editingId === item.id;
                                 const isSelected = selectedItems.has(item.id);
+                                const isItemGenerating = (isGenerating && isGenerating(item.id)) || item.refImageUrl?.startsWith('TASK:');
+
                                 return (
                                     <TableRow key={index} className={`group hover:bg-black transition-colors ${isEditing || isSelected ? 'bg-black' : ''}`}>
                                         <TableCell className="align-top py-3 px-2">
@@ -256,19 +283,19 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                                             ) : (
                                                 // View Mode
                                                 item.refImageUrl ? (
-                                                    item.refImageUrl.startsWith('TASK:') ? (
+                                                    isItemGenerating ? (
                                                         <div className="w-24 h-24 rounded-md border border-stone-800 bg-stone-900 flex flex-col items-center justify-center ml-auto">
                                                             <Loader2 className="h-6 w-6 text-primary animate-spin mb-2" />
                                                             <span className="text-[10px] text-stone-500 font-mono">Generating...</span>
                                                         </div>
                                                     ) : (
-                                                        <EditableCell isEditing={false} onStartEdit={() => handleStartEdit(item)}>
-                                                            <ImageUploadCell
-                                                                value={item.refImageUrl}
-                                                                onChange={() => { }}
-                                                                isEditing={false}
+                                                        <div className="flex justify-end w-24 h-24 ml-auto">
+                                                            <MediaDisplay
+                                                                url={item.refImageUrl}
+                                                                onPlay={onPlay || (() => { })}
+                                                                className="w-full h-full"
                                                             />
-                                                        </EditableCell>
+                                                        </div>
                                                     )
                                                 ) : (
                                                     // Empty state - Show Add Button with Auto-Open behavior
@@ -301,114 +328,17 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
 
                                         {/* Actions */}
                                         <TableCell className={`align-top text-right ${isEditing ? "p-1" : "py-3"}`}>
-                                            {isEditing ? (
-                                                <div className="flex justify-end gap-2">
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="icon"
-                                                                    onClick={handleSave}
-                                                                    disabled={saving}
-                                                                    className="h-8 w-8 border-[0.5px] border-green-600/50 text-green-600 hover:bg-green-600/10 hover:text-green-600 hover:border-green-600"
-                                                                >
-                                                                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">check</span>}
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Save changes</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="icon"
-                                                                    onClick={handleCancelEdit}
-                                                                    className="btn-icon-action h-8 w-8"
-                                                                >
-                                                                    <span className="material-symbols-outlined !text-lg">close</span>
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Cancel editing</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                </div>
-                                            ) : (
-                                                // View Mode Actions
-                                                <div className="flex justify-end gap-2">
-                                                    {isGenerating && isGenerating(item.id) ? (
-                                                        <Button
-                                                            variant="outline"
-                                                            disabled
-                                                            className="h-8 w-8 p-0 border-primary/50 bg-primary/10"
-                                                        >
-                                                            <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                                                        </Button>
-                                                    ) : item.refImageUrl ? (
-                                                        <>
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="icon"
-                                                                            onClick={() => onPlay && onPlay(item.refImageUrl)}
-                                                                            className="btn-icon-action h-8 w-8"
-                                                                        >
-                                                                            <span className="material-symbols-outlined !text-lg">play_arrow</span>
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>View Image</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="icon"
-                                                                            onClick={() => handleDownload(item.refImageUrl)}
-                                                                            className="btn-icon-action h-8 w-8"
-                                                                        >
-                                                                            <span className="material-symbols-outlined !text-lg">download</span>
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>Download Image</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                        </>
-                                                    ) : (
-                                                        onGenerate && (
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            onClick={() => onGenerate(item)}
-                                                                            className="h-8 px-3 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary font-normal border-[0.5px]"
-                                                                        >
-                                                                            GEN
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>Generate Asset</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                        )
-                                                    )}
-                                                </div>
-                                            )}
+                                            <RowActions
+                                                status={isItemGenerating ? 'Generating' : (item.refImageUrl ? 'Done' : '')}
+                                                resultUrl={item.refImageUrl}
+                                                isEditing={isEditing}
+                                                isSaving={saving}
+                                                onEditStart={() => handleStartEdit(item)}
+                                                onEditSave={handleSave}
+                                                onEditCancel={handleCancelEdit}
+                                                onGenerate={() => onGenerate && onGenerate(item)}
+                                                onDownload={() => handleDownload(item.refImageUrl, item.name)}
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -420,3 +350,4 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
         </div>
     );
 }
+

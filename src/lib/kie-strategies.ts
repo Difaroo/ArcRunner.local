@@ -1,9 +1,9 @@
-import { FluxPayload, VeoPayload } from './kie';
+import { FluxPayload, VeoPayload, AppStatus } from './kie-types';
 
 const KIE_API_KEY = process.env.KIE_API_KEY;
 const KIE_BASE_URL = 'https://api.kie.ai/api/v1';
 
-export type AppStatus = 'Generating' | 'Done' | 'Error';
+
 
 export interface StatusResult {
     status: AppStatus;

@@ -81,8 +81,10 @@ export default function Home() {
   useEffect(() => {
     const savedVideo = localStorage.getItem("videoPromptTemplate")
     const savedImage = localStorage.getItem("imagePromptTemplate")
+    const savedModel = localStorage.getItem("selectedModel")
     setVideoPromptTemplate(savedVideo || DEFAULT_VIDEO_PROMPT)
     setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
+    if (savedModel) setSelectedModel(savedModel)
   }, [])
 
 
@@ -792,6 +794,7 @@ export default function Home() {
               selectedModel={selectedModel}
               onModelChange={async (model) => {
                 setSelectedModel(model);
+                localStorage.setItem("selectedModel", model);
                 // Persist to Episode
                 try {
                   await fetch('/api/update_episode', {
