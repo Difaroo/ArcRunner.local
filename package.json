@@ -1,6 +1,6 @@
 {
   "name": "arcrunner-local",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -25,7 +25,6 @@
     "@types/mime": "^4.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "googleapis": "^105.0.0",
     "lucide-react": "^0.555.0",
     "mime": "^4.1.0",
     "next": "13.5.6",

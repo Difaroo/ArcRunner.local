@@ -1,0 +1,591 @@
+[dotenv@17.2.3] injecting env (4) from .env.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+Running 1 test using 1 worker
+
+[dotenv@17.2.3] injecting env (0) from .env.local [2m-- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`[0m
+Current Table Headers: [
+  [32m''[39m,          [32m''[39m,
+  [32m'SCN'[39m,       [32m'TITLE'[39m,
+  [32m'CHARACTER'[39m, [32m'LOCATION'[39m,
+  [32m'CAMERA'[39m,    [32m'ACTION'[39m,
+  [32m'DIALOG'[39m,    [32m'REF IMAGES'[39m,
+  [32m'RESULT'[39m,    [32m'STATUS'[39m
+]
+Debug: Found 16 rows in the table.
+First Row HTML: <td class="[&amp;:has([role=checkbox])]:pr-0 text-sm w-[30px] p-0 pl-1 pr-0 align-top py-3 cursor-grab active:cursor-grabbing touch-none" role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-1"><div class="flex items-center justify-center h-4 w-4"><span class="material-symbols-outlined text-stone-600 hover:text-stone-400 !text-base leading-none">drag_indicator</span></div></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 text-sm w-[40px] px-0 text-center align-top py-3"><button type="button" role="checkbox" aria-checked="false" data-state="unchecked" value="on" class="peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"></button></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 align-top font-sans font-extralight text-stone-500 text-xs py-3">1</td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 text-sm align-top w-[12%] py-3"><div class="cursor-pointer hover:bg-stone-800/50 p-1 rounded -m-1 transition h-full font-medium text-white block" title="Click to edit"><span class="table-text font-medium">Candy Jones is a cover… My name is Arlene Grant…</span></div></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 text-sm align-top w-[9%] py-3"><div class="cursor-pointer hover:bg-stone-800/50 p-1 rounded -m-1 transition h-full text-white whitespace-pre-line text-xs font-sans font-extralight" title="Click to edit"><div class="flex flex-col gap-2"><span class="text-stone-500 italic">-</span></div></div></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 text-sm align-top w-[9%] py-3"><div class="cursor-pointer hover:bg-stone-800/50 p-1 rounded -m-1 transition h-full text-white" title="Click to edit"><div class="flex flex-col gap-2"><span class="table-text">1960s interior, desk with vintage reel-to-reel tape recorder, handwritten label “Tape 216 [NO COPY]: Larry Edison, Hypnotist”</span></div></div></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 align-top text-white text-xs w-[9%] py-3"><div><div class="cursor-pointer hover:bg-stone-800/50 p-1 rounded -m-1 transition h-full " title="Click to edit"><span class="table-text">Cinematic close-up, shallow depth of field</span></div></div></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 text-sm align-top text-white w-[22%] py-3"><div class="cursor-pointer hover:bg-stone-800/50 p-1 rounded -m-1 transition h-full leading-relaxed" title="Click to edit"><span class="table-text">Tape reels spin slowly</span></div></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 text-sm align-top text-white w-[18%] py-3"><div class="cursor-pointer hover:bg-stone-800/50 p-1 rounded -m-1 transition h-full text-white" title="Click to edit"><span class="table-text">Candy Jones is a cover… My name is Arlene Grant…</span></div></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 text-sm align-top py-3 w-[140px] pr-[10px] pl-0"><div class="w-full flex justify-end"><button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-normal ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:text-black border bg-background shadow-sm hover:bg-accent hover:text-accent-foreground rounded-md btn-icon-action w-[40px] h-[40px] p-0 opacity-50 hover:opacity-100 border-dashed border-stone-700" data-state="closed"><span class="material-symbols-outlined !text-lg text-primary">add</span></button></div></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 text-sm align-top py-3 w-[75px] pr-[10px] pl-0"></td><td class="p-4 [&amp;:has([role=checkbox])]:pr-0 text-sm align-top text-right py-3 w-[60px] pr-[25px] pl-0"><div class="flex flex-col items-end gap-1"><div class="flex flex-col gap-2 items-end"><button class="inline-flex items-center justify-center whitespace-nowrap rounded-md ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:text-black bg-background shadow-sm py-2 h-8 px-3 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary font-normal border-[0.5px]" data-state="closed">GEN</button></div><div class="text-[10px] text-stone-500 font-medium text-right w-full mt-1"></div></div></td>
+Intercepted Payload: {
+  clip: {
+    id: [32m'91'[39m,
+    scene: [32m'1'[39m,
+    status: [32m'Generating'[39m,
+    title: [32m'Candy Jones is a cover… My name is Arlene Grant…'[39m,
+    character: [32m''[39m,
+    location: [32m'1960s interior, desk with vintage reel-to-reel tape recorder, handwritten label “Tape 216 [NO COPY]: Larry Edison, Hypnotist”'[39m,
+    style: [32m'Noir newsroom tone, subtle film grain, moody shadows'[39m,
+    camera: [32m'Cinematic close-up, shallow depth of field'[39m,
+    action: [32m'Tape reels spin slowly'[39m,
+    dialog: [32m'Candy Jones is a cover… My name is Arlene Grant…'[39m,
+    refImageUrls: [32m''[39m,
+    explicitRefUrls: [32m''[39m,
+    characterImageUrls: [],
+    locationImageUrls: [],
+    resultUrl: [32m''[39m,
+    seed: [32m'77777'[39m,
+    episode: [32m'1'[39m,
+    series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m,
+    sortOrder: [33m0[39m,
+    model: [32m''[39m
+  },
+  library: [
+    {
+      id: [32m'1'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Candy_Jones'[39m,
+      description: [32m'CANDY: A hauntingly beautiful woman in her mid-20s, c. 1950.\n'[39m +
+        [32m"Face: Green eyes, shoulder length wavy 50's styled auburn hair, high cheekbones, straight long nose, strong Cupid’s bow; lips medium‑full. \n"[39m +
+        [32m'Young, gorgeous, smart, with non-classical aristocratic features. Poised, camera‑aware, cool.\n'[39m +
+        [32m"Voice: American educated 50's Pennsylvania accent and theatrical delivery."[39m,
+      refImageUrl: [32m'/api/media/uploads/Candy_press_photo_01.jpeg'[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Primary lead character'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'2'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Candy_Rocketman'[39m,
+      description: [32m"CANDY's WARDROBE: Styled in retro-futurist 1950s fashion — sharp collar, cinched waist, simple fitted, two-tone uniform dress: cream colored short-sleeves with pointed collar above the bust, and red section covering bust and extending down into a fitted midsection. The outfit has a tailored, vintage look with bold color blocking that accentuates the waist. Makeup featuring classic red lipstick and subtle eyeliner. Cinematic retro aesthetic."[39m,
+      refImageUrl: [32m'/api/images/Candy_Arlene_00.1_1764610607491.jpg'[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m''[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'3'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Chet_Valentine'[39m,
+      description: [32m'CHET: Mid‑30s newsroom anchor; Jack Lord‑style quiff, sharp cheekbones; cheap 1960s suit and skinny tie. Facial hair: clean‑shaven. \n'[39m +
+        [32m'Demeanor: intense stare, deadpan wit.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Anchor / voice‑over'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'4'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Ultra_Radio_Studio'[39m,
+      description: [32m'Candy’s booth at Ultra Radio. C. 1960\n'[39m +
+        [32m'Classic 50’s mic in front of her, metal Ultra Radio plaque on the front of it, capitals "ULTRA RADIO" stacked, with black enamel background / infill.\n'[39m +
+        [32m'Anglepoise screen left, the only light. \n'[39m +
+        [32m'Behind her: A chaotic pinboard filled with yellowed clippings, vintage concert tickets, passport photos, telex messages, and CIA documents, all linked with red string - fills the background.'[39m,
+      refImageUrl: [32m'/api/images/Candy_Ultra_Radio_Cgpt_01.png, /api/media/uploads/Lib_3_Ref.png'[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Core set'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'5'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Anime_Cel'[39m,
+      description: [32m'Anime cel shading; crisp black line art; high‑contrast flat colors; limited motion blur; lensing like Demon Slayer / One Piece.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Use for anime look'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'6'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Noir_1960s'[39m,
+      description: [32m'Noir newsroom grit; saturated but tasteful color; 1960s film grain; hard key and deep shadows.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Use for newsroom scenes'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'7'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'CloseUp_Dramatic'[39m,
+      description: [32m'Straight, square on, on face, slow push‑in; shallow depth‑of‑field; slight low angle to intensify.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Good for dialogue hooks'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'8'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Crash_Zoom'[39m,
+      description: [32m'Rapid crash zoom to subject; brief whip‑pan feel; handheld micro‑shake allowed.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'For reveals'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'9'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Jack_Parsons'[39m,
+      description: [32m'JACK: Eccentric 1950s rocket engineer. 30 yr old, Intense, visionary. Dark hair, short back and sides, curly eraserhead style bourfant quiff. Pencil moustache. Grease-stained white shirt. Blue suspenders.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Repeat villain figure.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'10'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Fritz_Dornberger'[39m,
+      description: [32m'FRITZ: Comic Germanic mad scientist neighbour. Messy white hair, lab coat, tool belt, Converse sneakers. Welding goggles.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Strangelove parody.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'11'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Rocketman_Shed'[39m,
+      description: [32m"Interior. 50's era. Dusty barn, workshop for rockets. Jet parts. Blueprints, chalk board with formulas and occult chalk sigils on walls."[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Jack’s lair.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'12'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Backyard_Launch'[39m,
+      description: [32m'Backyard garden, pasadena native plants, scrapped inventions scarttered around, palm trees in distance, pentagram drawn in dirt charred launch patch, hippy girls dancing.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Launch ritual site.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'13'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Newsroom_1950s'[39m,
+      description: [32m'Mid-century newsroom desk with ticker tape, glass ashtray, harsh overhead light.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Anchor’s base.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'14'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Noir_1960s'[39m,
+      description: [32m'Cinematic depth-of-field, noir grit, 1960s film grain, hard key shadows, slight analog glitch.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'House style.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'15'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'CloseUp_Dramatic'[39m,
+      description: [32m'Straight-on close-up, shallow depth of field.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'For emotional beats.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'16'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Medium_Close'[39m,
+      description: [32m'Waist-up framing, slight push-in.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'-'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'17'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Wide'[39m,
+      description: [32m'Full-body framing, wide context.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'-'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'18'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Drone_Down'[39m,
+      description: [32m'Very high descending shot, looking down on location, and descending, centred on the key object or action.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'For beauty beat.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'19'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Candy_Meets_Castro'[39m,
+      description: [32m'CANDY WARDROBE: Olive green satin cocktail dress in a fitted pencil-skirt silhouette, floor-length with a deep halter neckline. Satin fabric gleams subtly under light, clinging elegantly to the figure. Bodice plunges low, framed with delicate silver beaded trim that runs down the neckline. Skirt tapers narrow, with a small slit at the back for movement. Accessories: diamond drop earrings, slim bracelet, silver pendant on a chain. Makeup: bold red lipstick, subtle eyeliner, hair styled in loose 1950s waves swept to one side. Diamond drop earrings, bold red lipstick.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Distinct from Candy’s radio or Rocketman looks; reusable for future palace/party settings.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'20'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'The_Nordic'[39m,
+      description: [32m'The Nordic: Striking albino woman in her late 20s. Long, straight white hair with no wave. Skin pale, almost luminous. Wardrobe: ice-white slit pencil skirt, retro-futurist chic; fitted jacket; white 1950s airhostess hat with no trim, graphics, or badges; white 4-inch stilettos; white toenails. Demeanor: cold, enigmatic, half-lidded gaze, moves with gliding precision.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Archetypal figure recurring across the island mythos.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'21'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'CIA_Handler'[39m,
+      description: [32m'Mid-40s man, cropped dark hair, severe jawline. \n'[39m +
+        [32m'Wardrobe: horn-rimmed glasses with cyan lenses, plain grey CIA suit, loosened tie. \n'[39m +
+        [32m'Demeanor: flat, reflective, speaks with detached authority.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Appears in multiple CIA flashback briefings.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'22'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Secret_Police'[39m,
+      description: [32m'Cuban secret police: late 50s. Assorted moustache and beard combos. Assorted builds.\n'[39m +
+        [32m"Wardrobe: black suit, crisp black shirts, narrow red ties, black 1950s sunglasses. Black AK-47's. Leather strap of a shoulder holster inside the jacket. \n"[39m +
+        [32m'Demeanor: disciplined, stone-faced, menacing.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Guards throughout palace exterior and interior.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'23'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Castro_Wife'[39m,
+      description: [32m'CASTROS WIFE: Mid-30s Cuban woman, elegant. Wardrobe: fitted cocktail dress in black satin, pearl necklace, hair pinned in 1960 updo. Demeanor: stiff, watchful, jealous gaze.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Recurs in party and lounge shots.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'24'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Presidential_Palace_Ext_1960'[39m,
+      description: [32m"Presidential Palace: Havana’s Presidential Palace exterior at night. Huge Cuban flag hanging sideways, the red chevron at the top pointing down above entrance, 6 wide stone steps up from a wide pavement, red carpet, access road running across the front of the pagvement. On the pavement Chet Valentine in tux talking to 60's tv camera, Cuban state tv crew, searchlights pointing straight up to the sky, velvet ropes, press crowd, flashbulbs."[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Exterior recurring setup.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'25'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Red_Carpet_Gate'[39m,
+      description: [32m'At the arched entrance, secret police guards check the guests invitations.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Used for invitation and Candy slipping past.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'26'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Presidential_Palace_Int_Ballroom'[39m,
+      description: [32m'INTERIOR: Havana’s Presidential Palace ball room, Lavish 1960 interior. Marble columns, chandeliers, gilded trim, dancers, fire-eater, waiters with trays. Subdued club lighting. Crowded, decadent atmosphere.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Used repeatedly in party sequence.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'27'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Candys_Porsche'[39m,
+      description: [32m'CANDYS PORSCHE: 1959 Porsche 356 A (T2) 1600 Super, coupe, hard top, NOT A CONVERTIBLE. Bodywork in buffed bare aluminium. Red leather interior.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Used repeatedly in party sequence.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'28'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Newsreel_BW_1960'[39m,
+      description: [32m'High-contrast monochrome, visible film grain, gate weave, subtle scratches, archival look.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'For Castro’s UN sequence.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'29'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Low_Angle_Heroic'[39m,
+      description: [32m'Camera angled sharply up from below, enlarging subject, high-contrast shadows across face, dramatic manga exaggeration.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'For Castro’s UN speech.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'30'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Tracking_Shot'[39m,
+      description: [32m'Handheld or dolly tracking through crowd, shallow depth of field, subject center-framed, noir grit.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Used in party sequence following Candy.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'31'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Insert_Close'[39m,
+      description: [32m'Macro close-up, object fills frame, shallow focus, vignette edges, noir panel-like emphasis.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'1'[39m,
+      notes: [32m'Used for cigar band.'[39m,
+      episode: [32m'1'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'55'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Candy_Jones_Roswell'[39m,
+      description: [32m"Candy, Wardrobe: stylish 50's tan trench coat over knee-length pencil skirt, tailored red retro-futurist stewardess dress."[39m,
+      refImageUrl: [32m'https://drive.google.com/file/d/1LA06wnC9a17tScuqiDOHTSFopn9w8JOL'[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Default Candy look for noir episodes.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'56'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Noir_1950s_BMovie'[39m,
+      description: [32m'Pulp sci-fi tone: heavy film grain, exaggerated chiaroscuro, thunderflash lighting, smoke machine haze. Palette: desaturated with cyan highlights. Visual rhythm: quick cuts, comic-book panels, theatrical shadows.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Default visual mood for NOHS Roswell arc.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'57'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'CloseUp_Dramatic'[39m,
+      description: [32m'Tight framing, slight lens distortion, film grain accentuating facial highlights. Background blurred with low-angle uplight, emphasising pulp intensity.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'For Chet opener, Candy reaction, or reveal shots.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'58'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Medium_Wide_Static'[39m,
+      description: [32m'Waist-up to full-body composition, balanced symmetrical framing, static camera on tripod. Atmospheric depth visible behind subjects.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Used for sign and pasture setups.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'59'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Interview_2Shot_Static'[39m,
+      description: [32m'Locked tripod framing of two characters mid-chest up, 1950s talk-show feel. Slight backlight halo on reporter’s hair.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Candy + farmhand exchange scenes.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'60'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Hands_Reveal_Object'[39m,
+      description: [32m'Close on hands manipulating or discovering object; shallow DoF; background bokeh flickers from lab light or desert sun.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Used in toaster discovery, cigar band, prop reveals.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'61'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Object_Floats'[39m,
+      description: [32m'Small object levitates or hovers in frame, lit from below, dust drifting around.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'For the toaster “flying saucer” gag.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'62'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Character_Deadpan_Quip'[39m,
+      description: [32m'Character pauses, stares into camera, delivers line flat and ironic.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Used by Candy and Chet across series.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'63'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Reveal_Scientist'[39m,
+      description: [32m'Character removes hood or mask to reveal eccentric scientist beneath; camera push-in.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Used in Parsons reveal sequence.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'64'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Interview_WalkAndTalk'[39m,
+      description: [32m'Reporter and subject stroll side-by-side while exchanging lines; background movement conveys realism.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Standard walk-and-talk pattern for interviews.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'65'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Ultra_News_Studio'[39m,
+      description: [32m'Small 1960s local Miami TV station newsroom. Low ceiling with buzzing fluorescent tubes, wood-panel walls, Ultra News logo painted slightly off-center behind desk. Chrome boom mic overhead, bulky cathode cameras on wheeled tripods, cables coiled across scuffed linoleum floor. Lighting: harsh, flat, with faint cigarette haze. Background props: rotary phone, stack of cue cards, wall clock perpetually five minutes slow.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Used for Chet Valentine’s Ultra News segments and broadcast cut-ins.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'66'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Roswell_Pasture'[39m,
+      description: [32m'Open New Mexico scrubland with sand, cactus, yucca, and storm clouds.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m''[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'67'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Jack_Parsons_Roswell'[39m,
+      description: [32m"Jack is wearing a 60's hazmat suit, with a full spherical perspex space helmet, but he will not be holding the torch."[39m,
+      refImageUrl: [32m'https://drive.google.com/file/d/1uxAeL5J4Nl1Lgw_V90TpFEYNDfCwKtQW'[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m''[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'68'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Farmhand_Son'[39m,
+      description: [32m'Good looking farm hand in lumberjack shirt and denim bib overalls.'[39m,
+      refImageUrl: [32m'https://drive.google.com/file/d/1jbxTrV0Dc4AXAGir74mPr1hyXoi0g_Jq'[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m''[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'69'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Roswell_Cow_Circle'[39m,
+      description: [32m'Wide open New Mexico pasture at dusk, ring of cows standing perfectly still in a circular formation. Dust in the air, faint thunderclouds, eerie stillness under flickering light. UFO debris and tire ruts visible around them.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Used for Candy and Farmhand discovery scene; evokes eerie 1950s alien mystery.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'70'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Farmhand_Son'[39m,
+      description: [32m'Early 20s rancher type; sunburned skin, strong jaw, naive expression. Wears plaid shirt, denim overalls, and tinfoil hat made from kitchen foil. Demeanor: goofy, awkwardly flirtatious, enamoured with Candy.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m'Recurring comic-relief archetype for rural Roswell segments.'[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    },
+    {
+      id: [32m'71'[39m,
+      type: [32m'LIB_OTHER'[39m,
+      name: [32m'Heroic_Hazmat_Scan'[39m,
+      description: [32m'Character in bulky 1950s hazmat suit sweeps desert with a metal detector under storm clouds; cinematic low-angle, lightning flashes, cows watching.'[39m,
+      refImageUrl: [32m''[39m,
+      negatives: [32m'3'[39m,
+      notes: [32m"Used for Jack Parsons' entrance; parody of pulp sci-fi hero shot."[39m,
+      episode: [32m'3'[39m,
+      series: [32m'a68a88a1-fe84-4b05-ad42-4093f8ad53ae'[39m
+    }
+  ],
+  model: [32m'veo-fast'[39m,
+  aspectRatio: [32m'16:9'[39m,
+  rowIndex: [33m91[39m
+}
+  ✓  1 [chromium] › rendering.spec.ts:6:9 › ArcRunner Rendering Flow › Trigger Generation (UI -> API Handover) (6.8s)
+
+  1 passed (9.3s)
+npm notice 
+npm notice New major version of npm available! 8.15.0 -> 11.7.0
+npm notice Changelog: <https://github.com/npm/cli/releases/tag/v11.7.0>
+npm notice Run `npm install -g npm@11.7.0` to update!
+npm notice 

@@ -17,8 +17,12 @@ export async function GET(
             return new NextResponse('Invalid path', { status: 400 });
         }
 
-        // Define the target directory: ../Images relative to the web project root
-        const imagesDir = path.join(process.cwd(), '../Images');
+        // Define the target directory: Use the shared storage location
+        const imagesDir = path.join(process.cwd(), 'storage/media/uploads');
+        // Handle legacy path structure where filename might include 'uploads/' prefix or not
+        // Current filename from params is just the slug e.g. "Candy_Arlene..."
+        // But if the URL was /api/images/uploads/foo.jpg, filename is 'uploads/foo.jpg'.
+        // We safely join.
         const filePath = path.join(imagesDir, filename);
 
         if (!existsSync(filePath)) {
