@@ -87,10 +87,7 @@ export function ClipRow({
     }
 
     const handleStartEdit = () => {
-        if (clip.status === 'Done' && downloadCount === 0) {
-            setShowEditGuard(true)
-            return
-        }
+        // removed blocking guard for 'Done' clips as per user feedback
         startEditing()
     }
 
@@ -271,6 +268,7 @@ export function ClipRow({
                                         key={char}
                                         checked={(editValues.character || "").split(',').map(c => c.trim()).includes(char)}
                                         onCheckedChange={() => toggleCharacter(char)}
+                                        onSelect={(e) => e.preventDefault()}
                                         className="focus:bg-stone-800 focus:text-white"
                                     >
                                         {char}
@@ -306,24 +304,31 @@ export function ClipRow({
             <TableCell className={`align-top w-[9%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 w-full justify-start text-xs text-left truncate">
-                                    {editValues.location || "Select..."}
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
-                                {uniqueValues.locations.map((opt) => (
-                                    <DropdownMenuItem
-                                        key={opt}
-                                        onClick={() => handleChange('location', opt)}
-                                        className="focus:bg-stone-800 focus:text-white"
-                                    >
-                                        {opt}
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="relative w-full">
+                            <Input
+                                value={editValues.location || ''}
+                                onChange={(e) => handleChange('location', e.target.value)}
+                                className="h-8 w-full text-xs"
+                                placeholder="Location..."
+                            />
+                            {/* Suggestion List - Simple implementation since we lack full Combobox components */}
+                            {uniqueValues.locations.length > 0 && (
+                                <div className="absolute top-full left-0 w-full z-50 mt-1 max-h-40 overflow-y-auto rounded-md border border-stone-800 bg-stone-900 shadow-md">
+                                    {uniqueValues.locations.filter(l => !editValues.location || l.toLowerCase().includes(editValues.location.toLowerCase())).map((opt) => (
+                                        <div
+                                            key={opt}
+                                            className="cursor-pointer px-2 py-1.5 text-xs text-stone-200 hover:bg-stone-800 hover:text-white"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault(); // Prevent blur
+                                                handleChange('location', opt);
+                                            }}
+                                        >
+                                            {opt}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         <div className="flex flex-col gap-2">
                             <span className="table-text">{clip.location || '-'}</span>

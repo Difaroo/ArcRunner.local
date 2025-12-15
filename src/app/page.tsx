@@ -343,7 +343,7 @@ export default function Home() {
 
   // Need filtered items for "Select All". Filter happens in render.
   // Replicate filtering logic here or hoist it.
-  // Currently filtered in render: allSeriesAssets.filter(item => item.episode === currentEpKey)
+  // UPDATE: User wants to see ONLY instantiated items in Studio View for that Episode.
   const currentLibraryItems = allSeriesAssets.filter(item => item.episode === currentEpKey);
 
   const toggleLibrarySelect = (id: string) => {
@@ -632,7 +632,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.5.0</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.6.1</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 

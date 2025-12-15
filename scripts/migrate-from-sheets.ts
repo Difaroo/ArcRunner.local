@@ -24,8 +24,8 @@ async function main() {
     console.log('Env Check:', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ? 'OK' : 'MISSING');
 
     // Dynamic Imports to respect Env Loading
-    const { db } = await import('../src/lib/db');
-    const { getSheetData, parseHeaders } = await import('../src/lib/sheets');
+    const { db } = await import('../src/lib/db.ts');
+    const { getSheetData, parseHeaders } = await import('../src/lib/sheets.ts');
 
     // 1. SAFETY: Dump Sheets to JSON
     console.log('Phase 1: Fetching ALL Data from Sheets...');
@@ -106,6 +106,7 @@ async function main() {
 
         const created = await db.series.create({
             data: {
+                id: sid, // Force ID to match Sheet ID
                 name: title,
                 status: status,
             }
@@ -117,7 +118,7 @@ async function main() {
     // Default Series if missing
     if (seriesMap.size === 0) {
         console.log('  No Series found. Creating Default.');
-        const def = await db.series.create({ data: { name: 'Default Series' } });
+        const def = await db.series.create({ data: { id: '1', name: 'Default Series' } });
         seriesMap.set('1', def.id);
     }
 
