@@ -1,4 +1,7 @@
-import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
+
+import { db } from '@/lib/db';
+// Remove sheets imports if no longer needed
+// import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
 import { convertDriveUrl } from '@/lib/drive';
 import { getLibraryItems, LibraryItem } from '@/lib/library';
 import { processRefUrls } from '@/lib/image-processing';
@@ -11,6 +14,7 @@ export const AppService = {
      * Returns: Array of Public Kie URLs.
      */
     async resolveReferenceImages(clip: any, limit: number = 3): Promise<string[]> {
+        // ... (Keep existing logic, it calls getLibraryItems which is now DB based) ...
         const libraryItems = await getLibraryItems(clip.series);
         let rawImageUrls: string[] = [];
 
@@ -66,36 +70,17 @@ export const AppService = {
     },
 
     /**
-     * Updates the status and result of a Clip in the Sheet.
+     * Updates the status and result of a Clip in the DB.
      */
     async updateClipRow(rowIndex: number, updates: { status?: string, resultUrl?: string, model?: string }) {
-        const sheets = await getGoogleSheetsClient();
-        const spreadsheetId = process.env.SPREADSHEET_ID;
-        const sheetRow = rowIndex + 2;
-        const headers = await getHeaders('CLIPS');
-
-        const batchUpdates: any[] = [];
-
-        // Helper
-        const addUpdate = (colName: string, value: string) => {
-            const idx = headers.get(colName);
-            if (idx !== undefined) {
-                const colLetter = indexToColumnLetter(idx);
-                batchUpdates.push(sheets.spreadsheets.values.update({
-                    spreadsheetId,
-                    range: `CLIPS!${colLetter}${sheetRow}`,
-                    valueInputOption: 'USER_ENTERED',
-                    requestBody: { values: [[value]] }
-                }));
-            }
-        };
-
-        if (updates.status) addUpdate('Status', updates.status);
-        if (updates.resultUrl) addUpdate('Result URL', updates.resultUrl);
-        if (updates.model) addUpdate('Model', updates.model);
-
-        if (batchUpdates.length > 0) {
-            await Promise.all(batchUpdates);
+        try {
+            await db.clip.update({
+                where: { id: rowIndex },
+                data: updates
+            });
+        } catch (error) {
+            console.error(`AppService: Failed to update clip ${rowIndex}`, error);
+            throw error;
         }
     },
 

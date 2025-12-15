@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// The "Series" Table
+model Series {
+  id            String       @id @default(uuid())
+  name          String       // "Series Title"
+  totalEpisodes Int?         @default(1)
+  status        String?      // "Development", "Production"
+  
+  // Relations
+  episodes      Episode[]
+  studioItems   StudioItem[]
+}
+
+// The "Episodes" Table
+model Episode {
+  id        String   @id @default(uuid())
+  number    Int      // 1, 2, 3
+  title     String?  // "The Beginning"
+  model     String?  // "veo-2", "veo-3" (Episode-level override)
+  
+  // Relations
+  seriesId  String
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  clips     Clip[]
+}
+
+// The "Studio" Table (Formerly 'Library')
+model StudioItem {
+  id          Int      @id @default(autoincrement())
+  type        String   // "LIB_CHARACTER", "LIB_LOCATION", "LIB_STYLE", "LIB_CAMERA"
+  name        String
+  description String?
+  refImageUrl String?
+  negatives   String?
+  notes       String?
+  episode     String?  // "1" (Keep as string for now to match sheet usage, or int?)
+                       // Sheet uses "Episode" column to scope items? 
+                       // Schema plan says "A Series has many Studio Assets".
+                       // But items are often filtered by Episode in UI.
+  
+  // Relations
+  seriesId    String
+  series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+}
+
+// The "Clips" Table
+model Clip {
+  id              Int      @id @default(autoincrement())
+  status          String   @default("Pending") // Pending, Generating, Done, Error
+  scene           String?  // "1.1"
+  title           String?  // Scene Heading
+  
+  // Content
+  action          String?
+  dialog          String?
+  
+  // Settings
+  character       String?  // Comma-sep names
+  location        String?
+  style           String?
+  camera          String?
+  model           String?  // "veo-3", "flux"
+  seed            String?
+  sortOrder       Int      @default(0)
+
+  // Media
+  refImageUrls    String?  // The EXPLICIT urls string "url1, url2"
+  resultUrl       String?
+  taskId          String?  // Kie.ai Task ID
+  
+  // Relations
+  episodeId       String
+  episode         Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+}

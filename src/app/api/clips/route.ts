@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { getSheetData, parseHeaders } from '@/lib/sheets';
+import { db } from '@/lib/db';
 import { convertDriveUrl } from '@/lib/drive';
 
+// Types (Keep for compatibility if needed, though mostly inferred now)
 export interface Clip {
     id: string;
     scene: string;
@@ -26,237 +27,165 @@ export interface Clip {
     model?: string;
 }
 
-export interface Series {
-    id: string;
-    title: string;
-    totalEpisodes: string;
-    currentEpisodes: string;
-    status: string;
-}
-
 export async function GET() {
     try {
-        console.log('API /api/clips called');
-        // Fetch data from 'CLIPS', 'LIBRARY', 'EPISODES', and 'SERIES' sheets
-        // Fetching from A1 to get headers
-        // Fetching sequentially to debug hang
-        const clipsData = await getSheetData('CLIPS!A1:ZZ');
-        const libraryData = await getSheetData('LIBRARY!A1:ZZ');
-        const episodesData = await getSheetData('EPISODES!A1:ZZ');
-        const seriesData = await getSheetData('SERIES!A1:ZZ');
+        console.log('API /api/clips called (DB Mode)');
 
-        // Helper to parse sheet data (Headers + Rows)
-        // Helper to parse sheet data (Headers + Rows)
-        const parseSheet = (data: any[][] | null | undefined) => {
-            if (!data || data.length === 0) return { headers: new Map<string, number>(), rows: [] };
-            const headers = parseHeaders(data);
-            const rows = data.slice(1);
-            return { headers, rows };
-        };
-
-        const clipsSheet = parseSheet(clipsData);
-        const librarySheet = parseSheet(libraryData);
-        const episodesSheet = parseSheet(episodesData);
-        const seriesSheet = parseSheet(seriesData);
-
-        console.log('Clips fetched:', clipsSheet.rows.length);
-        console.log('Library fetched:', librarySheet.rows.length);
-        console.log('Episodes fetched:', episodesSheet.rows.length);
-        console.log('Series fetched:', seriesSheet.rows.length);
-
-        // Helper to safely get value by header name
-        const getValue = (row: any[], headerMap: Map<string, number>, colName: string): string => {
-            const index = headerMap.get(colName);
-            if (index === undefined) return '';
-            return String(row[index] || '');
-        };
-
-
-
-        // Build Library Map: Series ID -> Name -> Image URL
-        const libraryImages: Record<string, Record<string, string>> = {};
-
-        librarySheet.rows.forEach(row => {
-            const name = getValue(row, librarySheet.headers, 'Name');
-            const imageUrl = getValue(row, librarySheet.headers, 'Ref Image URLs');
-            const seriesId = getValue(row, librarySheet.headers, 'Series') || '1'; // Default to Series 1 if missing
-
-            if (name && imageUrl) {
-                if (!libraryImages[seriesId]) {
-                    libraryImages[seriesId] = {};
-                }
-                libraryImages[seriesId][name.toLowerCase()] = convertDriveUrl(imageUrl.trim());
-            }
-        });
-
-        // Build Episode List (with Series ID)
-        const episodes: { series: string, id: string, title: string, model?: string }[] = [];
-        const episodeTitles: Record<string, string> = {}; // Keep for backward compat / lookup
-
-        episodesSheet.rows.forEach(row => {
-            const seriesId = (getValue(row, episodesSheet.headers, 'Series') || '1').trim();
-            // Allow 'Episode' or 'Episode Number'
-            let epNum = getValue(row, episodesSheet.headers, 'Episode Number');
-            if (!epNum) epNum = getValue(row, episodesSheet.headers, 'Episode');
-            epNum = epNum.trim();
-
-            const title = getValue(row, episodesSheet.headers, 'Title').trim();
-            const model = getValue(row, episodesSheet.headers, 'Model');
-
-            if (epNum && title) {
-                episodes.push({ series: seriesId, id: epNum, title, model });
-                episodeTitles[epNum] = title;
-            }
-        });
-
-        // Infer Episodes from Clips (if not in EPISODES sheet)
-        clipsSheet.rows.forEach(row => {
-            const epNum = getValue(row, clipsSheet.headers, 'Episode') || '1';
-            const seriesId = getValue(row, clipsSheet.headers, 'Series') || '1';
-
-            // Check if already in list for this series
-            const exists = episodes.find(e => e.id === epNum && e.series === seriesId);
-            if (!exists) {
-                const title = `Episode ${epNum}`;
-                episodes.push({ series: seriesId, id: epNum, title });
-                // Only add to titles map if not present (sheet titles take precedence)
-                if (!episodeTitles[epNum]) {
-                    episodeTitles[epNum] = title;
-                }
-            }
-        });
-
-        // Map rows to Clip objects
-        const clips = clipsSheet.rows
-            .map((row, index) => ({ row, index })) // Preserve original index (relative to data rows)
-            .filter(({ row }) => {
-                const scene = getValue(row, clipsSheet.headers, 'Scene #');
-                return scene !== 'Scene #' && scene; // Filter out header row (if somehow duplicated) AND empty scene numbers
+        // 1. Fetch All Data in Parallel
+        const [dbSeries, dbEpisodes, dbStudioItems, dbClips] = await Promise.all([
+            db.series.findMany(),
+            db.episode.findMany(),
+            db.studioItem.findMany(),
+            db.clip.findMany({
+                include: { episode: { include: { series: true } } },
+                orderBy: { sortOrder: 'asc' }
             })
-            .map(({ row, index }) => {
-                const series = getValue(row, clipsSheet.headers, 'Series') || '1';
+        ]);
 
-                let character = getValue(row, clipsSheet.headers, 'Character');
-                if (!character) character = getValue(row, clipsSheet.headers, 'Characters');
-                const location = getValue(row, clipsSheet.headers, 'Location');
+        // 2. Transform Series
+        const series = dbSeries.map(s => ({
+            id: s.id, // UUID now, check if frontend handles string IDs ok? Yes, it did string IDs from sheets '1', '2'.
+            // Wait, previous IDs were '1', '2'. Now they are UUIDs. 
+            // Frontend might expect '1'. 
+            // The Frontend uses these IDs to filter. If we change them, URL dicts might break?
+            // "Series #" in sheet was '1'.
+            // In migration, we mapped '1' -> UUID.
+            // If the frontend relies on '1', we have a problem unless we expose the mapped ID or handle it.
+            // Actually, the Frontend likely receives the list of Series and uses their IDs for select boxes.
+            // So if we send UUIDs, the select box will use UUIDs.
+            // However, OLD links or saved selections might break?
+            // "Series" column in Clips table -> references the ID.
+            title: s.name,
+            totalEpisodes: s.totalEpisodes?.toString() || '0',
+            currentEpisodes: '0', // Recalculate below
+            status: s.status || ''
+        }));
 
-                // 1. Get Clip-specific refs
-                const rawRefs = getValue(row, clipsSheet.headers, 'Ref Image URLs');
-                const clipRefUrls = rawRefs.split(',').map((url: string) => convertDriveUrl(url.trim())).filter(Boolean);
+        // 3. Transform Episodes
+        const episodes = dbEpisodes.map(e => ({
+            series: e.seriesId,
+            id: e.number.toString(),
+            uuid: e.id,
+            title: e.title || `Episode ${e.number}`,
+            model: e.model || ''
+        }));
 
-                // 2. Look up Library refs (Scoped to Series)
-                const libraryRefUrls: string[] = [];
-                const characterImageUrls: string[] = [];
-                const locationImageUrls: string[] = [];
+        const episodeTitles: Record<string, string> = {};
+        dbEpisodes.forEach(e => {
+            episodeTitles[e.number.toString()] = e.title || `Episode ${e.number}`;
+        });
 
-                const seriesLibrary = libraryImages[series] || {};
+        // 4. Transform Studio Items (Library)
+        const libraryItems = dbStudioItems.map(item => ({
+            id: item.id.toString(),
+            type: item.type, // "LIB_CHARACTER" etc. Frontend checks "includes('Character')"
+            name: item.name,
+            description: item.description || '',
+            refImageUrl: item.refImageUrl || '',
+            negatives: item.negatives || '',
+            notes: item.notes || '',
+            episode: item.episode || '1', // String reference
+            series: item.seriesId // UUID
+        }));
 
-                // Character Image
-                if (character) {
-                    const charNames = character.split(',').map((c: string) => c.trim().toLowerCase());
-                    charNames.forEach((name: string) => {
-                        if (seriesLibrary[name]) {
-                            const url = seriesLibrary[name];
-                            if (!characterImageUrls.includes(url)) characterImageUrls.push(url);
-                            // Add to legacy combined list if not present
-                            if (!clipRefUrls.includes(url) && !libraryRefUrls.includes(url)) {
-                                libraryRefUrls.push(url);
-                            }
-                        }
-                    });
-                }
+        // Helper for Studio Lookups
+        // We need to map Name -> Image URL for automatic resolution
+        const libraryImages: Record<string, Record<string, string>> = {};
+        libraryItems.forEach(item => {
+            if (item.name && item.refImageUrl) {
+                if (!libraryImages[item.series]) libraryImages[item.series] = {};
+                libraryImages[item.series][item.name.toLowerCase()] = item.refImageUrl;
+            }
+        });
 
-                // Location Image
-                if (location) {
-                    const locName = location.toLowerCase();
-                    if (seriesLibrary[locName]) {
-                        const url = seriesLibrary[locName];
-                        if (!locationImageUrls.includes(url)) locationImageUrls.push(url);
-                        // Add to legacy combined list if not present
-                        if (!clipRefUrls.includes(url) && !libraryRefUrls.includes(url)) {
+
+        // 5. Transform Clips
+        const clips = dbClips.map(clip => {
+            // Reconstruct "Smart" Image URLs (Explicit + Library)
+            // The DB stores "refImageUrls" as the Explicit ones (from the migration script).
+            // Or did we store both? 
+            // Migration script: "refImageUrls: getVal(row, cSheet.headers, 'Ref Image URLs')"
+            // It just stored what was in the column.
+            // Logic must replicate "Library Lookup".
+
+            const explicitRefUrls = (clip.refImageUrls || '').split(',').map(u => u.trim()).filter(Boolean);
+            const libraryRefUrls: string[] = [];
+            const characterImageUrls: string[] = [];
+            const locationImageUrls: string[] = [];
+
+            const seriesId = clip.episode.seriesId;
+            const seriesLib = libraryImages[seriesId] || {};
+
+            // Character Lookup
+            if (clip.character) {
+                clip.character.split(',').map(c => c.trim().toLowerCase()).forEach(name => {
+                    if (seriesLib[name]) {
+                        const url = seriesLib[name];
+                        if (!characterImageUrls.includes(url)) characterImageUrls.push(url);
+                        if (!libraryRefUrls.includes(url) && !explicitRefUrls.includes(url)) {
                             libraryRefUrls.push(url);
                         }
                     }
+                });
+            }
+
+            // Location Lookup
+            if (clip.location) {
+                const locName = clip.location.toLowerCase();
+                if (seriesLib[locName]) {
+                    const url = seriesLib[locName];
+                    if (!locationImageUrls.includes(url)) locationImageUrls.push(url);
+                    if (!libraryRefUrls.includes(url) && !explicitRefUrls.includes(url)) {
+                        libraryRefUrls.push(url);
+                    }
                 }
+            }
 
-                // Combine: Library First, then Clip Refs
-                const refUrls = [...libraryRefUrls, ...clipRefUrls];
-                const processedRefs = refUrls.join(',');
-
-                const resultUrlRaw = getValue(row, clipsSheet.headers, 'Result URL');
-
-                return {
-                    id: index.toString(), // Use original index (from clipsRows) as ID
-                    scene: getValue(row, clipsSheet.headers, 'Scene #'),
-                    status: getValue(row, clipsSheet.headers, 'Status'),
-                    title: getValue(row, clipsSheet.headers, 'Title'),
-                    character: character,
-                    location: location,
-                    style: getValue(row, clipsSheet.headers, 'Style'),
-                    camera: getValue(row, clipsSheet.headers, 'Camera'),
-                    action: getValue(row, clipsSheet.headers, 'Action'),
-                    dialog: getValue(row, clipsSheet.headers, 'Dialog'),
-                    refImageUrls: processedRefs,
-                    explicitRefUrls: clipRefUrls.join(','), // Only the explicit ones
-                    characterImageUrls,
-                    locationImageUrls,
-                    // Validate Result URL
-                    // Allow URLs (http), Task IDs (task_), or Prefixed IDs (TASK:)
-                    resultUrl: (resultUrlRaw && (
-                        resultUrlRaw.startsWith('http') ||
-                        resultUrlRaw.startsWith('task_') ||
-                        resultUrlRaw.startsWith('TASK:') ||
-                        resultUrlRaw.length < 200 // Increased limit just in case
-                    ))
-                        ? convertDriveUrl(resultUrlRaw)
-                        : '',
-                    seed: getValue(row, clipsSheet.headers, 'Seed'),
-                    episode: getValue(row, clipsSheet.headers, 'Episode') || '1',
-                    series: series,
-                    sortOrder: parseInt(getValue(row, clipsSheet.headers, 'Sort Order')) || 0,
-                    model: getValue(row, clipsSheet.headers, 'Model'),
-                };
-            })
-            .sort((a, b) => {
-                // Sort by Sort Order first, then by original index (stable sort)
-                if (a.sortOrder !== 0 || b.sortOrder !== 0) {
-                    return (a.sortOrder || 0) - (b.sortOrder || 0);
-                }
-                return parseInt(a.id) - parseInt(b.id);
-            });
-
-        // Build Series List
-        const series: Series[] = seriesSheet.rows.map(row => {
-            const seriesId = getValue(row, seriesSheet.headers, 'Series #');
-            // Calculate current episodes from the episodes list we just built
-            const episodeCount = episodes.filter(e => e.series === seriesId).length;
+            const allRefs = [...libraryRefUrls, ...explicitRefUrls].join(',');
 
             return {
-                id: seriesId,
-                title: getValue(row, seriesSheet.headers, 'Title'),
-                totalEpisodes: getValue(row, seriesSheet.headers, 'Total Episodes'),
-                currentEpisodes: episodeCount.toString(), // Override sheet value
-                status: getValue(row, seriesSheet.headers, 'Status')
+                id: clip.id.toString(), // DB ID is Int, convert to String
+                scene: clip.scene || '',
+                status: clip.status,
+                title: clip.title || '',
+                character: clip.character || '',
+                location: clip.location || '',
+                style: clip.style || '',
+                camera: clip.camera || '',
+                action: clip.action || '',
+                dialog: clip.dialog || '',
+                refImageUrls: allRefs,
+                explicitRefUrls: clip.refImageUrls || '',
+                characterImageUrls,
+                locationImageUrls,
+                resultUrl: clip.resultUrl || '',
+                seed: clip.seed || '',
+                episode: clip.episode.number.toString(), // Return NUMBER string '1', not UUID, to match UI expectations?
+                // WARNING: If we return '1', but filtering expects something else...
+                // The frontend filters clips by `clip.episode === selectedEpisode`.
+                // If the Episode List returns UUIDs, filtering breaks.
+                // If Episode List returns '1', '2', then filtering works.
+                // Let's stick to "Episode Number" (String) for the 'episode' field in Clip JSON.
+                series: seriesId,
+                sortOrder: clip.sortOrder,
+                model: clip.model || ''
             };
-        }).filter(s => s.id && s.title);
+        });
 
-        // Build Library List for Frontend
-        const libraryItems = librarySheet.rows.map((row, index) => ({
-            id: index.toString(), // Original row index
-            type: getValue(row, librarySheet.headers, 'Type'),
-            name: getValue(row, librarySheet.headers, 'Name'),
-            description: getValue(row, librarySheet.headers, 'Description'),
-            refImageUrl: convertDriveUrl(getValue(row, librarySheet.headers, 'Ref Image URLs')),
-            negatives: getValue(row, librarySheet.headers, 'Negatives'),
-            notes: getValue(row, librarySheet.headers, 'Notes'),
-            episode: getValue(row, librarySheet.headers, 'Episode') || '1',
-            series: getValue(row, librarySheet.headers, 'Series') || '1'
-        })).filter(item => item.name && item.name !== 'Name' && item.type !== 'Type');
+        // Update Series Episode Counts
+        series.forEach(s => {
+            // Count unique Clip.Episodes or DB Episodes?
+            // DB Episodes
+            const count = dbEpisodes.filter(e => e.seriesId === s.id).length;
+            s.currentEpisodes = count.toString();
+        });
 
-        return NextResponse.json({ clips, episodeTitles, episodes, libraryItems, series });
+
+        return NextResponse.json({ clips, episodeTitles, episodes: episodes.map(e => ({ ...e, id: e.id })), libraryItems, series });
 
     } catch (error: any) {
-        console.error('API Error:', error);
+        console.error('API Error (DB):', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
-
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+import { db } from '@/lib/db';
 
 export async function POST(request: Request) {
     try {
@@ -11,73 +9,39 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing seriesId, episodeId, or updates' }, { status: 400 });
         }
 
-        const sheets = await getGoogleSheetsClient();
+        // 1. Find the Episode
+        // Frontend sends episodeId as Number String "1"
+        const epNum = parseInt(episodeId);
+        if (isNaN(epNum)) {
+            return NextResponse.json({ error: 'Invalid Episode Number' }, { status: 400 });
+        }
 
-        // 1. Find the Episode Row
-        const epHeaders = await getHeaders('EPISODES');
-        const epResponse = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: 'EPISODES!A:ZZ',
+        const episode = await db.episode.findFirst({
+            where: {
+                seriesId: seriesId,
+                number: epNum
+            }
         });
 
-        const rows = epResponse.data.values || [];
-        const serIdx = epHeaders.get('Series');
-        const epIdx = epHeaders.get('Episode');
-
-        if (serIdx === undefined || epIdx === undefined) {
-            return NextResponse.json({ error: 'Series/Episode columns not found' }, { status: 500 });
-        }
-
-        // Find row index (0-based in array => 1-based in Sheet)
-        // Header is row 1. Data starts row 2. Array index 0 is Row 1 (Header).
-        // Actually `values.get` returns headers as first row usually if A1 notation.
-        // Let's assume Row 0 is header.
-
-        let rowIndex = -1;
-
-        // We iterate starting from 1 (skipping header)
-        for (let i = 1; i < rows.length; i++) {
-            const row = rows[i];
-            if (row[serIdx]?.toString().trim() === seriesId.toString() &&
-                row[epIdx]?.toString().trim() === episodeId.toString()) {
-                rowIndex = i + 1; // 1-based sheet row
-                break;
-            }
-        }
-
-        if (rowIndex === -1) {
+        if (!episode) {
             return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
         }
 
         // 2. Perform Updates
-        const updatePromises = Object.entries(updates).map(([field, value]) => {
-            // Map 'model' -> 'Model' (Case sensitivity?)
-            // Let's assume keys passed match Header Names or simple mapping
-            let headerName = field;
-            if (field === 'model') headerName = 'Model';
-            if (field === 'title') headerName = 'Title';
+        // Map frontend fields if necessary. 
+        // Frontend sends: 'model', 'title'. 
+        // Prisma has: 'model', 'title'. Matches.
 
-            const colIndex = epHeaders.get(headerName);
-            if (colIndex === undefined) return null;
-
-            const colLetter = indexToColumnLetter(colIndex);
-
-            return sheets.spreadsheets.values.update({
-                spreadsheetId: SPREADSHEET_ID,
-                range: `EPISODES!${colLetter}${rowIndex}`,
-                valueInputOption: 'USER_ENTERED',
-                requestBody: {
-                    values: [[value]],
-                },
-            });
+        await db.episode.update({
+            where: { id: episode.id },
+            data: updates
         });
 
-        await Promise.all(updatePromises.filter(Boolean));
-
-        return NextResponse.json({ success: true, rowIndex });
+        return NextResponse.json({ success: true, rowIndex: episode.id });
 
     } catch (error: any) {
-        console.error('Update Episode Error:', error);
+        console.error('Update Episode Error (DB):', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

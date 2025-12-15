@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
-
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+import { db } from '@/lib/db';
 
 export async function POST(request: Request) {
     try {
@@ -11,62 +9,40 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing rowIndex or updates' }, { status: 400 });
         }
 
-        // Calculate actual row number (0-indexed array + 2 for header and 1-based sheet)
-        // clipsRows starts at A2. So index 0 is Row 2.
-        const sheetRow = parseInt(rowIndex) + 2;
+        const id = parseInt(rowIndex);
+        if (isNaN(id)) {
+            return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+        }
 
-        const sheets = await getGoogleSheetsClient();
+        // Map updates to Prisma fields
+        // Frontend sends keys that mostly match Prisma, but let's be safe.
+        const validFields = [
+            'status', 'title', 'character', 'location', 'style', 'camera',
+            'action', 'dialog', 'refImageUrls', 'seed', 'resultUrl', 'model', 'sortOrder'
+        ];
 
-        // Fetch Headers dynamically
-        const headers = await getHeaders('CLIPS');
-
-        // Helper to get column letter for a field
-        const getColLetter = (headerName: string) => {
-            const index = headers.get(headerName);
-            return index !== undefined ? indexToColumnLetter(index) : null;
-        };
-
-        // Map field names to Header Names
-        const fieldToHeader: Record<string, string> = {
-            status: 'Status',
-            title: 'Title',
-            character: 'Character',
-            location: 'Location',
-            style: 'Style',
-            camera: 'Camera',
-            action: 'Action',
-            dialog: 'Dialog',
-            refImageUrls: 'Ref Image URLs',
-            seed: 'Seed',
-            resultUrl: 'Result URL', // Added just in case
-        };
-
-        const updatePromises = Object.entries(updates).map(([field, value]) => {
-            const headerName = fieldToHeader[field];
-            if (!headerName) return null;
-
-            const colLetter = getColLetter(headerName);
-            if (!colLetter) {
-                console.warn(`Column for field '${field}' (Header: '${headerName}') not found in CLIPS sheet.`);
-                return null;
+        const prismaData: any = {};
+        for (const [key, value] of Object.entries(updates)) {
+            if (validFields.includes(key)) {
+                // Ensure correct types if needed (e.g. sortOrder is Int)
+                if (key === 'sortOrder') {
+                    prismaData[key] = parseInt(value as string) || 0;
+                } else {
+                    prismaData[key] = value;
+                }
             }
+        }
 
-            return sheets.spreadsheets.values.update({
-                spreadsheetId: SPREADSHEET_ID,
-                range: `CLIPS!${colLetter}${sheetRow}`,
-                valueInputOption: 'RAW',
-                requestBody: {
-                    values: [[value]],
-                },
-            });
+        await db.clip.update({
+            where: { id },
+            data: prismaData
         });
-
-        await Promise.all(updatePromises.filter(Boolean));
 
         return NextResponse.json({ success: true });
 
     } catch (error: any) {
-        console.error('Update Clip Error:', error);
+        console.error('Update Clip Error (DB):', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

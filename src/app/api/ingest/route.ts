@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
-
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+import { db } from '@/lib/db';
 
 export async function POST(request: Request) {
     try {
@@ -18,205 +16,108 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid JSON format' }, { status: 400 });
         }
 
-        // Support both: Array (Clips only) OR Object { clips: [], library: [] }
         const clips = Array.isArray(payload) ? payload : (payload.clips || []);
         const library = Array.isArray(payload) ? [] : (payload.library || []);
 
-        console.log('Ingest Payload:', {
-            isArray: Array.isArray(payload),
-            keys: Object.keys(payload),
-            clipsCount: clips.length,
-            libCount: library.length,
-            seriesId
+        console.log(`Ingest (DB Mode): ${clips.length} clips, ${library.length} lib items.`);
+
+        // 1. Verify/Create Episode
+        const epNum = parseInt(episodeId);
+        if (isNaN(epNum)) {
+            return NextResponse.json({ error: 'Invalid Episode ID (Number)' }, { status: 400 });
+        }
+
+        // Verify Series matches
+        const series = await db.series.findUnique({
+            where: { id: seriesId }
         });
 
-        const sheets = await getGoogleSheetsClient();
+        if (!series) {
+            return NextResponse.json({ error: `Series not found: ${seriesId}` }, { status: 404 });
+        }
+
+        // Find or Create Episode
+        let episode = await db.episode.findFirst({
+            where: {
+                seriesId: series.id,
+                number: epNum
+            }
+        });
+
+        if (!episode) {
+            console.log(`Creating Episode ${epNum} for Series ${series.name}`);
+            episode = await db.episode.create({
+                data: {
+                    seriesId: series.id,
+                    number: epNum,
+                    title: `Episode ${epNum}`,
+                    model: defaultModel || ''
+                }
+            });
+        }
 
         const reports: string[] = [];
 
-        // --- 1. Process CLIPS ---
-        try {
-            if (clips.length > 0) {
-                const headers = await getHeaders('CLIPS');
-                const maxColIndex = Math.max(...Array.from(headers.values()));
-
-                // Debug Validation
-                if (!headers.has('Series')) throw new Error("Missing 'Series' column in CLIPS sheet");
-                if (!headers.has('Episode')) throw new Error("Missing 'Episode' column in CLIPS sheet");
-
-                // Map JSON keys to Header Names
-                const fieldToHeader: Record<string, string> = {
-                    scene: 'Scene #',
-                    status: 'Status',
-                    title: 'Title',
-                    character: 'Characters',
-                    location: 'Location',
-                    style: 'Style',
-                    camera: 'Camera',
-                    action: 'Action',
-                    dialog: 'Dialog',
-                    refImageUrls: 'Ref Image URLs',
-                    refVideoUrl: 'Ref Video URL',
-                    seed: 'Seed',
-                    duration: 'DurationSec',
-                    quality: 'Quality',
-                    ratio: 'Ratio',
-                    negatives: 'Negatives',
-                    service: 'Service',
-                    episode: 'Episode',
-                    series: 'Series',
-                    model: 'Model'
-                };
-
-                const clipRows = clips.map((clip: any) => {
-                    const row = new Array(maxColIndex + 1).fill('');
-
-                    // Fill mapped fields
-                    Object.entries(fieldToHeader).forEach(([field, header]) => {
-                        const colIndex = headers.get(header);
-                        if (colIndex !== undefined) {
-                            // Handle special defaults or transforms
-                            let value = clip[field] || '';
-                            if (field === 'episode') value = episodeId;
-                            if (field === 'series') value = seriesId;
-                            if (field === 'service') value = 'kie_api';
-                            if (field === 'quality' && !value) value = 'fast';
-                            if (field === 'ratio' && !value) value = '9:16';
-                            // Duplicate check for ratio removed
-                            // if (field === 'model' && !value && defaultModel) value = defaultModel; // Removed per user request
-
-                            row[colIndex] = value;
-                        }
-                    });
-
-                    return row;
-                });
-
-                console.log(`Appending ${clipRows.length} rows to CLIPS...`);
-                // Use 'any' to bypass strict typing on append result if needed, or rely on Sheets API type
-                const appendRes: any = await sheets.spreadsheets.values.append({
-                    spreadsheetId: SPREADSHEET_ID,
-                    range: 'CLIPS!A:ZZ',
-                    valueInputOption: 'USER_ENTERED',
-                    requestBody: { values: clipRows },
-                });
-                console.log('Clips Append Result:', appendRes.data);
-                reports.push(`Clips: ${clips.length} imported.`);
-            }
-        } catch (clipErr: any) {
-            console.error('Ingest Clips Error:', clipErr);
-            reports.push(`Clips Failed: ${clipErr.message}`);
-        }
-
-        // --- 2. Process LIBRARY ---
-        try {
-            if (library.length > 0) {
-                const headers = await getHeaders('LIBRARY');
-                const maxColIndex = Math.max(...Array.from(headers.values()));
-
-                const fieldToHeader: Record<string, string> = {
-                    type: 'Type',
-                    name: 'Name',
-                    description: 'Description',
-                    refImageUrl: 'Ref Image URLs',
-                    negatives: 'Negatives',
-                    notes: 'Notes',
-                    episode: 'Episode',
-                    series: 'Series'
-                };
-
-                const libRows = library.map((item: any) => {
-                    const row = new Array(maxColIndex + 1).fill('');
-
-                    // Pre-process aliases
-                    item['description'] = item['description'] || item['prompt'] || '';
-
-                    Object.entries(fieldToHeader).forEach(([field, header]) => {
-                        const colIndex = headers.get(header);
-                        if (colIndex !== undefined) {
-                            let value = item[field] || '';
-                            if (field === 'episode') value = episodeId;
-                            if (field === 'series') value = seriesId;
-                            row[colIndex] = value;
-                        }
-                    });
-
-                    return row;
-                });
-
-                await sheets.spreadsheets.values.append({
-                    spreadsheetId: SPREADSHEET_ID,
-                    range: 'LIBRARY!A:ZZ',
-                    valueInputOption: 'USER_ENTERED',
-                    requestBody: { values: libRows },
-                });
-                reports.push(`Library: ${library.length} imported.`);
-            }
-        } catch (libErr: any) {
-            console.error('Ingest Library Error:', libErr);
-            reports.push(`Library Failed: ${libErr.message}`);
-        }
-
-        // --- 3. Ensure Episode Exists in EPISODES ---
-        try {
-            // Fetch all episodes to check existence
-            const epHeaders = await getHeaders('EPISODES');
-            const epResponse = await sheets.spreadsheets.values.get({
-                spreadsheetId: SPREADSHEET_ID,
-                range: 'EPISODES!A:D', // Assuming Series, Episode, Title are in first few cols
-            });
-
-            const rows = epResponse.data.values || [];
-            const serIdx = epHeaders.get('Series');
-            const epIdx = epHeaders.get('Episode');
-
-            if (serIdx !== undefined && epIdx !== undefined) {
-                const exists = rows.some(row =>
-                    row[serIdx]?.toString().trim() === seriesId.toString() &&
-                    row[epIdx]?.toString().trim() === episodeId.toString()
-                );
-
-                if (!exists) {
-                    console.log(`Episode ${episodeId} for Series ${seriesId} missing. Creating...`);
-
-                    const maxColIndex = Math.max(...Array.from(epHeaders.values()));
-                    const newRow = new Array(maxColIndex + 1).fill('');
-
-                    const setVal = (header: string, val: string) => {
-                        const idx = epHeaders.get(header);
-                        if (idx !== undefined) newRow[idx] = val;
-                    };
-
-                    setVal('Series', seriesId);
-                    setVal('Episode', episodeId);
-                    setVal('Title', `Episode ${episodeId}`); // Default title
-                    if (defaultModel) setVal('Model', defaultModel);
-
-                    await sheets.spreadsheets.values.append({
-                        spreadsheetId: SPREADSHEET_ID,
-                        range: 'EPISODES!A:ZZ',
-                        valueInputOption: 'USER_ENTERED',
-                        requestBody: { values: [newRow] },
-                    });
-                    console.log('Episode created.');
-                } else {
-                    console.log('Episode already exists.');
+        // 2. Process Clips
+        const clipPromises = clips.map((clip: any) => {
+            return db.clip.create({
+                data: {
+                    episodeId: episode!.id,
+                    status: clip.status || 'Pending',
+                    scene: clip.scene || '',
+                    title: clip.title || '',
+                    character: clip.character || '',
+                    location: clip.location || '',
+                    style: clip.style || '',
+                    camera: clip.camera || '',
+                    action: clip.action || '',
+                    dialog: clip.dialog || '',
+                    refImageUrls: clip.refImageUrls || '',
+                    // refVideoUrl: clip.refVideoUrl || '', // Not in schema yet? Add if needed. schema has refImageUrls.
+                    seed: clip.seed || '',
+                    // duration: ... schema?
+                    model: clip.model || defaultModel || '',
+                    sortOrder: 0 // Could implement auto-increment logic if needed
                 }
-            }
-        } catch (epError) {
-            console.error('Error ensuring episode exists:', epError);
-            // Don't fail the whole request, just log
+            });
+        });
+
+        if (clipPromises.length > 0) {
+            await Promise.all(clipPromises);
+            reports.push(`Clips: ${clips.length} imported.`);
+        }
+
+        // 3. Process Library
+        const libPromises = library.map((item: any) => {
+            return db.studioItem.create({
+                data: {
+                    seriesId: series.id,
+                    type: item.type || 'LIB_UNKNOWN',
+                    name: item.name || 'Untitled',
+                    description: item.description || item.prompt || '',
+                    refImageUrl: item.refImageUrl || '',
+                    negatives: item.negatives || '',
+                    notes: item.notes || '',
+                    episode: episodeId.toString() // Store as string "1" for now
+                }
+            });
+        });
+
+        if (libPromises.length > 0) {
+            await Promise.all(libPromises);
+            reports.push(`Library: ${library.length} imported.`);
         }
 
         return NextResponse.json({
             success: true,
             clipsCount: clips.length,
             libraryCount: library.length,
-            reports // Include detailed status
+            reports
         });
 
     } catch (error: any) {
-        console.error('Ingest Error:', error);
+        console.error('Ingest Error (DB):', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

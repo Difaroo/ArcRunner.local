@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
-
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+import { db } from '@/lib/db';
 
 export async function POST(request: Request) {
     try {
@@ -11,68 +9,34 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing rowIndex or updates' }, { status: 400 });
         }
 
-        // Calculate Sheet Row Number (1-based)
-        // rowIndex comes from the array index, so row 0 is actually Row 2 in Sheet (Header is Row 1)
-        const sheetRow = parseInt(rowIndex) + 2;
+        const id = parseInt(rowIndex);
+        if (isNaN(id)) {
+            return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+        }
 
-        const sheets = await getGoogleSheetsClient();
+        // Filter updates to valid fields
+        const validFields = ['type', 'name', 'description', 'refImageUrl', 'negatives', 'notes', 'episode'];
+        const prismaData: any = {};
 
-        // Fetch Headers dynamically
-        const headers = await getHeaders('LIBRARY');
-
-        // Helper to get column letter for a field
-        const getColLetter = (headerName: string) => {
-            const index = headers.get(headerName);
-            return index !== undefined ? indexToColumnLetter(index) : null;
-        };
-
-        // Dynamically find the Ref Image header
-        const refHeader = ['Ref Image URLs', 'Ref Image URL', 'Ref Images', 'Ref Image'].find(h => headers.has(h)) || 'Ref Image URLs';
-
-        // Map field names to Header Names
-        const fieldToHeader: Record<string, string> = {
-            type: 'Type',
-            name: 'Name',
-            description: 'Description',
-            refImageUrl: refHeader,
-            negatives: 'Negatives',
-            notes: 'Notes',
-            episode: 'Episode', // Fallback, not always standard
-            series: 'Series'
-        };
-
-        // Construct batch update requests
-        const data = [];
-
-        for (const [field, value] of Object.entries(updates)) {
-            const headerName = fieldToHeader[field];
-            if (headerName) {
-                const colLetter = getColLetter(headerName);
-                if (colLetter) {
-                    data.push({
-                        range: `LIBRARY!${colLetter}${sheetRow}`,
-                        values: [[value]]
-                    });
-                } else {
-                    console.warn(`Column for field '${field}' (Header: '${headerName}') not found in LIBRARY sheet.`);
-                }
+        for (const [key, value] of Object.entries(updates)) {
+            if (validFields.includes(key)) {
+                prismaData[key] = value;
             }
         }
 
-        if (data.length > 0) {
-            await sheets.spreadsheets.values.batchUpdate({
-                spreadsheetId: SPREADSHEET_ID,
-                requestBody: {
-                    valueInputOption: 'USER_ENTERED',
-                    data: data
-                }
+        // If no valid updates, just return success or error?
+        if (Object.keys(prismaData).length > 0) {
+            await db.studioItem.update({
+                where: { id },
+                data: prismaData
             });
         }
 
         return NextResponse.json({ success: true });
 
     } catch (error: any) {
-        console.error('Update Library Error:', error);
+        console.error('Update Library Error (DB):', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
