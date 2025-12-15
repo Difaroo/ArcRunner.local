@@ -59,25 +59,25 @@ export async function POST(request: Request) {
         const reports: string[] = [];
 
         // 2. Process Clips
-        const clipPromises = clips.map((clip: any) => {
+        const clipPromises = clips.map((clip: any, index: number) => {
             return db.clip.create({
                 data: {
                     episodeId: episode!.id,
-                    status: clip.status || 'Pending',
-                    scene: clip.scene || '',
-                    title: clip.title || '',
-                    character: clip.character || '',
-                    location: clip.location || '',
-                    style: clip.style || '',
-                    camera: clip.camera || '',
-                    action: clip.action || '',
-                    dialog: clip.dialog || '',
-                    refImageUrls: clip.refImageUrls || '',
+                    status: clip.status || clip['Status'] || 'Pending',
+                    scene: clip.scene || clip['Scene #'] || '',
+                    title: clip.title || clip['Title'] || '',
+                    character: clip.character || clip['Characters'] || '',
+                    location: clip.location || clip['Location'] || '',
+                    style: clip.style || clip['Style'] || '',
+                    camera: clip.camera || clip['Camera'] || '',
+                    action: clip.action || clip['Action'] || '',
+                    dialog: clip.dialog || clip['Dialog'] || '',
+                    refImageUrls: clip.refImageUrls || clip['Ref Image URLs'] || '',
                     // refVideoUrl: clip.refVideoUrl || '', // Not in schema yet? Add if needed. schema has refImageUrls.
-                    seed: clip.seed || '',
+                    seed: clip.seed || clip['Seed'] || '',
                     // duration: ... schema?
                     model: clip.model || defaultModel || '',
-                    sortOrder: 0 // Could implement auto-increment logic if needed
+                    sortOrder: index + 1 // Start at 1 or use index
                 }
             });
         });

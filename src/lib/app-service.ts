@@ -1,8 +1,5 @@
-
 import { db } from '@/lib/db';
-// Remove sheets imports if no longer needed
-// import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
-import { convertDriveUrl } from '@/lib/drive';
+import { convertDriveUrl } from '@/lib/utils';
 import { getLibraryItems, LibraryItem } from '@/lib/library';
 import { processRefUrls } from '@/lib/image-processing';
 

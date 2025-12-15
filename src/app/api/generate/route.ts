@@ -36,11 +36,9 @@ export async function POST(req: Request) {
             model = 'veo3';
         }
 
-        // Force Ref2Vid Settings
+        // Ref2Vid Settings: Use user preference, default to veo3_fast only if not set.
         if (finalImageUrls.length > 0) {
-            console.log(`Ref2Vid Active (${finalImageUrls.length} images): Forcing veo3_fast / 16:9`);
-            model = 'veo3_fast';
-            aspectRatio = '16:9';
+            console.log(`Ref2Vid Active (${finalImageUrls.length} images). Model: ${model}, Ratio: ${aspectRatio}`);
         }
 
         // 5. Construct Payload

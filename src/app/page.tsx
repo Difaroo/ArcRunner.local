@@ -464,7 +464,9 @@ export default function Home() {
       // So we override the clip's style with the Episode Style.
       const styleToUse = episodeStyles[currentEpKey] || clip.style;
 
-      const endpoint = selectedModel.startsWith('flux') ? '/api/generate-image' : '/api/generate';
+      // Default to Image (Flux) if not explicitly Video (Veo) to prevent accidental cost
+      const isVideo = selectedModel.startsWith('veo');
+      const endpoint = isVideo ? '/api/generate' : '/api/generate-image';
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -472,7 +474,7 @@ export default function Home() {
         body: JSON.stringify({
           clip: { ...clip, style: styleToUse }, // Override style
           library: allSeriesAssets, // Use filtered library
-          model: selectedModel,
+          model: selectedModel || 'flux', // Provide fallback string
           aspectRatio: aspectRatio, // Pass Aspect Ratio
           rowIndex: parseInt(clip.id) // Use immutable ID (Sheet Row Index)
         }),

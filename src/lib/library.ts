@@ -4,7 +4,7 @@ import { db } from './db';
 // The migration script copied the raw strings from sheets. 
 // So they might be raw drive URLs like "https://drive.google.com/open?id=..."
 // We should run convertDriveUrl just in case.
-import { convertDriveUrl } from './drive';
+import { convertDriveUrl } from '@/lib/utils';
 
 export interface LibraryItem {
     id: string; // Row index or unique ID

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { db } from '@/lib/db';
-import { convertDriveUrl } from '@/lib/drive';
+import { convertDriveUrl } from '@/lib/utils';
 
 // Types (Keep for compatibility if needed, though mostly inferred now)
 export interface Clip {

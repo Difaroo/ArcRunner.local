@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient, getHeaders, indexToColumnLetter } from '@/lib/sheets';
-
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+import { db } from '@/lib/db';
 
 export async function POST(request: Request) {
     try {
@@ -11,33 +9,21 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid updates format' }, { status: 400 });
         }
 
-        const sheets = await getGoogleSheetsClient();
-        const headers = await getHeaders('CLIPS');
-        const sortOrderColIndex = headers.get('Sort Order');
+        // Use transaction for atomic batch update
+        const transaction = updates.map((update: any) =>
+            db.clip.update({
+                where: { id: parseInt(update.id) },
+                data: { sortOrder: update.sortOrder }
+            })
+        );
 
-        if (sortOrderColIndex === undefined) {
-            return NextResponse.json({ error: 'Sort Order column not found' }, { status: 500 });
-        }
-
-        const colLetter = indexToColumnLetter(sortOrderColIndex);
-
-        const data = updates.map((update: any) => ({
-            range: `CLIPS!${colLetter}${parseInt(update.id) + 2}`, // id is 0-based index from data rows (row 2+)
-            values: [[update.sortOrder]]
-        }));
-
-        await sheets.spreadsheets.values.batchUpdate({
-            spreadsheetId: SPREADSHEET_ID,
-            requestBody: {
-                valueInputOption: 'USER_ENTERED',
-                data: data
-            }
-        });
+        await db.$transaction(transaction);
 
         return NextResponse.json({ success: true });
 
     } catch (error: any) {
-        console.error('Sort API Error:', error);
+        console.error('Sort API Error (DB):', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
