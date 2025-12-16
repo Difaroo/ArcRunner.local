@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { createFluxTask, FluxPayload } from '@/lib/kie';
 
 // Helper to get authenticated sheets client - DUPLICATE from generate-image (should refactor to lib)
 async function getSheetsClient() {
@@ -31,43 +32,32 @@ export async function POST(req: Request) {
 
         console.log('Generated Library Flux Prompt:', prompt);
 
-        // 2. Prepare Payload (Use verified model ID)
-        const payload = {
+        // 2. Prepare Payload via Standard Factory (Flux Strategy)
+        const payload: FluxPayload = {
             model: 'flux-2/flex-text-to-image',
             input: {
                 prompt: prompt,
                 aspect_ratio: '16:9',
-                resolution: '2K' // Required by this model
+                resolution: '2K'
             }
         };
 
-        console.log('Library Flux v1/jobs Payload:', JSON.stringify(payload, null, 2));
+        console.log('Library Flux Payload:', JSON.stringify(payload, null, 2));
 
-        // 3. Call Kie.ai v1/jobs API
-        const kieRes = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.KIE_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        const kieData = await kieRes.json();
-
-        if (!kieRes.ok) {
-            throw new Error(kieData.error?.message || 'Failed to call Kie.ai Flux');
-        }
+        // 3. Call Kie.ai via Standard Client
+        const kieRes = await createFluxTask(payload);
 
         // 4. Handle Response
+        // Standard Factory returns { taskId, rawData }
         let resultUrl = '';
-
-        if (kieData.data && kieData.data.taskId) {
-            resultUrl = `TASK:${kieData.data.taskId}`;
+        if (kieRes.taskId) {
+            resultUrl = `TASK:${kieRes.taskId}`;
         } else {
-            // Fallback/Error logging if no ID
-            console.error('No Task ID returned from v1/jobs:', kieData);
+            // Try to find direct URL if sync?
+            console.error('No Task ID returned:', kieRes);
         }
+
+        const kieData = kieRes.rawData; // Maintain compatibility for response
 
         // 5. Update Sheet immediately (assuming Sync result for now)
         // Library Sheet Structure: Dynamically find column

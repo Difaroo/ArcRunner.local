@@ -24,17 +24,7 @@ import { LibraryActionToolbar } from "./LibraryActionToolbar";
 import { MediaDisplay } from "@/components/media/MediaDisplay";
 import { RowActions } from "@/components/ui/RowActions";
 
-export interface LibraryItem {
-    id: string; // Added ID (index)
-    type: string;
-    name: string;
-    description: string;
-    refImageUrl: string;
-    negatives: string;
-    notes: string;
-    episode: string;
-    series?: string; // Add series support for filtering if needed
-}
+import { LibraryItem } from '@/lib/library';
 
 interface LibraryTableProps {
     items: LibraryItem[];

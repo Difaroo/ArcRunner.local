@@ -12,10 +12,10 @@ export interface LibraryItem {
     name: string;
     description: string;
     refImageUrl: string;
-    negatives?: string;
-    notes?: string;
-    episode?: string;
-    series?: string;
+    negatives: string;
+    notes: string;
+    episode: string;
+    series: string;
 }
 
 /**

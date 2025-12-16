@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Clip } from '@/app/api/clips/route';
-import { LibraryItem } from '@/components/library/LibraryTable'; // Assuming shared type
+import { LibraryItem } from '@/lib/library'; // Assuming shared type
 
 interface UseMediaArchiverProps {
     clips: Clip[];

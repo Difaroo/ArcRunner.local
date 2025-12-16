@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Clip } from '@/app/api/clips/route';
-import { LibraryItem } from '@/app/page';
+import { LibraryItem } from '@/lib/library';
 
 interface UsePollingProps {
     clips: Clip[];
@@ -13,7 +13,6 @@ interface PollTarget {
     type: 'CLIP' | 'LIBRARY';
     id: string; // row index
     taskId: string;
-    sheetRow?: number; // Calculated on server, but can pass if needed. Server can calc from ID.
 }
 
 export function usePolling({ clips, libraryItems, refreshData, intervalMs = 15000 }: UsePollingProps) {
@@ -24,6 +23,9 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
     // Track how many times we've seen a "Zombie" (Generating but no Task ID)
     // ID -> Count
     const zombieTracker = useRef<Map<string, number>>(new Map());
+
+    // Track Zombie Candidates (id -> timestamp)
+    const zombieCandidates = useRef<Map<string, number>>(new Map());
 
     useEffect(() => {
         clipsRef.current = clips;
@@ -36,51 +38,51 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
             const clips = clipsRef.current;
             const libItems = libraryRef.current;
             const targets: PollTarget[] = [];
+            const zombies: { type: 'CLIP', id: string }[] = [];
 
             // Set of currently detected zombies to clean up old entries
             const detectedZombies = new Set<string>();
 
             // 1. Scan Clips
             clips.forEach(c => {
-                const isZombie = c.status === 'Generating' && (!c.resultUrl || !c.resultUrl.trim());
+                const isGenerating = c.status === 'Generating';
+                const hasTask = c.taskId && c.taskId.trim().length > 0;
 
-                if (c.status === 'Generating' || (c.resultUrl && c.resultUrl.startsWith('TASK:'))) {
-                    // Check if valid task ID (or if it's "Generating" without a task ID yet -> Zombie Candidate)
-                    // If it's just 'Generating' with no URL, it might be a zombie, but we need a Task ID to check Kie.
-                    // If no Task ID, we can't check Kie. But we might want to tell the server to "timeout" it?
-                    // For now, only poll valid TASK: IDs.
-                    if (c.resultUrl && c.resultUrl.startsWith('TASK:')) {
-                        targets.push({
-                            type: 'CLIP',
-                            id: c.id,
-                            taskId: c.resultUrl.replace('TASK:', '')
-                        });
-                    } else if (isZombie) {
-                        // ZOMBIE DETECTED
-                        detectedZombies.add(c.id);
-                        const currentCount = zombieTracker.current.get(c.id) || 0;
-                        const newCount = currentCount + 1;
-                        zombieTracker.current.set(c.id, newCount);
+                // Zombie Definition:
+                // 1. Status is Generating
+                // 2. AND (TaskId is empty)
+                const isZombie = isGenerating && !hasTask;
 
-                        // Grace Period: Must be detected for 3 intervals (e.g. 45s) before killing.
-                        // This allows slow server writes to finish.
-                        if (newCount >= 3) {
-                            console.warn(`Zombie Task detected at index ${c.id} for ${newCount} cycles. Auto-fixing...`);
-                            fetch('/api/update_clip', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ rowIndex: c.id, updates: { status: 'Error', resultUrl: 'ERR_ZOMBIE' } })
-                            }).then(() => {
-                                refreshData(true);
-                                zombieTracker.current.delete(c.id); // Reset
-                            });
-                        } else {
-                            console.log(`Potential Zombie ${c.id} count: ${newCount}/3. Refreshing to check for ID...`);
-                            // KEY FIX: We MUST refresh data to see if the ID has appeared in the sheet!
-                            // If we don't refresh, we are just counting securely in a loop with stale data.
+                if (isZombie) {
+                    detectedZombies.add(c.id);
+                    const currentCount = zombieTracker.current.get(c.id) || 0;
+                    const newCount = currentCount + 1;
+                    zombieTracker.current.set(c.id, newCount);
+
+                    // Grace Period: Must be detected for 3 intervals (e.g. 45s) before killing.
+                    if (newCount >= 3) {
+                        console.warn(`[Polling] Zombie Task detected at index ${c.id} for ${newCount} cycles. Auto-fixing...`);
+                        fetch('/api/update_clip', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ rowIndex: c.id, updates: { status: 'Error', resultUrl: 'ERR_ZOMBIE' } }) // Keep explicit zombie marker? Or just Error? 
+                            // User wants to keep previous result. But if it was a zombie, maybe we update status only?
+                            // But usually zombie means it never started properly.
+                            // Let's stick to Error for now.
+                        }).then(() => {
                             refreshData(true);
-                        }
+                            zombieTracker.current.delete(c.id); // Reset
+                        });
+                    } else {
+                        console.log(`[Polling] Potential Zombie ${c.id} count: ${newCount}/3. Refreshing to check for ID...`);
+                        refreshData(true);
                     }
+                } else if (isGenerating && hasTask) {
+                    targets.push({
+                        type: 'CLIP',
+                        id: c.id,
+                        taskId: c.taskId!
+                    });
                 }
             });
 
@@ -91,9 +93,16 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                 }
             }
 
-
-            // 2. Scan Library
+            // 2. Scan Library (Still uses resultUrl/refImageUrl format?)
+            // Library items might store "TASK:..." in refImageUrl. 
+            // We should ideally fix Library schema too, but for now we follow old pattern if needed
+            // OR checks generic 'refImageUrl'.
             libItems.forEach(i => {
+                // Determine if library item is generating
+                // LibraryItems don't have a 'status' field?
+                // The API/Types show 'refImageUrl'. 
+                // Kie logic usually saves result to refImageUrl directly.
+                // If we want polling for library, we need to know if it's a task.
                 if (i.refImageUrl && i.refImageUrl.startsWith('TASK:')) {
                     targets.push({
                         type: 'LIBRARY',
@@ -107,7 +116,7 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                 return;
             }
 
-            console.log(`Polling ${targets.length} active tasks...`);
+            console.log(`[Polling] Checking ${targets.length} active tasks...`);
 
             try {
                 const res = await fetch('/api/poll', {
@@ -119,12 +128,11 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                 const data = await res.json();
 
                 if (data.success && data.updated > 0) {
-                    console.log(`Poll updated ${data.updated} items. Silent Refreshing...`);
-                    // SILENT REFRESH: Doesn't trigger global loading spinner
+                    console.log(`[Polling] Updated ${data.updated} items. Silent Refreshing...`);
                     await refreshData(true);
                 }
             } catch (err) {
-                console.error('Polling error:', err);
+                console.error('[Polling] Error:', err);
             }
         }, intervalMs);
 

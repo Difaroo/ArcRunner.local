@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { db } from '@/lib/db';
 import { convertDriveUrl } from '@/lib/utils';
+import { resolveClipImages } from '@/lib/shared-resolvers';
 
 // Types (Keep for compatibility if needed, though mostly inferred now)
 export interface Clip {
@@ -20,11 +21,20 @@ export interface Clip {
     locationImageUrls?: string[];
     status: string;
     resultUrl?: string;
+    taskId?: string;
     seed?: string;
     episode?: string;
     series?: string;
     sortOrder?: number;
     model?: string;
+}
+
+export interface Series {
+    id: string;
+    title: string;
+    totalEpisodes: string;
+    currentEpisodes: string;
+    status: string;
 }
 
 export async function GET() {
@@ -108,40 +118,18 @@ export async function GET() {
             // It just stored what was in the column.
             // Logic must replicate "Library Lookup".
 
-            const explicitRefUrls = (clip.refImageUrls || '').split(',').map(u => u.trim()).filter(Boolean);
-            const libraryRefUrls: string[] = [];
-            const characterImageUrls: string[] = [];
-            const locationImageUrls: string[] = [];
-
+            // Lookup Callback for this Series
             const seriesId = clip.episode.seriesId;
             const seriesLib = libraryImages[seriesId] || {};
 
-            // Character Lookup
-            if (clip.character) {
-                clip.character.split(',').map(c => c.trim().toLowerCase()).forEach(name => {
-                    if (seriesLib[name]) {
-                        const url = seriesLib[name];
-                        if (!characterImageUrls.includes(url)) characterImageUrls.push(url);
-                        if (!libraryRefUrls.includes(url) && !explicitRefUrls.includes(url)) {
-                            libraryRefUrls.push(url);
-                        }
-                    }
-                });
-            }
+            const findLib = (name: string) => {
+                // Ensure case-insensitive match
+                return seriesLib[name.toLowerCase()];
+            };
 
-            // Location Lookup
-            if (clip.location) {
-                const locName = clip.location.toLowerCase();
-                if (seriesLib[locName]) {
-                    const url = seriesLib[locName];
-                    if (!locationImageUrls.includes(url)) locationImageUrls.push(url);
-                    if (!libraryRefUrls.includes(url) && !explicitRefUrls.includes(url)) {
-                        libraryRefUrls.push(url);
-                    }
-                }
-            }
+            const { fullRefs, explicitRefs, characterImageUrls, locationImageUrls } = resolveClipImages(clip, findLib);
 
-            const allRefs = [...libraryRefUrls, ...explicitRefUrls].join(',');
+            const allRefs = fullRefs;
 
             return {
                 id: clip.id.toString(), // DB ID is Int, convert to String
@@ -155,10 +143,11 @@ export async function GET() {
                 action: clip.action || '',
                 dialog: clip.dialog || '',
                 refImageUrls: allRefs,
-                explicitRefUrls: clip.refImageUrls || '',
+                explicitRefUrls: explicitRefs || (clip.refImageUrls || ''),
                 characterImageUrls,
                 locationImageUrls,
                 resultUrl: clip.resultUrl || '',
+                taskId: clip.taskId || '', // Expose Task ID separately
                 seed: clip.seed || '',
                 episode: clip.episode.number.toString(), // Return NUMBER string '1', not UUID, to match UI expectations?
                 // WARNING: If we return '1', but filtering expects something else...

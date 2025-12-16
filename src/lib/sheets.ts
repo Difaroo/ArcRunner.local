@@ -10,27 +10,45 @@ export function parseHeaders(data: any[][]): Map<string, number> {
     return headers;
 }
 
-export async function getSheetData(range: string): Promise<any[][] | null | undefined> {
+// Re-export or Alias for compatibility
+export const getHeaders = parseHeaders;
+
+export function indexToColumnLetter(index: number): string {
+    let letter = '';
+    while (index >= 0) {
+        letter = String.fromCharCode((index % 26) + 65) + letter;
+        index = Math.floor(index / 26) - 1;
+    }
+    return letter;
+}
+
+export async function getGoogleSheetsClient() {
     const sheetId = process.env.SPREADSHEET_ID;
     const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const key = process.env.GOOGLE_PRIVATE_KEY;
 
     if (!sheetId || !email || !key) {
-        console.warn(`Missing Env Vars: SheetID=${!!sheetId}, Email=${!!email}, Key=${!!key}`);
         throw new Error("Missing Google Sheets credentials");
     }
 
+    const auth = new google.auth.GoogleAuth({
+        credentials: {
+            client_email: email,
+            private_key: key.replace(/\\n/g, '\n'),
+        },
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    return google.sheets({ version: 'v4', auth });
+}
+
+export async function getSheetData(range: string): Promise<any[][] | null | undefined> {
+    const sheetId = process.env.SPREADSHEET_ID;
+
+    // Reuse client
+    const sheets = await getGoogleSheetsClient();
+
     try {
-        const auth = new google.auth.GoogleAuth({
-            credentials: {
-                client_email: email,
-                private_key: key.replace(/\\n/g, '\n'),
-            },
-            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-        });
-
-        const sheets = google.sheets({ version: 'v4', auth });
-
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: sheetId,
             range,

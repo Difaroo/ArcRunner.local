@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2 } from "lucide-react";
 import { Clip, Series } from './api/clips/route';
+import { resolveClipImages } from '@/lib/shared-resolvers';
+import { downloadFile, getClipFilename } from '@/lib/download-utils';
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -25,47 +27,38 @@ import { ScriptView } from "@/components/ingest/ScriptView"
 import { LibraryTable } from "@/components/library/LibraryTable"
 
 
-export interface LibraryItem {
-  id: string;
-  type: string;
-  name: string;
-  description: string;
-  refImageUrl: string;
-  negatives: string;
-  notes: string;
-  episode: string;
-  series?: string;
-}
-
-import { useMediaArchiver } from "@/hooks/useMediaArchiver"
-import { usePolling } from "@/hooks/usePolling"
+import { LibraryItem } from '@/lib/library';
+import { useAppStore } from '@/hooks/useAppStore';
+import { useSharedSelection } from '@/hooks/useSharedSelection';
+import { useMediaArchiver } from "@/hooks/useMediaArchiver";
 
 export default function Home() {
-  const [clips, setClips] = useState<Clip[]>([]);
-  const [seriesList, setSeriesList] = useState<Series[]>([]);
-  const [currentSeriesId, setCurrentSeriesId] = useState<string>("1");
-  const [episodeTitles, setEpisodeTitles] = useState<Record<string, string>>({});
-  const [allEpisodes, setAllEpisodes] = useState<{ series: string, id: string, title: string, model?: string }[]>([]);
-  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const {
+    clips, setClips,
+    seriesList, setSeriesList, // setSeriesList might be unused if handled by store? exposed anyway
+    currentSeriesId, setCurrentSeriesId,
+    episodeTitles,
+    allEpisodes, setAllEpisodes,
+    libraryItems, setLibraryItems,
+    loading, error,
+    refreshData
+  } = useAppStore();
+
   const [currentEpisode, setCurrentEpisode] = useState(1);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
-
-
-
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Clip>>({});
   const [saving, setSaving] = useState(false);
   const [selectedModel, setSelectedModel] = useState('veo-fast');
-  const [episodeStyles, setEpisodeStyles] = useState<Record<string, string>>({}); // Map Ep -> Style
+  const [episodeStyles, setEpisodeStyles] = useState<Record<string, string>>({});
   const [currentView, setCurrentView] = useState<'series' | 'script' | 'library' | 'clips' | 'settings'>('series');
 
   const [videoPromptTemplate, setVideoPromptTemplate] = useState("");
   const [imagePromptTemplate, setImagePromptTemplate] = useState("");
   const [aspectRatio, setAspectRatio] = useState("16:9");
+
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   const handleViewChange = (view: 'series' | 'script' | 'library' | 'clips' | 'settings') => {
     if (currentView === 'settings' && view !== 'settings') {
@@ -76,7 +69,6 @@ export default function Home() {
     }
     setCurrentView(view)
   }
-  const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const savedVideo = localStorage.getItem("videoPromptTemplate")
@@ -87,45 +79,7 @@ export default function Home() {
     if (savedModel) setSelectedModel(savedModel)
   }, [])
 
-
   const hasFetched = useRef(false);
-
-  // State Refs for Polling Access
-
-  const refreshData = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      const res = await fetch('/api/clips', { cache: 'no-store' });
-      const data = await res.json();
-
-      if (data.error) throw new Error(data.error);
-
-      setClips(data.clips);
-      if (data.episodeTitles) setEpisodeTitles(data.episodeTitles);
-      if (data.episodes) setAllEpisodes(data.episodes);
-      if (data.libraryItems) setLibraryItems(data.libraryItems);
-      if (data.series) {
-        setSeriesList(data.series);
-        // Default to first series if current is invalid
-        if (!data.series.find((s: Series) => s.id === currentSeriesId)) {
-          setCurrentSeriesId(data.series[0]?.id || "1");
-        }
-      }
-    } catch (err: any) {
-      console.error('Fetch error:', err);
-      setError(err.message);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [currentSeriesId]);
-
-  usePolling({ clips, libraryItems, refreshData });
-
-  useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-    refreshData();
-  }, []);
 
   // --- Editing Logic ---
   const startEditing = (clip: Clip) => {
@@ -156,43 +110,18 @@ export default function Home() {
 
         const merged = { ...c, ...updates };
 
-        // Re-calculate Derived Ref Image URLs for display
-        // 1. Get Explicit URLs (from update or existing)
-        // Note: When saving, we write to 'refImageUrls' column, so updates.refImageUrls IS the new explicit value.
-        const explicitStr = updates.refImageUrls !== undefined
-          ? updates.refImageUrls
-          : (updates.explicitRefUrls !== undefined ? updates.explicitRefUrls : c.explicitRefUrls);
-
-        const explicitUrls = (explicitStr || '').split(',').map(s => s.trim()).filter(Boolean);
-
-        // 2. Lookup Library URLs based on NEW Character/Location
-        const libraryUrls: string[] = [];
+        // Re-calculate Derived Ref Image URLs for display using SHARED RESOLVER
+        // 1. Setup Lookup
         const seriesLib = libraryItems.filter(i => i.series === currentSeriesId);
-
-        // Helper to find URL
         const findUrl = (name: string) => {
           const item = seriesLib.find(i => i.name.toLowerCase() === name.toLowerCase());
           return item?.refImageUrl;
         }
 
-        // Characters
-        if (merged.character) {
-          merged.character.split(',').map(s => s.trim()).forEach(char => {
-            const url = findUrl(char);
-            if (url && !explicitUrls.includes(url) && !libraryUrls.includes(url)) libraryUrls.push(url);
-          });
-        }
+        // 2. Resolve
+        const { fullRefs, explicitRefs } = resolveClipImages(merged, findUrl);
 
-        // Location
-        if (merged.location) {
-          const url = findUrl(merged.location);
-          if (url && !explicitUrls.includes(url) && !libraryUrls.includes(url)) libraryUrls.push(url);
-        }
-
-        // 3. Combine for Display
-        const fullRefs = [...libraryUrls, ...explicitUrls].join(',');
-
-        return { ...merged, refImageUrls: fullRefs, explicitRefUrls: explicitStr };
+        return { ...merged, refImageUrls: fullRefs, explicitRefUrls: explicitRefs };
       }));
 
       setEditingId(null);
@@ -245,8 +174,6 @@ export default function Home() {
     setEditingId(null);
     setEditValues({});
   };
-
-
   // --- Episode Logic ---
   // Group clips by their explicit 'episode' field.
   const episodes: Clip[][] = [];
@@ -292,8 +219,6 @@ export default function Home() {
   });
 
   // Note: activeClips might be empty if the episode exists in titles but has no clips yet
-  // We need to be careful with indexing 'episodes' array if we rely on sortedEpKeys order
-  // The 'episodes' array is pushed in the same order as sortedEpKeys, so index matches.
   const activeClips = episodes[currentEpisode - 1] || [];
   const currentEpKey = sortedEpKeys[currentEpisode - 1] || '1';
   const currentEpTitle = seriesEpisodeTitles[currentEpKey] ? `: ${seriesEpisodeTitles[currentEpKey]}` : '';
@@ -306,60 +231,38 @@ export default function Home() {
     cameras: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_CAMERA').map(i => i.name))).sort(),
   };
 
-  // --- Auto-Set Model from Episode Clips ---
   // --- Auto-Set Model from Episode Settings ---
   useEffect(() => {
     // Find current episode object
     const currentEpObj = allEpisodes.find(e => e.series === currentSeriesId && e.id === currentEpKey);
 
     if (currentEpObj?.model) {
-      // Explicit Episode Model exists, use it
       if (currentEpObj.model !== selectedModel) {
         setSelectedModel(currentEpObj.model);
       }
     }
-    // REMOVED: Fallback to activeClips[0].model (Strict Episode Model Authority)
-  }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey]);
+  }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey]); // Check deps
 
-  // --- Selection Logic (Clips) ---
-  const toggleSelect = (id: string) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setSelectedIds(newSet);
-  };
+  // --- Selection Logic via Hooks ---
+  const {
+    selectedIds,
+    setSelectedIds,
+    toggleSelect,
+    toggleSelectAll
+  } = useSharedSelection(activeClips);
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === activeClips.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(activeClips.map(c => c.id)));
-    }
-  };
-
-  // --- Selection Logic (Library) ---
-  const [selectedLibraryIds, setSelectedLibraryIds] = useState<Set<string>>(new Set());
-  const [generatingLibraryItems, setGeneratingLibraryItems] = useState<Set<string>>(new Set());
-
-  // Need filtered items for "Select All". Filter happens in render.
-  // Replicate filtering logic here or hoist it.
-  // UPDATE: User wants to see ONLY instantiated items in Studio View for that Episode.
+  // --- Library Selection Logic ---
+  // Determine displayed library items
   const currentLibraryItems = allSeriesAssets.filter(item => item.episode === currentEpKey);
 
-  const toggleLibrarySelect = (id: string) => {
-    const newSet = new Set(selectedLibraryIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setSelectedLibraryIds(newSet);
-  };
+  const {
+    selectedIds: selectedLibraryIds,
+    setSelectedIds: setSelectedLibraryIds,
+    toggleSelect: toggleLibrarySelect,
+    toggleSelectAll: toggleLibrarySelectAll
+  } = useSharedSelection(currentLibraryItems);
 
-  const toggleLibrarySelectAll = () => {
-    if (selectedLibraryIds.size === currentLibraryItems.length) {
-      setSelectedLibraryIds(new Set());
-    } else {
-      setSelectedLibraryIds(new Set(currentLibraryItems.map(i => i.id)));
-    }
-  };
+  const [generatingLibraryItems, setGeneratingLibraryItems] = useState<Set<string>>(new Set());
 
 
   // --- Actions ---
@@ -376,13 +279,19 @@ export default function Home() {
     }
   };
 
-  const handleDownloadSelected = () => {
+  const handleDownloadSelected = async () => {
     const toDownload = activeClips.filter(c => selectedIds.has(c.id) && c.resultUrl);
     if (toDownload.length === 0) return alert("No completed clips selected.");
 
-    // Simple approach: Open each in new tab (browser might block popups)
-    // Better: Generate a text file list? Or just loop open.
-    toDownload.forEach(c => window.open(c.resultUrl, '_blank'));
+    // Sequential download to avoid overwhelming browser
+    for (const clip of toDownload) {
+      if (clip.resultUrl) {
+        const filename = getClipFilename(clip);
+        await downloadFile(clip.resultUrl, filename);
+        // Optional: short delay
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
   };
 
   const generateLibraryItem = async (item: LibraryItem) => {
@@ -632,7 +541,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.6.1</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.7.0</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 

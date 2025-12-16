@@ -52,8 +52,9 @@ export class FluxStrategy implements KieStrategy {
     getType(): 'flux' | 'veo' { return 'flux'; }
 
     async createTask(payload: FluxPayload): Promise<{ taskId: string, rawData: any }> {
-        const res = await kieFetch<{ taskId: string }>('/jobs/createTask', { method: 'POST', body: payload });
-        return { taskId: res.data?.taskId || '', rawData: res };
+        const res = await kieFetch<any>('/jobs/createTask', { method: 'POST', body: payload });
+        const taskId = res.data?.taskId || res.taskId || res.jobId || res.task_id || '';
+        return { taskId, rawData: res };
     }
 
     async checkStatus(taskId: string): Promise<StatusResult> {
@@ -100,8 +101,9 @@ export class VeoStrategy implements KieStrategy {
     getType(): 'flux' | 'veo' { return 'veo'; }
 
     async createTask(payload: VeoPayload): Promise<{ taskId: string, rawData: any }> {
-        const res = await kieFetch<{ taskId: string }>('/veo/generate', { method: 'POST', body: payload });
-        return { taskId: res.data?.taskId || '', rawData: res };
+        const res = await kieFetch<any>('/veo/generate', { method: 'POST', body: payload });
+        const taskId = res.data?.taskId || res.taskId || res.jobId || res.task_id || '';
+        return { taskId, rawData: res };
     }
 
     async checkStatus(taskId: string): Promise<StatusResult> {

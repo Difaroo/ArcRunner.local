@@ -32,6 +32,7 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { MediaDisplay } from "@/components/media/MediaDisplay"
 import { RowActions } from "@/components/ui/RowActions"
+import { downloadFile, getClipFilename, getNextStatus } from "@/lib/download-utils"
 
 interface ClipRowProps {
     clip: Clip
@@ -116,58 +117,13 @@ export function ClipRow({
 
     const handleDownload = async () => {
         if (clip.resultUrl) {
-            try {
-                // 1. Calculate Version
-                let ver = 1;
-                const status = clip.status || '';
-                if (status.startsWith('Saved')) {
-                    const match = status.match(/Saved \[(\d+)\]/);
-                    if (match) {
-                        ver = parseInt(match[1]) + 1;
-                    } else if (status === 'Saved') {
-                        ver = 2;
-                    }
-                }
+            const filename = getClipFilename(clip);
+            const success = await downloadFile(clip.resultUrl, filename);
 
-                // 2. Construct Filename
-                const safeTitle = (clip.title || 'Untitled').replace(/[^a-z0-9 ]/gi, '');
-                const scene = clip.scene || '0';
-
-                let filename = `${scene} ${safeTitle}`;
-                if (ver > 1) {
-                    filename += ` ${ver.toString().padStart(2, '0')}`;
-                }
-                const ext = clip.resultUrl.split('.').pop()?.split('?')[0] || 'mp4';
-                if (!filename.endsWith(`.${ext}`)) {
-                    filename += `.${ext}`;
-                }
-
-                // 3. Fetch Blob
-                const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(clip.resultUrl)}`;
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error('Download failed');
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-
-                // 4. Trigger Save
-                const a = document.createElement('a');
-                a.href = blobUrl;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-
-                // Cleanup
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-
-                // 5. Update Status
+            if (success) {
                 setDownloadCount(prev => prev + 1)
-                const newStatus = ver > 1 ? `Saved [${ver}]` : 'Saved';
+                const newStatus = getNextStatus(clip.status || '');
                 onSave(clip.id, { status: newStatus })
-
-            } catch (err) {
-                console.error('Download error:', err);
-                alert('Failed to download file.');
             }
         }
     }
@@ -465,7 +421,7 @@ export function ClipRow({
 
             <TableCell className="align-top py-3 w-[75px] pr-[10px] pl-0">
                 {/* RESULT Column using MediaDisplay */}
-                {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved')) && clip.resultUrl && (
+                {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status === 'Error') && clip.resultUrl && (
                     <div className="flex justify-end">
                         <MediaDisplay
                             url={clip.resultUrl}
