@@ -62,42 +62,50 @@
 
 ---
 
-## 3. Proposed Refactor Plan (Phase 1)
-*Do not implement yet. For review only.*
+## 3. Target Architecture: The "Payload Builder" Pattern
 
-### Step 1: Modularize `GenerateManager`
-Extract logic into private helper methods to clean up `startTask`.
+To resolve complexity and fragility, we will refactor the system into a modular "Delegation" architecture.
 
-```typescript
-class GenerateManager {
-  async startTask(input) {
-    const context = await this.resolveContext(input);
-    const modelID = this.normalizeModel(context.model);
-    const publicImages = await this.uploadAssets(context.images);
-    const payload = this.buildPayload(modelID, context, publicImages);
-    return this.execute(payload);
-  }
-}
-```
+### A. Core Components
 
-### Step 2: Config-Driven Model Specs
-Replace `if/else` payload building with a configuration map.
+1.  **`GenerateManager` (Changes):**
+    *   No longer builds JSON.
+    *   No longer normalizes model IDs inside `startTask`.
+    *   **Role**: Resolves Inputs -> Selects Builder (via Factory) -> Uploads Assets -> Executes Task.
 
-```typescript
-const MODEL_SPECS = {
-  'veo3_fast': {
-    strategy: 'veo',
-    payloadType: 'FLAT_VEO',
-    supportsImages: true,
-    requiresArray: true
-  },
-  'flux-pro': {
-    strategy: 'flux',
-    payloadType: 'NESTED_FLUX',
-    ...
-  }
-}
-```
+2.  **`PayloadBuilder` (Interface):**
+    ```typescript
+    interface PayloadBuilder {
+      build(context: GenerationContext): Promise<any>;
+      supports(modelId: string): boolean;
+      validate(context: GenerationContext): string[]; // Returns errors
+    }
+    ```
+
+3.  **Concrete Builders (Extraction):**
+    *   **`VeoPayloadBuilder`**:
+        *   Encapsulates `veo3_fast` logic (verified).
+        *   Handles `REFERENCE_2_VIDEO` vs `TEXT_2_VIDEO`.
+        *   Enforces `imageUrls` (Array) syntax.
+    *   **`FluxPayloadBuilder`**:
+        *   Encapsulates `flux-kontext-pro` logic (official).
+        *   Handles `inputImage` (Singular) syntax.
+
+4.  **`BuilderFactory` (Registry):**
+    *   Maps Model IDs (`veo3_fast`, `veo-2` legacy) to specific Builders.
+    *   Central place to add new models (e.g. `sora-1`).
+
+### B. Extensibility Strategy (Safe Growth)
+To add a new model (e.g., Sora):
+1.  Create `SoraPayloadBuilder.ts`.
+2.  Register it in `BuilderFactory`.
+3.  **Zero risk** to existing Veo/Flux logic.
+
+### C. Refactor Strategy: "Safe Extraction"
+1.  **Duplicate**: Copy exact working code from Manager to Builder.
+2.  **Verify**: Run Manager and Builder side-by-side on test inputs. Assert `JSON.stringify(old) === JSON.stringify(new)`.
+3.  **Switch**: Point Manager to use Builder.
+
 
 ---
 

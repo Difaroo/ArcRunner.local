@@ -17,74 +17,78 @@ export async function POST(req: Request) {
 
         let updateCount = 0;
 
-        for (const item of targets) {
-            const taskId = item.taskId;
-            if (!taskId) continue;
+        // Parallel Processing with Concurrency Limit (Batch Size 5)
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+            const chunk = targets.slice(i, i + BATCH_SIZE);
 
-            const idInt = parseInt(item.id);
-            if (isNaN(idInt)) continue;
+            await Promise.all(chunk.map(async (item: any) => {
+                const taskId = item.taskId;
+                if (!taskId) return;
 
-            const isLibrary = item.type === 'LIBRARY';
-            let apiType: 'flux' | 'veo' = isLibrary ? 'flux' : 'veo';
+                const idInt = parseInt(item.id);
+                if (isNaN(idInt)) return;
 
-            let status = 'Generating';
-            let resultUrl = '';
-            let errorMsg = '';
+                const isLibrary = item.type === 'LIBRARY';
+                let apiType: 'flux' | 'veo' = isLibrary ? 'flux' : 'veo';
 
-            try {
-                const check = await checkKieTaskStatus(taskId, apiType);
-                status = check.status;
-                resultUrl = check.resultUrl;
-                errorMsg = check.errorMsg;
+                let status = 'Generating';
+                let resultUrl = '';
+                let errorMsg = '';
 
-                // Mixed Model Fallback
-                if (status === 'Error' && errorMsg && (errorMsg.includes('not found') || errorMsg.includes('404'))) {
-                    const altType = apiType === 'flux' ? 'veo' : 'flux';
-                    const checkAlt = await checkKieTaskStatus(taskId, altType);
-                    if (checkAlt.status !== 'Error' || !checkAlt.errorMsg.includes('not found')) {
-                        status = checkAlt.status;
-                        resultUrl = checkAlt.resultUrl;
-                        errorMsg = checkAlt.errorMsg;
+                try {
+                    const check = await checkKieTaskStatus(taskId, apiType);
+                    status = check.status;
+                    resultUrl = check.resultUrl;
+                    errorMsg = check.errorMsg;
+
+                    // Mixed Model Fallback
+                    if (status === 'Error' && errorMsg && (errorMsg.includes('not found') || errorMsg.includes('404'))) {
+                        const altType = apiType === 'flux' ? 'veo' : 'flux';
+                        const checkAlt = await checkKieTaskStatus(taskId, altType);
+                        if (checkAlt.status !== 'Error' || !checkAlt.errorMsg.includes('not found')) {
+                            status = checkAlt.status;
+                            resultUrl = checkAlt.resultUrl;
+                            errorMsg = checkAlt.errorMsg;
+                        }
                     }
-                }
 
-                if (status === 'Generating') {
-                    continue;
-                }
+                    if (status === 'Generating') return;
 
-                if (status === 'Error') {
-                    resultUrl = errorMsg || 'Processing Error';
-                }
-
-                // Prepare Updates
-                if (status === 'Done' || status === 'Error') {
-
-                    const finalResult = status === 'Done' ? (resultUrl || '') : (resultUrl || 'Error');
-                    const finalStatus = status === 'Done' ? 'Saved' : 'Error'; // Use 'Saved' for consistency with Sheets history
-
-                    if (isLibrary) {
-                        await db.studioItem.update({
-                            where: { id: idInt },
-                            data: {
-                                refImageUrl: finalResult
-                            }
-                        });
-                        updateCount++;
-                    } else {
-                        await db.clip.update({
-                            where: { id: idInt },
-                            data: {
-                                status: finalStatus,
-                                resultUrl: finalResult
-                            }
-                        });
-                        updateCount++;
+                    if (status === 'Error') {
+                        resultUrl = errorMsg || 'Processing Error';
                     }
-                }
 
-            } catch (err: any) {
-                console.warn(`Poll loop error for ${taskId}:`, err);
-            }
+                    // Prepare Updates
+                    if (status === 'Done' || status === 'Error') {
+
+                        const finalResult = status === 'Done' ? (resultUrl || '') : (resultUrl || 'Error');
+                        const finalStatus = status === 'Done' ? 'Saved' : 'Error';
+
+                        if (isLibrary) {
+                            await db.studioItem.update({
+                                where: { id: idInt },
+                                data: {
+                                    refImageUrl: finalResult
+                                }
+                            });
+                            updateCount++;
+                        } else {
+                            await db.clip.update({
+                                where: { id: idInt },
+                                data: {
+                                    status: finalStatus,
+                                    resultUrl: finalResult
+                                }
+                            });
+                            updateCount++;
+                        }
+                    }
+
+                } catch (err: any) {
+                    console.warn(`Poll loop error for ${taskId}:`, err);
+                }
+            }));
         }
 
         return NextResponse.json({

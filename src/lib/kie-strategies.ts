@@ -23,21 +23,36 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
     const { method, body } = options;
     const url = endpoint.startsWith('http') ? endpoint : `${KIE_BASE_URL}${endpoint}`;
 
-    const res = await fetch(url, {
-        method,
-        cache: 'no-store',
-        headers: {
-            'Authorization': `Bearer ${KIE_API_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: body ? JSON.stringify(body) : undefined
-    });
+    // Resilience: 15s Timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.error?.message || data.msg || JSON.stringify(data) || `Failed to call Kie.ai ${endpoint}`);
+    try {
+        const res = await fetch(url, {
+            method,
+            cache: 'no-store',
+            headers: {
+                'Authorization': `Bearer ${KIE_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            signal: controller.signal
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error?.message || data.msg || JSON.stringify(data) || `Failed to call Kie.ai ${endpoint}`);
+        }
+        return data;
+
+    } catch (error: any) {
+        if (error.name === 'AbortError') {
+            throw new Error(`Kie.ai Request Timed Out (${endpoint})`);
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
     }
-    return data;
 }
 
 // Strategy Interface
@@ -131,7 +146,7 @@ export class VeoStrategy implements KieStrategy {
                     } else if (typeof rawResp === 'object' && rawResp !== null) {
                         parsed = rawResp;
                     }
-                    resultUrl = parsed.resultUrls?.[0] || parsed.videoUrl || parsed.url || parsed.images?.[0]?.url || '';
+                    resultUrl = parsed.resultUrls?.[0] || parsed.videoUrl || parsed.url || parsed.downloadUrl || parsed.images?.[0]?.url || data.url || data.downloadUrl || '';
                     if (!resultUrl && typeof rawResp === 'string' && rawResp.startsWith('http')) {
                         resultUrl = rawResp;
                     }

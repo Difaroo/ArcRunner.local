@@ -24,21 +24,22 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
     // ID -> Count
     const zombieTracker = useRef<Map<string, number>>(new Map());
 
-    // Track Zombie Candidates (id -> timestamp)
-    const zombieCandidates = useRef<Map<string, number>>(new Map());
-
     useEffect(() => {
         clipsRef.current = clips;
         libraryRef.current = libraryItems;
     }, [clips, libraryItems]);
 
     useEffect(() => {
-        const pollInterval = setInterval(async () => {
+        let isMounted = true;
+        let timeoutId: NodeJS.Timeout;
+
+        const poll = async () => {
+            if (!isMounted) return;
+
             // Smart Polling Logic
             const clips = clipsRef.current;
             const libItems = libraryRef.current;
             const targets: PollTarget[] = [];
-            const zombies: { type: 'CLIP', id: string }[] = [];
 
             // Set of currently detected zombies to clean up old entries
             const detectedZombies = new Set<string>();
@@ -65,17 +66,14 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                         fetch('/api/update_clip', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ rowIndex: c.id, updates: { status: 'Error', resultUrl: 'ERR_ZOMBIE' } }) // Keep explicit zombie marker? Or just Error? 
-                            // User wants to keep previous result. But if it was a zombie, maybe we update status only?
-                            // But usually zombie means it never started properly.
-                            // Let's stick to Error for now.
+                            body: JSON.stringify({ rowIndex: c.id, updates: { status: 'Error', resultUrl: 'ERR_ZOMBIE' } })
                         }).then(() => {
-                            refreshData(true);
+                            if (isMounted) refreshData(true);
                             zombieTracker.current.delete(c.id); // Reset
                         });
                     } else {
                         console.log(`[Polling] Potential Zombie ${c.id} count: ${newCount}/3. Refreshing to check for ID...`);
-                        refreshData(true);
+                        if (isMounted) refreshData(true);
                     }
                 } else if (isGenerating && hasTask) {
                     targets.push({
@@ -93,16 +91,8 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                 }
             }
 
-            // 2. Scan Library (Still uses resultUrl/refImageUrl format?)
-            // Library items might store "TASK:..." in refImageUrl. 
-            // We should ideally fix Library schema too, but for now we follow old pattern if needed
-            // OR checks generic 'refImageUrl'.
+            // 2. Scan Library
             libItems.forEach(i => {
-                // Determine if library item is generating
-                // LibraryItems don't have a 'status' field?
-                // The API/Types show 'refImageUrl'. 
-                // Kie logic usually saves result to refImageUrl directly.
-                // If we want polling for library, we need to know if it's a task.
                 if (i.refImageUrl && i.refImageUrl.startsWith('TASK:')) {
                     targets.push({
                         type: 'LIBRARY',
@@ -112,30 +102,38 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                 }
             });
 
-            if (targets.length === 0) {
-                return;
-            }
+            if (targets.length > 0) {
+                console.log(`[Polling] Checking ${targets.length} active tasks...`);
+                try {
+                    const res = await fetch('/api/poll', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ targets }),
+                    });
 
-            console.log(`[Polling] Checking ${targets.length} active tasks...`);
+                    const data = await res.json();
 
-            try {
-                const res = await fetch('/api/poll', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ targets }),
-                });
-
-                const data = await res.json();
-
-                if (data.success && data.updated > 0) {
-                    console.log(`[Polling] Updated ${data.updated} items. Silent Refreshing...`);
-                    await refreshData(true);
+                    if (data.success && data.updated > 0) {
+                        console.log(`[Polling] Updated ${data.updated} items. Silent Refreshing...`);
+                        if (isMounted) await refreshData(true);
+                    }
+                } catch (err) {
+                    console.error('[Polling] Error:', err);
                 }
-            } catch (err) {
-                console.error('[Polling] Error:', err);
             }
-        }, intervalMs);
 
-        return () => clearInterval(pollInterval);
+            // Schedule next poll ONLY after this one completes
+            if (isMounted) {
+                timeoutId = setTimeout(poll, intervalMs);
+            }
+        };
+
+        // Start Initial Poll
+        timeoutId = setTimeout(poll, intervalMs);
+
+        return () => {
+            isMounted = false;
+            clearTimeout(timeoutId);
+        };
     }, [refreshData, intervalMs]);
 }

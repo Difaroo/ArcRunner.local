@@ -4,6 +4,7 @@ import { resolveClipImages } from '@/lib/shared-resolvers';
 import { getLibraryItems } from '@/lib/library';
 import fs from 'fs';
 import path from 'path';
+import { BuilderFactory } from '@/lib/builders/BuilderFactory';
 
 // Input payload for a generation task
 export interface GenerateTaskInput {
@@ -98,42 +99,20 @@ export class GenerateManager {
             let result;
 
             if (isVideo) {
-                // Prepare Veo Payload (Correct Flat Structure)
-                // 1. Determine Model & Ratio adjustments for Image-to-Video
-                let targetModel = model;
-                let targetRatio = input.aspectRatio || "16:9";
-                let imageUrls: string[] = [];
-                console.log(`[GenerateManager Debug] fullRefs from Resolver: "${fullRefs}"`);
+                // --- VEO BUILDER REFACTOR ---
+                const builder = BuilderFactory.getBuilder(model);
+                if (!builder) throw new Error(`Model not supported: ${model}`);
 
+                let imageUrls: string[] = [];
                 if (fullRefs) {
                     const rawUrls = fullRefs.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
-                    console.log(`[GenerateManager Debug] Raw URLs to process:`, rawUrls);
-
-                    // Resolve Local -> Public (Upload to Kie)
                     imageUrls = await Promise.all(rawUrls.map(url => this.ensurePublicUrl(url)));
-                    console.log(`[GenerateManager Debug] Final Public URLs:`, imageUrls);
                 }
 
-                const finalPrompt = input.clip.prompt || this.buildPrompt(input.clip, model);
-
-                const payload: VeoPayload = {
-                    model: 'veo3_fast', // Strict match user requirement
-                    prompt: finalPrompt,
-                    aspectRatio: input.clip.aspectRatio || '16:9',
-                    durationType: input.clip.duration || '5',
-                    enableTranslation: true,
-                    enableFallback: false
-                };
-
-                if (isVideo && imageUrls.length > 0) {
-                    payload.imageUrls = imageUrls; // Array!
-                    payload.generationType = 'REFERENCE_2_VIDEO';
-                    console.log(`[GenerateManager] Image-to-Video detected. Using veo3_fast.`);
-                } else if (isVideo) {
-                    payload.generationType = 'TEXT_2_VIDEO'; // Optional fallback
-                }
+                const payload = builder.build({ input, publicImageUrls: imageUrls });
 
                 if (input.dryRun) {
+                    // @ts-ignore
                     return { taskId: 'DRY-RUN', debugPayload: payload };
                 }
 
@@ -142,7 +121,6 @@ export class GenerateManager {
 
             } else {
                 // Prepare Flux Payload
-                // Resolve Images for Flux too (it also needs public URLs)
                 let fluxImageUrls: string[] | undefined;
                 if (fullRefs) {
                     const raw = fullRefs.split(',').map(s => s.trim()).filter(Boolean);
@@ -167,8 +145,6 @@ export class GenerateManager {
                 console.log(`[GenerateManager] Sending to Kie (Flux)...`, payload);
                 result = await createFluxTask(payload);
             }
-
-
 
 
             // 3. Handle Response
