@@ -1,56 +1,41 @@
 
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+import { db } from '@/lib/db';
 
 async function main() {
-    console.log('Checking Studio Item Relations...');
+    const charName = 'Jack_Parsons_Roswell';
 
-    const seriesList = await prisma.series.findMany();
+    // 1. Get Studio Item
+    const items = await db.studioItem.findMany({
+        where: { name: charName },
+        include: { series: true }
+    });
 
-    for (const series of seriesList) {
-        console.log(`\nSeries: ${series.name} (${series.id})`);
-
-        const items = await prisma.studioItem.findMany({
-            where: { seriesId: series.id }
-        });
-
-        console.log(`  Total Studio Items: ${items.length}`);
-
-        // Breakdown by Type and Episode
-        const byType = {};
-        const byEp = {};
-
+    if (items.length === 0) {
+        console.log(`Studio Item '${charName}' not found.`);
+    } else {
         items.forEach(item => {
-            byType[item.type] = (byType[item.type] || 0) + 1;
-            const ep = item.episode || 'NULL';
-            byEp[ep] = (byEp[ep] || 0) + 1;
+            console.log(`Studio Item: ${item.name} (ID: ${item.id})`);
+            console.log(`  Series ID: ${item.seriesId}`);
+            console.log(`  Series Name: ${item.series.name}`);
         });
-
-        console.log('  By Type:', byType);
-        console.log('  By Episode:', byEp);
-
-        if (items.length > 0) {
-            console.log('  Sample Item:', {
-                name: items[0].name,
-                type: items[0].type,
-                params: { seriesId: items[0].seriesId, episode: items[0].episode }
-            });
-        }
     }
 
-    // Check for Orphans
-    const orphans = await prisma.studioItem.findMany({
-        where: { seriesId: null } // Should be impossible with schema, but check if empty string or invalid
+    // 2. Get Clip 177
+    const clipId = 177;
+    const clip = await db.clip.findUnique({
+        where: { id: clipId },
+        include: { episode: { include: { series: true } } }
     });
-    // Actually schema says seriesId is String (required?). Let's check schema/migration.
-    // Schema: seriesId String. Relation.
 
-    // Check for items with seriesId that doesn't exist? (Prisma enforces FK usually, but maybe not in SQLite if disabled?)
+    if (!clip) {
+        console.log(`Clip ${clipId} not found.`);
+    } else {
+        console.log(`Clip: ${clip.id} Scene: ${clip.scene}`);
+        console.log(`  Character: ${clip.character}`);
+        console.log(`  Episode ID: ${clip.episodeId}`);
+        console.log(`  Series ID: ${clip.episode.seriesId}`);
+        console.log(`  Series Name: ${clip.episode.series.name}`);
+    }
 }
 
-main()
-    .catch(e => console.error(e))
-    .finally(async () => {
-        await prisma.$disconnect();
-    });
+main();

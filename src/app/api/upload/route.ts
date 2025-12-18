@@ -3,7 +3,9 @@ import { saveFile } from '@/lib/storage';
 
 export async function POST(request: NextRequest) {
     try {
+        console.log('[Upload API] Received POST request');
         const formData = await request.formData();
+        console.log('[Upload API] FormData parsed');
         const file = formData.get('file') as File;
         // Episode param not strictly needed for flat local structure, but could use for subfolders later
         // const episode = formData.get('episode') as string;

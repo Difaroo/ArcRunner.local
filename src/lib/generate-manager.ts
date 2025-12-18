@@ -27,11 +27,17 @@ export interface GenerateTaskInput {
 export class GenerateManager {
     // Singleton or Static? Class is fine.
 
+    constructor() {
+        console.log('[GenerateManager] Initialized');
+    }
+
     /**
      * Main entry point to start a generation task.
      */
     async startTask(input: GenerateTaskInput): Promise<{ taskId?: string, resultUrl?: string, debugPayload?: any }> {
-        console.log(`[GenerateManager] Starting task for Clip ${input.clipId}`);
+        console.log(`[GenerateManager] >>> Starting Task <<<`);
+        console.log(`[GenerateManager] Input: Clip=${input.clipId}, Series=${input.seriesId}, Prompt='${input.prompt || input.clip.prompt?.substring(0, 50)}...'`);
+        console.log(`[GenerateManager] Full Input Payload:`, JSON.stringify(input, null, 2));
 
         // 1. Resolve Library References (Server-Side)
         const libraryItems = await db.studioItem.findMany({
@@ -49,6 +55,7 @@ export class GenerateManager {
 
         // Resolve!
         const { fullRefs, characterImageUrls, locationImageUrls } = resolveClipImages(input.clip, findLib);
+        console.log(`[GenerateManager] Resolved References:`, { fullRefs, charCount: characterImageUrls.length, locCount: locationImageUrls.length });
 
         // 2. Select Strategy & Execute
 

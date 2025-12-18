@@ -103,7 +103,7 @@ export function ClipTable({
                 <Table className="table-fixed border-collapse">
                     <TableHeader className="sticky top-0 bg-black backdrop-blur-sm z-10">
                         <TableRow>
-                            <TableHead className="w-[30px] p-0"></TableHead>
+                            <TableCell className="align-top text-right py-3 w-[60px] pr-[5px] pl-0"></TableCell>
                             <TableHead className="w-[40px] px-0 text-center align-top py-3">
                                 <Checkbox
                                     checked={allSelected}
@@ -119,7 +119,7 @@ export function ClipTable({
                             <TableHead className="w-[18%] font-semibold text-stone-500 text-left align-top py-3">DIALOG</TableHead>
                             <TableHead className="w-[140px] font-semibold text-stone-500 text-right align-top py-3 pr-[10px] pl-0">REF IMAGES</TableHead>
                             <TableHead className="w-[75px] font-semibold text-stone-500 text-right align-top py-3 pr-[10px] pl-0">RESULT</TableHead>
-                            <TableHead className="w-[60px] font-semibold text-stone-500 text-right align-top py-3 pr-[25px] pl-0">STATUS</TableHead>
+                            <TableHead className="w-[60px] font-semibold text-stone-500 text-right align-top py-3 pr-[5px] pl-0">STATUS</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
