@@ -15,7 +15,7 @@ async function main() {
             console.log(`Clip ID: ${clip.id}`);
             console.log(`  Character: '${clip.character}'`);
             console.log(`  RefImageUrls (Cache): '${clip.refImageUrls}'`);
-            console.log(`  ExplicitRefUrls: '${clip.explicitRefUrls}'`);
+
             console.log('---');
         });
     }

@@ -1,4 +1,4 @@
-
+// @ts-nocheck
 const http = require('http');
 
 http.get('http://localhost:3000/api/clips', (res) => {

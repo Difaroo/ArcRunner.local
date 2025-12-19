@@ -22,8 +22,16 @@ export async function GET() {
         const authClient = await getAuthClient();
         const sheets = google.sheets({ version: 'v4', auth: authClient as any });
 
-        // 1. Fetch Headers
-        const headers = await getHeaders('LIBRARY');
+        // 1. Read Library Data (Including Headers)
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'LIBRARY!A1:ZZ', // Read all columns including header
+        });
+
+        const allRows = response.data.values || [];
+
+        // 2. Parse Headers
+        const headers = getHeaders(allRows);
         const episodeColIndex = headers.get('Episode');
 
         if (episodeColIndex === undefined) {
@@ -32,17 +40,11 @@ export async function GET() {
 
         const episodeColLetter = indexToColumnLetter(episodeColIndex);
 
-        // 2. Read Library Data
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: 'LIBRARY!A2:ZZ', // Read all columns
-        });
-
-        const rows = response.data.values || [];
+        // 3. Process Rows (Skip Header)
+        const rows = allRows.slice(1);
         const updates = [];
         let currentEpisode = 1;
 
-        // 3. Iterate and Calculate Episodes
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             const isEmpty = !row || row.length === 0 || row.every(cell => !cell);
@@ -52,6 +54,7 @@ export async function GET() {
                 currentEpisode++;
             } else {
                 // Content found! Assign current episode
+                // Note: i is index in rows (0-based), so spreadsheet row is i + 2 (header + 1-based)
                 updates.push({
                     range: `LIBRARY!${episodeColLetter}${i + 2}`,
                     values: [[currentEpisode.toString()]]
@@ -59,7 +62,7 @@ export async function GET() {
             }
         }
 
-        // 3. Batch Update
+        // 4. Batch Update
         if (updates.length > 0) {
             await sheets.spreadsheets.values.batchUpdate({
                 spreadsheetId: SPREADSHEET_ID,

@@ -257,7 +257,7 @@ export class GenerateManager {
                 console.log(`[GenerateManager Debug] Upload Res:`, JSON.stringify(uploadRes));
 
                 // Handle diverse response shapes (Flat, Nested URL, Nested DownloadUrl)
-                const publicUrl = uploadRes.data?.url || uploadRes.url || uploadRes.data?.downloadUrl;
+                const publicUrl = uploadRes.data?.url || uploadRes.url || (uploadRes.data as any)?.downloadUrl;
 
                 if (publicUrl) {
                     console.log(`[GenerateManager] Uploaded! Public URL: ${publicUrl}`);

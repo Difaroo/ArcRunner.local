@@ -1,4 +1,4 @@
-
+// @ts-nocheck
 import { GenerateManager } from '../src/lib/generate-manager';
 import { db } from '../src/lib/db';
 import { VeoStrategy, FluxStrategy } from '../src/lib/kie-strategies';

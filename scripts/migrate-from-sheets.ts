@@ -1,4 +1,4 @@
-
+// @ts-nocheck
 // --- Types mapping to Sheet Columns ---
 // (Simplified for script usage)
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import fetch from 'node-fetch';
 if (!global.fetch) {
     (global as any).fetch = fetch;
