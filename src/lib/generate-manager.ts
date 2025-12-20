@@ -86,7 +86,7 @@ export class GenerateManager {
         let rawModel = effectiveModel || 'veo'; // Downgrade default to 'veo' (veo-2 might be invalid)
 
         // NORMALIZE LEGACY MODELS
-        if (rawModel === 'flux') rawModel = 'flux-2/flex-text-to-image';
+        if (rawModel === 'flux' || rawModel === 'flux-pro') rawModel = 'flux-kontext-pro';
 
         // RESTORE LEGACY VEO ID
         // 'veo-2' and 'veo' and 'veo-fast' all failed (422). 

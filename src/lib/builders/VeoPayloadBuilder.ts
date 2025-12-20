@@ -29,7 +29,7 @@ export class VeoPayloadBuilder implements PayloadBuilder {
             aspectRatio: input.aspectRatio || '16:9',
             durationType: input.clip.duration || '5',
             enableTranslation: true,
-            enableFallback: false
+            enableFallback: true
         };
 
         if (imageUrls.length > 0) {

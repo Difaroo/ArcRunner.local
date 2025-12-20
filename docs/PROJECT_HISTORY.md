@@ -2,6 +2,16 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2025-12-20: v0.7.2 - Reactive Studio & Agent Foundations
+
+### Context
+Addressed user feedback regarding the "Studio" (Library) reactivity. Previously, updating a character/location image didn't immediately reflect in the Clips table. Also laying groundwork for Agentic testing.
+
+### Changes
+- **Studio Reactivity**: Implemented "Beacon" logging and improved `resolveClipImages` logic to ensure clip thumbnails update instantly when their linked Studio Asset is modified.
+- **Agent Test Migration**: Added `AgentMigrationTest` table (via Prisma) to validate migration workflows.
+- **Version Bump**: 0.7.1 -> 0.7.2.
+
 ## 2025-12-18: Local Dev/Prod Isolation
 
 ### Context

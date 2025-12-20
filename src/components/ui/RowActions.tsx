@@ -81,8 +81,8 @@ export function RowActions({
 
     // VIEW MODE
     const isDone = (status === 'Done' || status === 'Ready' || status?.startsWith('Saved')) && resultUrl;
-    const isError = status === 'Error';
     const isGenerating = status === 'Generating';
+    const isError = status?.startsWith('Error') || status === 'Upload Err' || status === 'File 404' || status === 'Net Err';
 
     return (
         <div className="flex flex-col items-end gap-1">
@@ -146,7 +146,7 @@ export function RowActions({
                     </span>
                 ) : null}
                 {isGenerating && <span className="text-primary/70 block">Gen...</span>}
-                {isError && <span className="text-destructive block">Error</span>}
+                {isError && <span className="text-destructive block">{status}</span>}
             </div>
         </div>
     )

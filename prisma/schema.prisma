@@ -80,3 +80,6 @@ model Clip {
   episodeId       String
   episode         Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
 }
+
+
+

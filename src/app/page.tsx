@@ -149,9 +149,57 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to save library item');
 
       // Update local state
-      setLibraryItems(prev => prev.map((item) =>
+      const newLibraryItems = libraryItems.map((item) =>
         item.id === index ? { ...item, ...updates } : item
-      ));
+      );
+      setLibraryItems(newLibraryItems);
+
+      // Propagate changes to Clis (Re-resolve images)
+      if (updates.refImageUrl || updates.name) {
+        // DEBUG: START TRACE - Log immediately
+        fetch('/api/log_beacon', {
+          method: 'POST',
+          body: JSON.stringify({ type: 'Reactivity START', updates })
+        }).catch(e => console.error(e));
+
+        setClips(prevClips => prevClips.map(clip => {
+          // Helper to lookup in NEW library list
+          const findUrl = (name: string) => {
+            const item = newLibraryItems.find(i => i.name.toLowerCase() === name.toLowerCase() && i.series === currentSeriesId);
+            return item?.refImageUrl;
+          };
+
+          const { fullRefs } = resolveClipImages(clip, findUrl);
+
+          // DEBUG: Trace specific matches via Beacon
+          // FIX: updates.name might be missing, use the Actual Item Name
+          const updatedItem = newLibraryItems.find(i => i.id === index);
+          const nameToCheck = updatedItem?.name.toLowerCase() || '';
+
+          const charMatch = clip.character?.toLowerCase().includes(nameToCheck);
+          const locMatch = clip.location?.toLowerCase().includes(nameToCheck);
+
+          // Always log if we found a match, OR if nameToCheck is suspiciously empty
+          if ((charMatch || locMatch) && nameToCheck.length > 0) {
+            fetch('/api/log_beacon', {
+              method: 'POST',
+              body: JSON.stringify({
+                type: 'Reactivity Check',
+                clipId: clip.id,
+                char: clip.character,
+                loc: clip.location,
+                matchName: nameToCheck,
+                newRefs: fullRefs,
+                foundUrl: findUrl(nameToCheck)
+              })
+            }).catch(e => console.error(e));
+          }
+
+          return { ...clip, refImageUrls: fullRefs };
+        }));
+      }
+
+
 
     } catch (err) {
       console.error('Library Save error:', err);
@@ -365,7 +413,8 @@ export default function Home() {
     try {
       // Optimistic update
       const newClips = [...clips];
-      newClips[index].status = 'Generating';
+      // CRITICAL: Clear Result/TaskId to prevents Poller from seeing old 'Done' task
+      newClips[index] = { ...newClips[index], status: 'Generating', resultUrl: '', taskId: '' };
       setClips(newClips);
 
       // Use Episode Style if available, otherwise fallback to clip style (which might be empty now)
@@ -541,7 +590,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.7.1</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.7.2</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 

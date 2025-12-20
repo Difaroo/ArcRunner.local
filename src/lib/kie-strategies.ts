@@ -22,6 +22,7 @@ interface KieResponse<T = any> {
 async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', body?: any }): Promise<KieResponse<T>> {
     const { method, body } = options;
     const url = endpoint.startsWith('http') ? endpoint : `${KIE_BASE_URL}${endpoint}`;
+    console.log(`[KieFetch] ${method} ${url}`);
 
     // Resilience: 15s Timeout
     const controller = new AbortController();
@@ -123,6 +124,7 @@ export class VeoStrategy implements KieStrategy {
 
     async checkStatus(taskId: string): Promise<StatusResult> {
         const res = await kieFetch<any>(`/veo/record-info?taskId=${taskId}`, { method: 'GET' });
+        console.log(`[VeoStrategy] Status Response for ${taskId}:`, JSON.stringify(res));
         const data = res.data || {};
 
         // Handle Schema Divergence (Old Status vs New SuccessFlag)
@@ -159,17 +161,23 @@ export class VeoStrategy implements KieStrategy {
         // LEGACY SCHEMA (status string)
         else {
             const s = (rawStatus || '').toUpperCase();
-            const activeStates = ['QUEUED', 'PENDING', 'RUNNING', 'CREATED', 'PROCESSING'];
-            const successStates = ['COMPLETED', 'SUCCEEDED'];
 
-            if (activeStates.includes(s)) {
-                status = 'Generating';
-            } else if (successStates.includes(s)) {
+            // Explicit Success
+            if (['COMPLETED', 'SUCCEEDED', 'DONE'].includes(s)) {
                 status = 'Done';
                 resultUrl = data.videoUrl || data.url || data.images?.[0]?.url || '';
-            } else {
+            }
+            // Explicit Failure
+            else if (['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT'].includes(s)) {
                 status = 'Error';
-                errorMsg = s || 'Unknown Status';
+                errorMsg = data.errorMessage || s || 'Generation Failed';
+            }
+            // Default: Assume Generating (Handles QUEUED, RUNNING, and unknown transient states)
+            else {
+                status = 'Generating';
+                if (!['QUEUED', 'PENDING', 'RUNNING', 'CREATED', 'PROCESSING'].includes(s)) {
+                    console.warn(`[VeoStrategy] Unknown status '${s}' treated as Generating.`);
+                }
             }
         }
 
