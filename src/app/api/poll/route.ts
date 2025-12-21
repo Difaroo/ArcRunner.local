@@ -63,7 +63,7 @@ export async function POST(req: Request) {
                     if (status === 'Done' || status === 'Error') {
 
                         const finalResult = status === 'Done' ? (resultUrl || '') : (resultUrl || 'Error');
-                        const finalStatus = status === 'Done' ? 'Saved' : 'Error';
+                        const finalStatus = status === 'Done' ? 'Done' : 'Error';
 
                         if (isLibrary) {
                             await db.studioItem.update({

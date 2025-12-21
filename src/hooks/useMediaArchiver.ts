@@ -91,6 +91,9 @@ export function useMediaArchiver({
                     updates.refImageUrls = currentRefs ? `${currentRefs}, ${finalUrl}` : finalUrl;
                 }
 
+                // C) Set Status to Saved
+                updates.status = 'Saved';
+
                 // Apply Updates
                 setClips(prev => prev.map(c => c.id === clip.id ? { ...c, ...updates } : c));
                 await onClipSave(clip.id, updates);
@@ -100,7 +103,7 @@ export function useMediaArchiver({
                     setPlayingVideoUrl(updates.resultUrl);
                 }
 
-                alert("Saved to Storage & Added to Refs!");
+                // alert("Saved to Storage & Added to Refs!");
 
             } else if (libItem) {
                 // Library Logic (Append)

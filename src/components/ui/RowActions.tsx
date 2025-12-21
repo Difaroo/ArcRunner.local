@@ -42,7 +42,7 @@ export function RowActions({
     // EDIT MODE
     if (isEditing) {
         return (
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col items-start gap-1">
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -85,8 +85,8 @@ export function RowActions({
     const isError = status?.startsWith('Error') || status === 'Upload Err' || status === 'File 404' || status === 'Net Err';
 
     return (
-        <div className="flex flex-col items-end gap-1">
-            <div className="flex flex-col gap-2 items-end">
+        <div className="flex flex-col items-start gap-1">
+            <div className="flex flex-col gap-2 items-start">
 
                 {/* 1. DOWNLOAD BUTTON (If Done) */}
                 {isDone && (
@@ -115,10 +115,11 @@ export function RowActions({
                             <TooltipTrigger asChild>
                                 <Button
                                     variant="outline"
+                                    size="icon"
                                     onClick={(e) => { e.stopPropagation(); onGenerate(); }}
-                                    className="h-8 px-3 text-xs border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary font-normal border-[0.5px]"
+                                    className="h-8 w-8 border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary font-normal border-[0.5px]"
                                 >
-                                    GEN
+                                    <span className="material-symbols-outlined !text-lg">auto_awesome</span>
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent><p>Generate Asset</p></TooltipContent>
@@ -139,7 +140,7 @@ export function RowActions({
             </div>
 
             {/* STATUS TEXT */}
-            <div className="text-[10px] text-stone-500 font-medium text-right w-full mt-1">
+            <div className="text-[10px] text-stone-500 font-medium text-left w-full mt-1">
                 {isDone ? (
                     <span className="text-stone-500 block">
                         {status?.startsWith('Saved') ? status : 'Ready'}

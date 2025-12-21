@@ -178,16 +178,17 @@ export function SeriesPage({
                                 <TableRow className="hover:bg-transparent border-white/5">
                                     <TableHead className="w-16 text-xs">Ep #</TableHead>
                                     <TableHead className="text-xs">Title</TableHead>
-                                    <TableHead className="text-xs w-1/2">Progress</TableHead>
+                                    <TableHead className="text-xs w-1/2">CLIPS / GENERATED / SAVED</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {sortedEpisodes.map(ep => {
                                     const data = progressMap.get(ep.id) || { count: 0, savedCount: 0, readyCount: 0 }
-                                    const totalCount = data.savedCount + data.readyCount
+                                    const totalGenerated = data.savedCount + data.readyCount
 
+                                    // Progress bar percentages (relative to TOTAL clips)
+                                    const generatedProgress = data.count > 0 ? Math.round((totalGenerated / data.count) * 100) : 0
                                     const savedProgress = data.count > 0 ? Math.round((data.savedCount / data.count) * 100) : 0
-                                    const totalProgress = data.count > 0 ? Math.round((totalCount / data.count) * 100) : 0
 
                                     return (
                                         <TableRow
@@ -201,15 +202,17 @@ export function SeriesPage({
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col gap-1">
-                                                    <div className="flex justify-between text-[10px] text-stone-400">
-                                                        <span>{data.savedCount}/{data.count} Saved</span>
+                                                    <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                                                        <span>{data.count} / {totalGenerated} / {data.savedCount}</span>
                                                         <span>{savedProgress}%</span>
                                                     </div>
                                                     <div className="h-1.5 w-full bg-black rounded-full overflow-hidden relative">
+                                                        {/* Red Bar (Generated) */}
                                                         <div
                                                             className="absolute top-0 left-0 h-full bg-destructive opacity-70 rounded-full transition-all duration-500"
-                                                            style={{ width: `${totalProgress}%` }}
+                                                            style={{ width: `${generatedProgress}%` }}
                                                         />
+                                                        {/* Orange Bar (Saved) - Overlays Red? Or separate? User didn't specify layout change, just text. Keeping existing overlay logic. */}
                                                         <div
                                                             className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-500"
                                                             style={{ width: `${savedProgress}%` }}

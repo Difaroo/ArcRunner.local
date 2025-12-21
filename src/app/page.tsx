@@ -731,14 +731,19 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Episode Title Header - Only for Clips and Library View (Script View has its own) */}
-      {(currentView === 'clips' || currentView === 'library') && (
+      {/* Episode Title Header - Only for Clips, Library, and SCRIPT View */}
+      {(currentView === 'clips' || currentView === 'library' || currentView === 'script') && (
         <PageHeader
           title={
             <div className="flex items-center gap-2">
               <span className="text-stone-500 font-normal">{seriesList.find(s => s.id === currentSeriesId)?.title}</span>
-              <span className="text-stone-700">/</span>
-              <span>{seriesEpisodeTitles[currentEpKey] ? seriesEpisodeTitles[currentEpKey] : `Episode ${currentEpKey}`}</span>
+              {currentView !== 'script' && (
+                <>
+                  <span className="text-stone-700">/</span>
+                  <span className="text-xs text-stone-500 font-mono">v0.7.4</span>
+                  <span>{seriesEpisodeTitles[currentEpKey] ? seriesEpisodeTitles[currentEpKey] : `Episode ${currentEpKey}`}</span>
+                </>
+              )}
             </div>
           }
           className="border-t border-white/5 border-b-0"
@@ -795,6 +800,7 @@ export default function Home() {
               />
             </div>
           )}
+          {/* Script View needs no toolbar actions in header currently, or maybe move the ingestion controls here later? For now, empty or standard. */}
         </PageHeader>
       )}
 

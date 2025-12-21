@@ -175,18 +175,18 @@ export function ClipRow({
             style={style}
             className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''} ${isDragging ? 'opacity-50 bg-stone-800' : ''}`}
         >
-            <TableCell className="w-[30px] p-0 pl-1 pr-0 align-top py-3 cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
+            <TableCell className="w-[20px] p-0 text-center align-top py-3 cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
                 <div className="flex items-center justify-center h-4 w-4">
                     <span className="material-symbols-outlined text-stone-600 hover:text-stone-400 !text-base leading-none">drag_indicator</span>
                 </div>
             </TableCell>
-            <TableCell className="w-[40px] px-0 text-center align-top py-3">
+            <TableCell className="w-[28px] px-0 text-center align-top py-3">
                 <Checkbox
                     checked={isSelected}
                     onCheckedChange={() => onSelect(clip.id)}
                 />
             </TableCell>
-            <TableCell className="align-top font-sans font-extralight text-stone-500 text-xs py-3">
+            <TableCell className="align-top font-sans font-extralight text-stone-500 text-xs py-3 w-[45px]">
                 {clip.scene}
             </TableCell>
 
@@ -196,7 +196,7 @@ export function ClipRow({
                 I will copy the standard cells from the view.
             */}
 
-            <TableCell className={`align-top w-[12%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[125px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="font-medium text-white block">
                     {isEditing ? (
                         <Input
@@ -236,7 +236,7 @@ export function ClipRow({
                         <div className="flex flex-col gap-2">
                             {clip.character
                                 ? clip.character.split(',').map((char, i) => (
-                                    <div key={i} className="leading-tight">{char.trim()}</div>
+                                    <div key={i} className="leading-tight truncate">{char.trim()}</div>
                                 ))
                                 : <span className="text-stone-500 italic">-</span>
                             }
@@ -257,7 +257,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[9%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[100px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <div className="relative w-full">
@@ -287,7 +287,7 @@ export function ClipRow({
                         </div>
                     ) : (
                         <div className="flex flex-col gap-2">
-                            <span className="table-text">{clip.location || '-'}</span>
+                            <span className="table-text truncate block">{clip.location || '-'}</span>
                             {clip.locationImageUrls && clip.locationImageUrls.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
                                     {clip.locationImageUrls.map((url, i) => (
@@ -305,7 +305,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white text-xs w-[9%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white text-xs w-[80px] ${isEditing ? "p-1" : "py-3"}`}>
                 <div>
                     <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
                         {isEditing ? (
@@ -328,12 +328,12 @@ export function ClipRow({
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <span className="table-text">{clip.camera || '-'}</span>
+                            <span className="table-text truncate block">{clip.camera || '-'}</span>
                         )}
                     </EditableCell>
                 </div>
             </TableCell>
-            <TableCell className={`align-top text-white w-[22%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[20%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
                     {isEditing ? (
                         <AutoResizeTextarea
@@ -346,7 +346,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white w-[18%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[20%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <AutoResizeTextarea
@@ -359,7 +359,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className="align-top py-3 w-[140px] pr-[10px] pl-0">
+            <TableCell className="align-top py-3 w-[120px] text-right">
                 {isEditing ? (
                     <div className="flex flex-col gap-2 items-end">
                         <ImageUploadCell
@@ -419,21 +419,21 @@ export function ClipRow({
 
             {/* --- REFACTOR START: SHARED COMPONENTS --- */}
 
-            <TableCell className="align-top py-3 w-[75px] pr-[10px] pl-0">
+            <TableCell className="align-top py-3 w-[110px] text-left">
                 {/* RESULT Column using MediaDisplay */}
                 {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status === 'Error') && clip.resultUrl && (
-                    <div className="flex justify-end">
+                    <div className="flex justify-start">
                         <MediaDisplay
                             url={clip.resultUrl}
                             model={clip.model}
                             onPlay={onPlay}
-                            className="w-[60px] h-[40px]"
+                            className="w-[100px] h-[56px] rounded-md overflow-hidden border border-stone-800 shadow-sm"
                         />
                     </div>
                 )}
             </TableCell>
 
-            <TableCell className="align-top text-right py-3 w-[60px] pr-[25px] pl-0">
+            <TableCell className="align-top text-left py-3 w-[45px] pr-12">
                 {/* ACTION Column using RowActions */}
                 <RowActions
                     status={clip.status || ''}
