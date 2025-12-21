@@ -3,10 +3,15 @@ import { db } from '@/lib/db';
 
 export async function POST(request: Request) {
     try {
-        const { title } = await request.json();
+        const body = await request.json();
+        const title = body.title?.trim();
 
         if (!title) {
-            return NextResponse.json({ error: 'Missing title' }, { status: 400 });
+            return NextResponse.json({ error: 'Series title is required' }, { status: 400 });
+        }
+
+        if (title.length < 2) {
+            return NextResponse.json({ error: 'Title must be at least 2 characters' }, { status: 400 });
         }
 
         const series = await db.series.create({
@@ -22,7 +27,13 @@ export async function POST(request: Request) {
 
     } catch (error: any) {
         console.error('Add Series Error (DB):', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+
+        // Prisma Unique Constraint Violation
+        if (error.code === 'P2002') {
+            return NextResponse.json({ error: 'A series with this name already exists' }, { status: 409 });
+        }
+
+        return NextResponse.json({ error: 'Failed to create series' }, { status: 500 });
     }
 }
 

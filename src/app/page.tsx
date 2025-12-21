@@ -590,7 +590,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.7.2</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.7.3</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -848,12 +848,14 @@ export default function Home() {
                       setSeriesList(prev => [...prev, newSeries]);
                       setCurrentSeriesId(data.id);
 
-                      alert(`Series "${title}" added!`);
+                      // Return strict true for success
+                      return Promise.resolve();
                     } else {
-                      alert('Failed to add series: ' + data.error);
+                      throw new Error(data.error || 'Failed to add series');
                     }
                   } catch (e: any) {
-                    alert('Error adding series: ' + e.message);
+                    console.error("Add Series Failed:", e);
+                    throw e; // Propagate to Child
                   }
                 }}
                 onNavigateToEpisode={(sid, eid) => {

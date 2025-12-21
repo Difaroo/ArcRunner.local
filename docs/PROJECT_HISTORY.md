@@ -58,3 +58,14 @@ A broad review of the system's adherence to external API specifications.
 - Identified drift between the "Golden Master" spec (simple) and implementation (legacy complexity).
 - Confirmed that `api/generate-library` was clean and compliant.
 - **Reference**: [General Review](architecture/general-review.md)
+
+## 2025-12-21: v0.7.3 - New Series Process Hardening
+
+### Context
+Addressed critical robustness issues in the "New Series" creation flow. Previously, network errors or duplicate names would cause the dialog to close immediately, resulting in data loss and confusing user experience.
+
+### Changes
+- **Robustness**: Implemented strict validation and proper HTTP error codes (409 Conflict) for duplicate series names.
+- **Async Handling**: Updated the parent-child component communication to be fully async, allowing the UI to wait for server confirmation.
+- **UI Polish**: Added loading states (spinners) and inline error messages (no more alerts). Also refined the Add Series dialog spacing to match the design system.
+- **Version Bump**: 0.7.2 -> 0.7.3.

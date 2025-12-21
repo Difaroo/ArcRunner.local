@@ -7,13 +7,14 @@ import { PageHeader } from "@/components/PageHeader"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Clip, Series } from "@/app/api/clips/route"
+import { Loader2 } from "lucide-react"
 
 
 interface SeriesPageProps {
     seriesList: Series[]
     currentSeriesId: string
     onSeriesChange: (id: string) => void
-    onAddSeries: (title: string) => void
+    onAddSeries: (title: string) => Promise<void>
     onNavigateToEpisode: (seriesId: string, episodeId: string) => void
     clips: Clip[]
     episodes: { id: string, title: string }[]
@@ -36,7 +37,19 @@ export function SeriesPage({
 }: SeriesPageProps) {
     const [showAddDialog, setShowAddDialog] = useState(false)
     const [newSeriesTitle, setNewSeriesTitle] = useState("")
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [addError, setAddError] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState<'video' | 'image'>('video')
+
+    // Reset state when dialog opens/closes
+    useEffect(() => {
+        if (!showAddDialog) {
+            setNewSeriesTitle("")
+            setAddError(null)
+            setIsSubmitting(false)
+        }
+    }, [showAddDialog])
+
 
     // Derived States
     const [videoPrompt, setVideoPrompt] = useState("")
@@ -89,11 +102,19 @@ export function SeriesPage({
     }, [videoPromptTemplate, imagePromptTemplate, currentSeries, overallStyle, libraryItems, currentSeriesId])
 
 
-    const handleAdd = () => {
-        if (newSeriesTitle.trim()) {
-            onAddSeries(newSeriesTitle)
-            setShowAddDialog(false)
-            setNewSeriesTitle("")
+    const handleAdd = async () => {
+        if (!newSeriesTitle.trim()) return;
+
+        setIsSubmitting(true);
+        setAddError(null);
+
+        try {
+            await onAddSeries(newSeriesTitle);
+            setShowAddDialog(false);
+        } catch (e: any) {
+            setAddError(e.message || "Failed to add series");
+        } finally {
+            setIsSubmitting(false);
         }
     }
 
@@ -317,38 +338,42 @@ export function SeriesPage({
 
             {/* Add Series Dialog */}
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-                <DialogContent className="sm:max-w-[425px] border-stone-800 bg-stone-900 text-white">
+                <DialogContent className="sm:max-w-[425px] border-stone-800 bg-stone-900 text-white p-6 grid gap-4">
                     <DialogHeader>
                         <DialogTitle>Add New Series</DialogTitle>
                     </DialogHeader>
-                    <div className="py-4">
+                    <div className="space-y-4">
                         <Input
                             value={newSeriesTitle}
                             onChange={(e) => setNewSeriesTitle(e.target.value)}
                             placeholder="Series Title"
+                            disabled={isSubmitting}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAdd();
+                            }}
                         />
+                        {addError && (
+                            <p className="text-xs text-destructive flex items-center gap-2">
+                                <span className="material-symbols-outlined !text-sm">error</span>
+                                {addError}
+                            </p>
+                        )}
                     </div>
-                    <DialogFooter>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button onClick={() => setShowAddDialog(false)} variant="ghost">Cancel</Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Cancel adding series</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button onClick={handleAdd}>Add Series</Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Confirm adding series</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                    <DialogFooter className="mt-2">
+                        <Button
+                            onClick={() => setShowAddDialog(false)}
+                            variant="ghost"
+                            disabled={isSubmitting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleAdd}
+                            disabled={!newSeriesTitle.trim() || isSubmitting}
+                        >
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isSubmitting ? 'Adding...' : 'Add Series'}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
