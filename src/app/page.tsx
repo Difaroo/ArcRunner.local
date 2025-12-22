@@ -731,12 +731,14 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Episode Title Header - Only for Clips, Library, Script, AND Series View */}
-      {(currentView === 'clips' || currentView === 'library' || currentView === 'script' || currentView === 'series') && (
+      {/* Episode Title Header - Only for Clips, Library, Script, Series, AND Settings View */}
+      {(currentView === 'clips' || currentView === 'library' || currentView === 'script' || currentView === 'series' || currentView === 'settings') && (
         <PageHeader
           title={
             currentView === 'series' ? (
               <span className="text-white">Series</span>
+            ) : currentView === 'settings' ? (
+              <span className="text-white">Settings</span>
             ) : (
               <div className="flex items-center justify-start gap-2 w-fit whitespace-nowrap">
                 <span className="text-stone-500 font-normal">{seriesList.find(s => s.id === currentSeriesId)?.title}</span>
