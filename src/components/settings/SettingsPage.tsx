@@ -49,142 +49,106 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     }
 
     return (
-        <div className="flex flex-col h-full bg-background text-foreground transition-colors duration-300">
-            {/* Header */}
-            <div className="flex justify-between items-center p-6 border-b border-border bg-card">
-                <div className="flex items-center gap-4">
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={onBack}>
-                                    <ArrowLeft className="h-5 w-5 text-muted-foreground" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Go back</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <div>
-                        <h2 className="text-2xl font-bold">Settings</h2>
-                        <p className="text-muted-foreground">Manage your application preferences</p>
-                    </div>
-                </div>
-
-                {/* Theme Toggle */}
-                <div className="flex items-center gap-2 p-1 bg-secondary/50 rounded-full border border-border">
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <button
-                                    onClick={() => setTheme("light")}
-                                    className={`p-1.5 rounded-full transition-all ${theme === "light" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                                >
-                                    <Sun className="h-4 w-4" />
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Light Mode</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <button
-                                    onClick={() => setTheme("dark")}
-                                    className={`p-1.5 rounded-full transition-all ${theme === "dark" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                                >
-                                    <Moon className="h-4 w-4" />
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Dark Mode</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+        <div className="flex flex-col h-full bg-stone-950 text-foreground">
+            {/* Theme Bar */}
+            <div className="flex items-center justify-between px-6 border-b border-white/5 h-[53px] shrink-0 bg-stone-900/30">
+                <h3 className="text-sm font-semibold text-stone-300">THEME</h3>
+                <div className="flex items-center gap-2 p-1 bg-black/40 rounded-full border border-white/5">
+                    <button
+                        onClick={() => setTheme("light")}
+                        className={`p-1.5 rounded-full transition-all ${theme === "light" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
+                    >
+                        <Sun className="h-4 w-4" />
+                    </button>
+                    <button
+                        onClick={() => setTheme("dark")}
+                        className={`p-1.5 rounded-full transition-all ${theme === "dark" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
+                    >
+                        <Moon className="h-4 w-4" />
+                    </button>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-6 max-w-5xl mx-auto w-full flex flex-col">
-                {/* Tabs Header */}
-                <div className="flex justify-between items-center mb-4 border-b border-white/5 relative h-[53px] shrink-0">
-                    <h3 className="text-sm font-semibold text-stone-300">Prompt Templates</h3>
+            {/* Prompt Templates Bar */}
+            <div className="flex items-center justify-between px-6 border-b border-white/5 h-[53px] shrink-0 bg-stone-900/30 mt-px">
+                <h3 className="text-sm font-semibold text-stone-300">PROMPT TEMPLATES</h3>
+                <div className="flex h-full items-center gap-6">
+                    <div className="flex h-full bg-transparent p-0 gap-6 -mb-[1px]">
+                        <button
+                            onClick={() => setActiveTab('video')}
+                            className={`nav-tab h-full rounded-none ${activeTab === 'video' ? 'active' : ''}`}
+                        >
+                            Video
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('image')}
+                            className={`nav-tab h-full rounded-none ${activeTab === 'image' ? 'active' : ''}`}
+                        >
+                            Image
+                        </button>
+                    </div>
 
-                    <div className="flex h-full items-center gap-6">
-                        <div className="flex h-full bg-transparent p-0 gap-6 -mb-[1px]">
-                            <button
-                                onClick={() => setActiveTab('video')}
-                                className={`nav-tab h-full rounded-none ${activeTab === 'video' ? 'active' : ''}`}
-                            >
-                                Video
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('image')}
-                                className={`nav-tab h-full rounded-none ${activeTab === 'image' ? 'active' : ''}`}
-                            >
-                                Image
-                            </button>
-                        </div>
+                    <div className="h-4 w-px bg-white/10 mx-2"></div>
 
-                        <div className="h-4 w-px bg-white/10 mx-2"></div>
-
-                        <div className="flex gap-2">
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="outline-primary" className="h-8 text-xs font-semibold">
-                                        {isSaved ? "Saved!" : "Save Changes"}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Save Defaults?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This will update the default prompt templates for all NEW series. Existing series will not be affected unless you reset them manually.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleSave}>Confirm Save</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
+                    <div className="flex gap-2">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline-primary" className="h-8 text-xs font-semibold">
+                                    {isSaved ? "Saved!" : "Save Changes"}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Save Defaults?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will update the default prompt templates for all NEW series. Existing series will not be affected unless you reset them manually.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleSave}>Confirm Save</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     </div>
                 </div>
+            </div>
 
-                {/* Content Area */}
-                <div className="flex-1 overflow-hidden">
-                    {activeTab === 'video' && (
-                        <div className="flex flex-col h-full gap-4">
+            {/* Content Area */}
+            <div className="flex-1 overflow-hidden p-6 max-w-5xl mx-auto w-full flex flex-col">
+                {activeTab === 'video' && (
+                    <div className="flex flex-col h-full gap-4">
+                        <div className="flex flex-col gap-1">
                             <h3 className="text-lg font-semibold text-primary">Video Prompt Template</h3>
-                            <p className="text-sm text-muted-foreground mb-2">
+                            <p className="text-sm text-stone-500 mb-2">
                                 Template for generating <strong>video</strong> generation prompts. Variables like {"{{SERIES_STYLE}}"} will be automatically replaced.
                             </p>
-                            <Textarea
-                                value={videoPrompt}
-                                onChange={(e) => setVideoPrompt(e.target.value)}
-                                className="flex-1 font-mono text-sm leading-relaxed bg-stone-900/50 border-stone-800 focus:border-stone-700 min-h-[500px]"
-                                placeholder="Enter video prompt template..."
-                            />
                         </div>
-                    )}
+                        <Textarea
+                            value={videoPrompt}
+                            onChange={(e) => setVideoPrompt(e.target.value)}
+                            className="flex-1 font-mono text-xs leading-relaxed bg-stone-900/30 border-stone-800 focus:border-stone-700 min-h-[500px] text-stone-400 p-4 resize-none"
+                            placeholder="Enter video prompt template..."
+                        />
+                    </div>
+                )}
 
-                    {activeTab === 'image' && (
-                        <div className="flex flex-col h-full gap-4">
+                {activeTab === 'image' && (
+                    <div className="flex flex-col h-full gap-4">
+                        <div className="flex flex-col gap-1">
                             <h3 className="text-lg font-semibold text-primary">Image Prompt Template</h3>
-                            <p className="text-sm text-muted-foreground mb-2">
+                            <p className="text-sm text-stone-500 mb-2">
                                 Template for generating <strong>still image</strong> prompts (Flux). Focus on visual description.
                             </p>
-                            <Textarea
-                                value={imagePrompt}
-                                onChange={(e) => setImagePrompt(e.target.value)}
-                                className="flex-1 font-mono text-sm leading-relaxed bg-stone-900/50 border-stone-800 focus:border-stone-700 min-h-[500px]"
-                                placeholder="Enter image prompt template..."
-                            />
                         </div>
-                    )}
-                </div>
+                        <Textarea
+                            value={imagePrompt}
+                            onChange={(e) => setImagePrompt(e.target.value)}
+                            className="flex-1 font-mono text-xs leading-relaxed bg-stone-900/30 border-stone-800 focus:border-stone-700 min-h-[500px] text-stone-400 p-4 resize-none"
+                            placeholder="Enter image prompt template..."
+                        />
+                    </div>
+                )}
             </div>
         </div>
     )
