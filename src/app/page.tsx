@@ -740,7 +740,6 @@ export default function Home() {
               {currentView !== 'script' && (
                 <>
                   <span className="text-stone-700">/</span>
-                  <span className="text-xs text-stone-500 font-mono">v0.7.4</span>
                   <span>{seriesEpisodeTitles[currentEpKey] ? seriesEpisodeTitles[currentEpKey] : `Episode ${currentEpKey}`}</span>
                 </>
               )}
