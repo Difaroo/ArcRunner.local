@@ -735,7 +735,7 @@ export default function Home() {
       {(currentView === 'clips' || currentView === 'library' || currentView === 'script') && (
         <PageHeader
           title={
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-start gap-2 w-fit whitespace-nowrap">
               <span className="text-stone-500 font-normal">{seriesList.find(s => s.id === currentSeriesId)?.title}</span>
               {currentView !== 'script' && (
                 <>
