@@ -70,21 +70,25 @@ Addressed critical robustness issues in the "New Series" creation flow. Previous
 - **UI Polish**: Added loading states (spinners) and inline error messages (no more alerts). Also refined the Add Series dialog spacing to match the design system.
 - **Version Bump**: 0.7.3 -> 0.8.0.
 
-## 2025-12-23: v0.8.0 - Duplicate Clip & Tombstone Deletion
+## 2025-12-23: v0.8.0 - Feature Pack: Duplication, Fast Delete, & UI Polish
 
 ### Context
-Users needed a faster way to build sequential scenes (e.g. 1.1, 1.2) without manually creating new rows. Additionally, the deletion UX was "ghostly" due to polling lag, requiring an immediate visual feedback mechanism.
+This major release focuses on workflow velocity and visual refinement. Users needed faster ways to build scenes (duplication) and a more responsive deletion experience. We also performed a comprehensive "Style & Stability" pass to fix long-standing UI quirks.
 
-### Changes
-- **Duplicate Clip Feature**:
-    - Added UI action to clone a clip row.
-    - Implemented smart scene incrementation (1.0 -> 1.1) with strict numeric validation.
-    - Added intelligent sorting to place the new clip immediately after the original.
-    - Optimistic UI updates for instant feedback.
-- **Tombstone Strategy**:
-    - Implemented a client-side "tombstone" list (`deletedClipIds`) to filter out deleted items instantly.
-    - This hides the item from the UI while the background deletion request processes, solving the "ghost reappearance" issue caused by polling.
-- **Robustness**:
-    - Fixed reactivity issues where deleted items wouldn't disappear until refresh.
-    - Added safety checks for sort order collisions.
+### Features
+- **Duplicate Support**:
+    - **Clips**: Added "Duplicate" (+) action with smart scene incrementing (`1.1` -> `1.2`) and "Midpoint" sorting.
+    - **Library**: Added duplication for Characters/Locations to speed up asset creation.
+- **New Asset Workflows**:
+    - **New Scene**: Added top-level "Add" button for quick scene creation.
+    - **New Studio Item**: Added "New Item" button to the Library view.
+- **Tombstone Deletion**:
+    - Implemented client-side "Tombstones" for instant visual removal of deleted items.
 
+### UI & Architecture Refinements
+- **Global Z-Index Hardening**: Lifted `PageHeader` and `RowActions` (`z-50`) to prevent overlay blocking.
+- **Button System Upgrade**:
+    - Migrated global color variables to **HSL** to fix opacity bugs.
+    - Standardized all `outline` buttons to use `border-black` for visibility.
+- **Location Menu Fix**: Replaced custom autocomplete with a robust **Dropdown Button**.
+- **Environment Findings**: Confirmed "Hover" issues on M4 Macs are browser-level behavior.

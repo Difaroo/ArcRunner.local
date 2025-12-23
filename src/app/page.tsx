@@ -542,6 +542,189 @@ export default function Home() {
     }
   };
 
+  const handleAddClip = async () => {
+    // 1. Calculate Next Scene Number
+    let nextScene = "1";
+    let newSortOrder = 0;
+
+    if (activeClips.length > 0) {
+      const lastClip = activeClips[activeClips.length - 1];
+      // Logic: SCN default is now 0 as per request.
+      // Auto-increment logic removed/ignored for now.
+
+      // Sort Order: Add 10 to the last one
+      newSortOrder = (lastClip.sortOrder || 0) + 10;
+    } else {
+      // Empty list logic
+      newSortOrder = 10;
+    }
+
+    // 2. Create Clip Object
+    const tempId = `temp-${Date.now()}`;
+    const newClip: Clip = {
+      id: tempId,
+      scene: "0",
+      sortOrder: newSortOrder,
+      status: 'Ready',
+      resultUrl: '',
+      taskId: '',
+      refImageUrls: '',
+      explicitRefUrls: '',
+      episode: currentEpKey,
+      series: currentSeriesId,
+      // Optional Fields
+      title: 'New Clip',
+      character: '',
+      location: '',
+      action: '',
+      camera: '',
+      style: '',
+      dialog: ''
+    };
+
+    // 3. Optimistic Update
+    // 3. Optimistic Update
+    setClips(prev => [newClip, ...prev]); // Prepend to top
+
+    // 5. API Call
+    try {
+      const res = await fetch('/api/clips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clip: newClip })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Creation failed');
+
+      // Update Real ID
+      setClips(prev => prev.map(c => {
+        if (c.id === tempId) {
+          return { ...c, id: data.clip.id, episode: data.clip.episode };
+        }
+        return c;
+      }));
+    } catch (e: any) {
+      console.error("Add Clip Failed", e);
+      alert("Failed to create clip: " + e.message);
+      setClips(prev => prev.filter(c => c.id !== tempId));
+    }
+  };
+
+
+
+  const handleDuplicateLibraryItem = async (id: string) => {
+    // 1. Find Source
+    const source = libraryItems.find(i => i.id === id);
+    if (!source) return;
+
+    // 2. Name Generation Logic (Recursive Check)
+    const getUniqueName = (baseName: string): string => {
+      let candidate = baseName + "_Copy";
+      let counter = 1;
+
+      // Check against ALL items in store (to be safe)
+      // Helper to check existence
+      const exists = (n: string) => libraryItems.some(i => i.name.toLowerCase() === n.toLowerCase() && i.series === currentSeriesId);
+
+      // If simple _Copy exists, try _Copy_1, _Copy_2...
+      if (!exists(candidate)) return candidate;
+
+      const MAX_ATTEMPTS = 100;
+      while (exists(`${candidate}_${counter}`) && counter < MAX_ATTEMPTS) {
+        counter++;
+      }
+      return `${candidate}_${counter}`;
+    };
+
+    const newName = getUniqueName(source.name);
+
+    // 3. Create Object
+    const tempId = `temp-lib-${Date.now()}`;
+    const newItem: LibraryItem = {
+      ...source,
+      id: tempId,
+      name: newName,
+      // Keep everything else same
+    };
+
+    // 4. Optimistic Update
+    setLibraryItems(prev => [...prev, newItem]);
+
+    // 5. API Persist
+    try {
+      const res = await fetch('/api/library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newItem)
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Duplication failed');
+
+      // Update Real ID
+      setLibraryItems(prev => prev.map(i => {
+        if (i.id === tempId) {
+          return { ...i, id: data.item.id };
+        }
+        return i;
+      }));
+
+    } catch (e: any) {
+      console.error("Library Duplicate Failed", e);
+      alert("Failed to duplicate item: " + e.message);
+      setLibraryItems(prev => prev.filter(i => i.id !== tempId));
+    }
+  };
+
+  const handleAddLibraryItem = async () => {
+    if (!currentSeriesId) {
+      alert("No active series found. Cannot create item.");
+      return;
+    }
+
+    // 1. Prepare New Item
+    const tempId = `temp-lib-${Date.now()}`;
+    const newItem: LibraryItem = {
+      id: tempId,
+      series: currentSeriesId,
+      name: "New Item",
+      type: "LIB_CHARACTER",
+      description: "",
+      refImageUrl: "",
+      negatives: "",
+      notes: "",
+      episode: "1"
+    };
+
+    // 2. Optimistic Update
+    setLibraryItems(prev => [newItem, ...prev]);
+
+    // 3. API Persist
+    try {
+      const res = await fetch('/api/library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newItem)
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Creation failed');
+
+      // Update Real ID
+      setLibraryItems(prev => prev.map(i => {
+        if (i.id === tempId && data.item?.id) {
+          return { ...i, id: data.item.id };
+        }
+        return i;
+      }));
+
+    } catch (e: any) {
+      console.error("Add Library Item Failed", e);
+      alert("Failed to create item: " + e.message);
+      setLibraryItems(prev => prev.filter(i => i.id !== tempId));
+    }
+  };
+
   const handleGenerate = async (clip: Clip, index: number) => {
     try {
       // Optimistic update
@@ -945,6 +1128,7 @@ export default function Home() {
               availableStyles={uniqueValues.styles}
               aspectRatio={aspectRatio}
               onAspectRatioChange={setAspectRatio}
+              onAddClip={handleAddClip}
             />
           )}
           {currentView === 'library' && (
@@ -957,6 +1141,7 @@ export default function Home() {
                 currentStyle={episodeStyles[currentEpKey] || ''}
                 onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
                 availableStyles={uniqueValues.styles}
+                onAddItem={handleAddLibraryItem}
               />
             </div>
           )}
@@ -1059,6 +1244,7 @@ export default function Home() {
                   setCurrentPlayIndex(0);
                 }}
                 onDelete={handleDeleteLibraryItem}
+                onDuplicate={handleDuplicateLibraryItem}
               />
             ) : (
               <ClipTable

@@ -273,7 +273,7 @@ export function ClipRow({
                             className="table-input h-full"
                         />
                     ) : (
-                        <span className="table-text font-medium">{clip.title || '-'}</span>
+                        <span className="table-text font-medium">{clip.title || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>
@@ -306,7 +306,7 @@ export function ClipRow({
                                 ? clip.character.split(',').map((char, i) => (
                                     <div key={i} className="leading-tight truncate">{char.trim()}</div>
                                 ))
-                                : <span className="text-stone-500 italic">-</span>
+                                : <span className="text-stone-500 italic">+</span>
                             }
                             {clip.characterImageUrls && clip.characterImageUrls.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
@@ -328,34 +328,37 @@ export function ClipRow({
             <TableCell className={`align-top w-[130px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
-                        <div className="relative w-full">
+                        <div className="relative w-full flex items-center gap-1">
                             <Input
                                 value={editValues.location || ''}
                                 onChange={(e) => handleChange('location', e.target.value)}
                                 className="h-8 w-full text-xs"
                                 placeholder="Location..."
                             />
-                            {/* Suggestion List - Simple implementation since we lack full Combobox components */}
                             {uniqueValues.locations.length > 0 && (
-                                <div className="absolute top-full left-0 w-full z-50 mt-1 max-h-40 overflow-y-auto rounded-md border border-stone-800 bg-stone-900 shadow-md">
-                                    {uniqueValues.locations.filter(l => !editValues.location || l.toLowerCase().includes(editValues.location.toLowerCase())).map((opt) => (
-                                        <div
-                                            key={opt}
-                                            className="cursor-pointer px-2 py-1.5 text-xs text-stone-200 hover:bg-stone-800 hover:text-white"
-                                            onMouseDown={(e) => {
-                                                e.preventDefault(); // Prevent blur
-                                                handleChange('location', opt);
-                                            }}
-                                        >
-                                            {opt}
-                                        </div>
-                                    ))}
-                                </div>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                            <span className="material-symbols-outlined !text-sm">expand_more</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
+                                        {uniqueValues.locations.map((loc) => (
+                                            <DropdownMenuItem
+                                                key={loc}
+                                                onClick={() => handleChange('location', loc)}
+                                                className="focus:bg-stone-800 focus:text-white cursor-pointer"
+                                            >
+                                                {loc}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             )}
                         </div>
                     ) : (
                         <div className="flex flex-col gap-2">
-                            <span className="table-text truncate block">{clip.location || '-'}</span>
+                            <span className="table-text truncate block">{clip.location || '+'}</span>
                             {clip.locationImageUrls && clip.locationImageUrls.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
                                     {clip.locationImageUrls.map((url, i) => (
@@ -396,7 +399,7 @@ export function ClipRow({
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <span className="table-text truncate block">{clip.camera || '-'}</span>
+                            <span className="table-text truncate block">{clip.camera || '+'}</span>
                         )}
                     </EditableCell>
                 </div>
@@ -410,7 +413,7 @@ export function ClipRow({
                             className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
                         />
                     ) : (
-                        <span className="table-text">{clip.action || '-'}</span>
+                        <span className="table-text">{clip.action || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>
@@ -423,7 +426,7 @@ export function ClipRow({
                             className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
                         />
                     ) : (
-                        <span className="table-text">{clip.dialog || '-'}</span>
+                        <span className="table-text">{clip.dialog || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>

@@ -16,9 +16,10 @@ interface LibraryTableProps {
     isGenerating?: (id: string) => boolean;
     onPlay?: (url: string) => void;
     onDelete?: (id: string) => void;
+    onDuplicate?: (id: string) => void;
 }
 
-export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, onSelect, onSelectAll, onGenerate, isGenerating, onPlay, onDelete }: LibraryTableProps) {
+export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, onSelect, onSelectAll, onGenerate, isGenerating, onPlay, onDelete, onDuplicate }: LibraryTableProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const handleStartEdit = (item: LibraryItem) => {
@@ -117,6 +118,7 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                                         onPlay={onPlay}
                                         onDownload={handleDownload}
                                         onDelete={onDelete}
+                                        onDuplicate={onDuplicate}
                                     />
                                 );
                             })

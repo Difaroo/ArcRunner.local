@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-normal ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:text-black",
+    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-normal ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:text-black cursor-pointer",
     {
         variants: {
             variant: {
@@ -14,9 +14,15 @@ const buttonVariants = cva(
                 destructive:
                     "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
                 outline:
-                    "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
+                    "border border-black bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
                 "outline-primary":
-                    "border border-primary/50 text-primary bg-background shadow-sm hover:bg-primary/10 hover:text-primary hover:border-primary disabled:text-primary disabled:text-opacity-50 disabled:border-opacity-30",
+                    "border border-black text-primary bg-background shadow-sm hover:bg-primary/10 hover:text-primary hover:border-primary disabled:text-primary disabled:text-opacity-50 disabled:border-opacity-30",
+                "outline-destructive":
+                    "border border-black text-destructive bg-background shadow-sm hover:bg-destructive/10 hover:text-destructive hover:border-destructive disabled:opacity-50",
+                "outline-warning":
+                    "border border-black text-orange-500 bg-background shadow-sm hover:bg-orange-500/10 hover:text-orange-500 hover:border-orange-500 disabled:opacity-50",
+                "outline-success":
+                    "border border-black text-green-600 bg-background shadow-sm hover:bg-green-600/10 hover:text-green-600 hover:border-green-600 disabled:opacity-50",
                 secondary:
                     "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
                 ghost: "hover:bg-accent hover:text-accent-foreground",

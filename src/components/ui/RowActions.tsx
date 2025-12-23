@@ -55,11 +55,11 @@ export function RowActions({
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button
-                                variant="outline"
+                                variant="outline-success"
                                 size="icon"
                                 onClick={(e) => { e.stopPropagation(); onEditSave(); }}
                                 disabled={isSaving}
-                                className="h-8 w-8 border-[0.5px] border-green-600/50 text-green-600 hover:bg-green-600/10 hover:text-green-600 hover:border-green-600"
+                                className="h-8 w-8"
                             >
                                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">check</span>}
                             </Button>
@@ -68,31 +68,15 @@ export function RowActions({
                     </Tooltip>
                 </TooltipProvider>
 
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={(e) => { e.stopPropagation(); onDelete && onDelete(); }}
-                                className="btn-icon-action h-8 w-8 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500"
-                            >
-                                <span className="material-symbols-outlined !text-lg">close</span>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Delete Row</p></TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-
                 {onDuplicate && (
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
-                                    variant="outline"
+                                    variant="outline-warning"
                                     size="icon"
                                     onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
-                                    className="h-8 w-8 border-[0.5px] border-orange-500/50 text-orange-500 hover:bg-orange-500/10 hover:text-orange-500 hover:border-orange-500"
+                                    className="h-8 w-8"
                                 >
                                     <span className="material-symbols-outlined !text-lg">add</span>
                                 </Button>
@@ -101,6 +85,22 @@ export function RowActions({
                         </Tooltip>
                     </TooltipProvider>
                 )}
+
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="outline-destructive"
+                                size="icon"
+                                onClick={(e) => { e.stopPropagation(); onDelete && onDelete(); }}
+                                className="h-8 w-8"
+                            >
+                                <span className="material-symbols-outlined !text-lg">close</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Delete Row</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             </div>
         )
     }
@@ -111,7 +111,7 @@ export function RowActions({
     const isError = status?.startsWith('Error') || status === 'Upload Err' || status === 'File 404' || status === 'Net Err';
 
     return (
-        <div className={`flex flex-col gap-1 ${className || 'items-start'}`}>
+        <div className={`flex flex-col gap-1 relative z-50 pointer-events-auto ${className || 'items-start'}`}>
             <div className={`flex flex-col gap-2 ${className || 'items-start'}`}>
 
                 {/* 1. DOWNLOAD BUTTON (If Done) */}
@@ -120,11 +120,11 @@ export function RowActions({
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
-                                    variant="outline"
+                                    variant="outline-primary"
                                     size="icon"
                                     onClick={handleDownloadClick}
                                     disabled={isSaving || isDownloading}
-                                    className={`btn-icon-action h-8 w-8`}
+                                    className="h-8 w-8"
                                 >
                                     {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">download</span>}
                                 </Button>
@@ -140,10 +140,10 @@ export function RowActions({
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
-                                    variant="outline"
+                                    variant="outline-primary"
                                     size="icon"
                                     onClick={(e) => { e.stopPropagation(); onGenerate(); }}
-                                    className="h-8 w-8 border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary font-normal border-[0.5px]"
+                                    className="h-8 w-8 hover:!bg-red-500 transition-all duration-300"
                                 >
                                     <span className="material-symbols-outlined !text-lg">auto_awesome</span>
                                 </Button>

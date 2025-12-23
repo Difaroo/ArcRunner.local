@@ -11,38 +11,38 @@
   }
 
   .dark {
-    --background: #1c1917;
-    --foreground: #ffffff;
-    --card: #000000;
-    --card-foreground: #ffffff;
-    --popover: #2c2525;
-    --popover-foreground: #ffffff;
-    --primary: #ff4d1e;
-    --primary-foreground: #ffffff;
-    --secondary: #44403b;
-    --secondary-foreground: #f2f0f0;
-    --muted: #44403b;
-    --muted-foreground: #b1a8a6;
-    --accent: #29150a;
-    --accent-foreground: #f2f0f0;
-    --destructive: #ff0066;
-    --destructive-foreground: #ffffff;
-    --border: #000000;
-    --input: #48413e;
-    --ring: #ff4d1e;
-    --chart-1: #ff4d1e;
-    --chart-2: #04e3ff;
-    --chart-3: #fe8d00;
-    --chart-4: #b1a8a6;
-    --chart-5: #7f7370;
-    --sidebar: #000000;
-    --sidebar-foreground: #ffffff;
-    --sidebar-primary: #ff4d1e;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #04e3ff;
-    --sidebar-accent-foreground: #063c58;
-    --sidebar-border: #48413e;
-    --sidebar-ring: #ff4d1e;
+    --background: 24 9.8% 10%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 8.7% 15.9%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 13 100% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 33 7.3% 24.9%;
+    --secondary-foreground: 0 6.3% 94.5%;
+    --muted: 33 7.3% 24.9%;
+    --muted-foreground: 9.8 5.6% 67.3%;
+    --accent: 21.3 60.8% 10%;
+    --accent-foreground: 0 6.3% 94.5%;
+    --destructive: 336 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 0%;
+    --input: 18.8 7.5% 26.3%;
+    --ring: 13 100% 56%;
+    --chart-1: 13 100% 56%;
+    --chart-2: 186.7 100% 50.8%;
+    --chart-3: 33.3 100% 49.8%;
+    --chart-4: 9.8 5.6% 67.3%;
+    --chart-5: 8.6 6.3% 46.9%;
+    --sidebar: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 13 100% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 186.7 100% 50.8%;
+    --sidebar-accent-foreground: 200.5 87.3% 18.4%;
+    --sidebar-border: 18.8 7.5% 26.3%;
+    --sidebar-ring: 13 100% 56%;
     --font-sans: Inter, ui-sans-serif, sans-serif, system-ui;
     --font-serif: Merriweather, serif;
     --font-mono: Fira Code, monospace;
@@ -73,6 +73,7 @@
     @apply bg-background text-foreground;
     font-family: 'Spline Sans', sans-serif;
   }
+
 
   /* Custom Scrollbar */
   ::-webkit-scrollbar {

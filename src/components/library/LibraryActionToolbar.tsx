@@ -15,6 +15,7 @@ interface LibraryActionToolbarProps {
     currentStyle: string
     onStyleChange: (style: string) => void
     availableStyles: string[]
+    onAddItem?: () => void
 }
 
 export function LibraryActionToolbar({
@@ -23,7 +24,8 @@ export function LibraryActionToolbar({
     onDownloadSelected,
     currentStyle,
     onStyleChange,
-    availableStyles
+    availableStyles,
+    onAddItem
 }: LibraryActionToolbarProps) {
     return (
         <div className="flex items-center gap-3 py-1.5">
@@ -103,6 +105,26 @@ export function LibraryActionToolbar({
                     </TooltipTrigger>
                     <TooltipContent>
                         <p>Download generated images</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+
+            <div className="h-4 w-px bg-zinc-700 mx-2"></div>
+
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={onAddItem}
+                            className="h-8 w-8 text-primary border-primary hover:bg-primary/10 hover:text-primary hover:border-primary border-opacity-50 cursor-pointer"
+                        >
+                            <span className="material-symbols-outlined !text-lg">add</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Add New Studio Asset</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>

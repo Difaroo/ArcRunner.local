@@ -49,6 +49,7 @@ interface LibraryRowProps {
     onDelete?: (id: string) => void;
     onPlay?: (url: string) => void;
     onDownload: (url: string, name: string) => void;
+    onDuplicate?: (id: string) => void;
 }
 
 export function LibraryRow({
@@ -63,7 +64,8 @@ export function LibraryRow({
     onGenerate,
     onDelete,
     onPlay,
-    onDownload
+    onDownload,
+    onDuplicate
 }: LibraryRowProps) {
     const [editValues, setEditValues] = useState<Partial<LibraryItem>>({});
 
@@ -229,7 +231,7 @@ export function LibraryRow({
                             className="min-h-[60px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
                         />
                     ) : (
-                        <span className="table-text whitespace-pre-wrap">{item.description}</span>
+                        <span className="table-text whitespace-pre-wrap">{item.description || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>
@@ -244,7 +246,7 @@ export function LibraryRow({
                             className="table-input h-full"
                         />
                     ) : (
-                        <span className="table-text">{item.negatives}</span>
+                        <span className="table-text">{item.negatives || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>
@@ -259,7 +261,7 @@ export function LibraryRow({
                             className="table-input italic h-full"
                         />
                     ) : (
-                        <span className="table-text italic">{item.notes}</span>
+                        <span className="table-text italic">{item.notes || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>
@@ -334,6 +336,7 @@ export function LibraryRow({
                     onGenerate={() => onGenerate && onGenerate(item)}
                     onDownload={async () => onDownload(item.refImageUrl, item.name)}
                     onDelete={handleDeleteClick}
+                    onDuplicate={() => onDuplicate && onDuplicate(item.id)}
                     className="items-end"
                     alignStatus="right"
                 />

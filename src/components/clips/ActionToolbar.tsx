@@ -21,6 +21,7 @@ interface ActionToolbarProps {
     availableStyles: string[]
     aspectRatio: string
     onAspectRatioChange: (ratio: string) => void
+    onAddClip: () => void
 }
 
 export function ActionToolbar({
@@ -36,7 +37,8 @@ export function ActionToolbar({
     onStyleChange,
     availableStyles,
     aspectRatio,
-    onAspectRatioChange
+    onAspectRatioChange,
+    onAddClip
 }: ActionToolbarProps) {
     return (
         <div className="flex items-center gap-3 py-1.5">
@@ -189,27 +191,23 @@ export function ActionToolbar({
 
             <div className="h-4 w-px bg-zinc-700 mx-2"></div>
 
-            <Button
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                    const btn = document.activeElement as HTMLElement;
-                    btn.classList.add('animate-spin');
-                    try {
-                        const res = await fetch('/api/poll', { method: 'POST' });
-                        const json = await res.json();
-                        alert('Manual Poll Completed.\nActive Items Scanned: ' + (json.checked || 0) + '\nResult: ' + JSON.stringify(json));
-                    } catch (e: any) {
-                        alert('Poll Failed: ' + e.message);
-                    } finally {
-                        btn.classList.remove('animate-spin');
-                    }
-                }}
-                className="h-8 px-2 text-xs text-zinc-600 hover:text-white"
-                title="Force Background Check (Debug)"
-            >
-                <span className="material-symbols-outlined !text-sm">sync</span>
-            </Button>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="outline-primary"
+                            size="icon"
+                            onClick={onAddClip}
+                            className="h-8 w-8 hover:!bg-primary/20"
+                        >
+                            <span className="material-symbols-outlined !text-lg">add</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Add New Scene</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
     )
 }
