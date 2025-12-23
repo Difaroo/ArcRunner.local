@@ -243,7 +243,7 @@ export function ClipRow({
             style={style}
             className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''} ${isDragging ? 'opacity-50 bg-stone-800' : ''}`}
         >
-            <TableCell className="w-[20px] p-0 text-center align-top py-3 cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
+            <TableCell className="w-[10px] p-0 text-center align-top py-3 cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
                 <div className="flex items-center justify-center h-4 w-4">
                     <span className="material-symbols-outlined text-stone-600 hover:text-stone-400 !text-base leading-none">drag_indicator</span>
                 </div>
@@ -254,7 +254,7 @@ export function ClipRow({
                     onCheckedChange={() => onSelect(clip.id)}
                 />
             </TableCell>
-            <TableCell className="align-top font-sans font-extralight text-stone-500 text-xs py-3 w-[45px]">
+            <TableCell className="align-top font-sans font-extralight text-stone-500 text-xs py-3 w-[24px] px-1">
                 {clip.scene}
             </TableCell>
 

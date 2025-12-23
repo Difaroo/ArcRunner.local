@@ -92,3 +92,22 @@ This major release focuses on workflow velocity and visual refinement. Users nee
     - Standardized all `outline` buttons to use `border-black` for visibility.
 - **Location Menu Fix**: Replaced custom autocomplete with a robust **Dropdown Button**.
 - **Environment Findings**: Confirmed "Hover" issues on M4 Macs are browser-level behavior.
+
+## 2025-12-23: v0.8.1 - UI Polish & Renumbering
+
+### Context
+A refine-and-polish release following v0.8.0, focusing on Action Toolbar usability and interface consistency.
+
+### Changes
+- **Smart Renumbering**: Added "Location-Sensitive" renumbering to the Action Toolbar.
+    - Increments Scene (1.01 -> 2.01) when Location changes.
+    - Includes `Loader2` spinner state.
+    - Updated backend API (`/api/renumber`) to handle UUIDs/Integers robustly.
+- **Batch Dialog**: Added confirmation step and "singular/plural" grammar logic for model generation.
+- **Action Toolbar Layout**:
+    - Standardization: Strict 16px (`gap-4`) spacing.
+    - Dividers: Removed uneven margins for perfect symmetry.
+- **Visual Polish**:
+    - Updated Page Header titles to "Grey / White" hierarchy.
+    - Restored material icons for Generate button.
+- **Version Bump**: 0.8.0 -> 0.8.1.

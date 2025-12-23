@@ -107,14 +107,14 @@ export function ClipTable({
                 <Table className="table-fixed border-collapse">
                     <TableHeader className="sticky top-0 bg-black backdrop-blur-sm z-10">
                         <TableRow>
-                            <TableHead className="w-[20px] p-0 text-center align-top py-3"></TableHead>
+                            <TableHead className="w-[10px] p-0 text-center align-top py-3"></TableHead>
                             <TableHead className="w-[28px] px-0 text-center align-top py-3">
                                 <Checkbox
                                     checked={allSelected}
                                     onCheckedChange={onSelectAll}
                                 />
                             </TableHead>
-                            <TableHead className="w-[45px] font-semibold text-stone-500 text-left align-top py-3">SCN</TableHead>
+                            <TableHead className="w-[24px] px-1 font-semibold text-stone-500 text-left align-top py-3">SCN</TableHead>
                             <TableHead className="w-[125px] font-semibold text-stone-500 text-left align-top py-3">TITLE</TableHead>
                             <TableHead className="w-[130px] font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
                             <TableHead className="w-[130px] font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>

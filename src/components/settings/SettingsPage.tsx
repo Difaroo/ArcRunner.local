@@ -50,7 +50,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         <div className="flex flex-col h-full bg-stone-950 text-foreground">
             {/* Prompt Templates Bar */}
             <div className="flex items-center justify-between px-6 border-b border-white/5 h-[53px] shrink-0 bg-stone-900/30">
-                <h3 className="text-sm font-semibold text-stone-300">Episode Prompt Templates</h3>
+                <h3 className="text-sm font-semibold">Episode Prompt Templates</h3>
                 <div className="flex h-full items-center gap-6">
                     <div className="flex h-full bg-transparent p-0 gap-6 -mb-[1px]">
                         <button
@@ -98,7 +98,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 {activeTab === 'video' && (
                     <div className="flex flex-col h-full gap-4">
                         <div className="flex flex-col gap-1">
-                            <h3 className="text-lg font-semibold text-primary">Video Prompt Template</h3>
+                            <h3 className="text-lg font-semibold">Video Prompt Template</h3>
                             <p className="text-sm text-stone-500 mb-2">
                                 Template for generating <strong>video</strong> generation prompts. Variables like {"{{SERIES_STYLE}}"} will be automatically replaced.
                             </p>
@@ -115,7 +115,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 {activeTab === 'image' && (
                     <div className="flex flex-col h-full gap-4">
                         <div className="flex flex-col gap-1">
-                            <h3 className="text-lg font-semibold text-primary">Image Prompt Template</h3>
+                            <h3 className="text-lg font-semibold">Image Prompt Template</h3>
                             <p className="text-sm text-stone-500 mb-2">
                                 Template for generating <strong>still image</strong> prompts (Flux). Focus on visual description.
                             </p>
