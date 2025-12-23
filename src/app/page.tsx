@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2 } from "lucide-react";
+import { Loader2, Sun, Moon } from "lucide-react";
 import { Clip, Series } from './api/clips/route';
 import { resolveClipImages } from '@/lib/shared-resolvers';
 import { downloadFile, getClipFilename } from '@/lib/download-utils';
@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useTheme } from "@/components/theme-provider"
 
 import { ClipTable } from "@/components/clips/ClipTable"
 import { EpisodeTabs } from "@/components/clips/EpisodeTabs"
@@ -40,6 +41,8 @@ export default function Home() {
     episodeTitles,
     allEpisodes, setAllEpisodes,
     libraryItems, setLibraryItems,
+    deletedLibraryIds, markLibraryItemDeleted,
+    deletedClipIds, markClipDeleted,
     loading, error,
     refreshData
   } = useAppStore();
@@ -57,6 +60,7 @@ export default function Home() {
   const [videoPromptTemplate, setVideoPromptTemplate] = useState("");
   const [imagePromptTemplate, setImagePromptTemplate] = useState("");
   const [aspectRatio, setAspectRatio] = useState("16:9");
+  const { theme, setTheme } = useTheme();
 
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
@@ -267,7 +271,8 @@ export default function Home() {
   });
 
   // Note: activeClips might be empty if the episode exists in titles but has no clips yet
-  const activeClips = episodes[currentEpisode - 1] || [];
+  const rawActiveClips = episodes[currentEpisode - 1] || [];
+  const activeClips = rawActiveClips.filter(c => !deletedClipIds.has(c.id));
   const currentEpKey = sortedEpKeys[currentEpisode - 1] || '1';
   const currentEpTitle = seriesEpisodeTitles[currentEpKey] ? `: ${seriesEpisodeTitles[currentEpKey]}` : '';
 
@@ -301,7 +306,7 @@ export default function Home() {
 
   // --- Library Selection Logic ---
   // Determine displayed library items
-  const currentLibraryItems = allSeriesAssets.filter(item => item.episode === currentEpKey);
+  const currentLibraryItems = allSeriesAssets.filter(item => item.episode === currentEpKey && !deletedLibraryIds.has(item.id));
 
   const {
     selectedIds: selectedLibraryIds,
@@ -347,11 +352,17 @@ export default function Home() {
     // Optimistic set generating
     setGeneratingLibraryItems(prev => new Set(prev).add(item.id));
 
+    // Use Episode Style if available
+    // Note: 'currentEpKey' might not be available here as this function is used in loops.
+    // However, Library items HAVE an 'episode' field. We should look up the style for THAT episode.
+    const epKey = item.episode || '1';
+    const styleToUse = episodeStyles[epKey] || '';
+
     try {
       const res = await fetch('/api/generate-library', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item, rowIndex })
+        body: JSON.stringify({ item, rowIndex, style: styleToUse })
       });
       const data = await res.json();
       console.log('Library Generate Result:', data);
@@ -402,12 +413,134 @@ export default function Home() {
     toDownload.forEach(item => window.open(item.refImageUrl, '_blank'));
   };
 
+  const handleDeleteLibraryItem = (id: string) => {
+    markLibraryItemDeleted(id);
+  };
+
+  const handleDeleteClip = (id: string) => {
+    markClipDeleted(id);
+  };
+
   // --- Polling Logic ---
   // --- Polling Logic ---
   // --- Polling Logic ---
   // --- Polling Logic ---
   // (Maintained by usePolling hook)
 
+
+  // --- Duplicate Logic ---
+  const handleDuplicateClip = async (id: string) => {
+    // 1. Find the clip and its index
+    const index = clips.findIndex(c => c.id === id);
+    if (index === -1) return;
+
+    const parentClip = clips[index];
+
+    // 2. Scene Number Logic: STRICTLY NUMERIC
+    const sceneNum = parseFloat(parentClip.scene);
+    if (isNaN(sceneNum)) {
+      alert("Cannot duplicate: Scene number must be numeric (e.g. '1.0').");
+      return;
+    }
+
+    // New Scene = Parent + 0.1
+    // Handle floating point precision issues (e.g. 1.2 + 0.1 = 1.29999)
+    // toFixed(1) ensures 1.3
+    const newScene = (sceneNum + 0.1).toFixed(1).replace(/\.0$/, ''); // Remove trailing .0 if integer results (1.9 + 0.1 = 2.0 -> 2)
+    // Actually, user is using "1.2". So .1 increments? 
+    // If scene is "1", duplicate -> "1.1" ?
+    // If scene is "1.9", duplicate -> "2" ? Or "2.0"? 
+    // Let's stick to standard math but keep format clean. 
+    // If input was "1" (integer), 1+0.1=1.1.
+    // If input was "1.2", 1.2+0.1=1.3.
+
+    // 3. Sort Order Logic: Visual Insertion
+    // We want it to appear AFTER the parent. 
+    // Check if there is a next clip in the VISUAL list (activeClips). 
+    // But 'activeClips' is the filter for current episode. The duplication should be in same episode.
+    // Find parent in activeClips
+    const visualIndex = activeClips.findIndex(c => c.id === id);
+    const nextClip = activeClips[visualIndex + 1];
+
+    let newSortOrder: number;
+    const parentOrder = parentClip.sortOrder || 0;
+
+    if (nextClip) {
+      const nextOrder = nextClip.sortOrder || (parentOrder + 10); // Fallback
+      // Midpoint
+      newSortOrder = (parentOrder + nextOrder) / 2;
+    } else {
+      // End of list
+      newSortOrder = parentOrder + 10;
+    }
+
+    // 4. Create New Clip Object
+    // Temporary ID for optimistic UI (use a distinct prefix so we don't collide with stringified Ints)
+    const tempId = `temp-${Date.now()}`;
+
+    const newClip: Clip = {
+      ...parentClip,
+      id: tempId,
+      scene: newScene,
+      sortOrder: newSortOrder,
+      status: 'Ready',
+      resultUrl: '',
+      taskId: '',
+      // explicitRefUrls is copied. refImageUrls will be resolved by resolver locally.
+      refImageUrls: '', // Reset derived
+      explicitRefUrls: parentClip.explicitRefUrls // Keep explicit refs
+    };
+
+    // 5. Optimistic Update
+    // Insert into clips array
+    const updatedClips = [...clips];
+    // Insert after parent in the main list? 
+    // Actually simplicity: append or sort? 
+    // The list is usually sorted by sortOrder. 
+    // We should insert it into the array or let the sort take over?
+    // The "ClipTable" uses "orderedClips" which sorts based on... "orderedClips" state initialized from props.
+    // "db.clip.findMany" returns sorted by sortOrder.
+    // So update 'clips' state. But insertion index matters if we map directly.
+    // We should insert it at 'index + 1' in the master list to ensure it sits there until refresh.
+    updatedClips.splice(index + 1, 0, newClip);
+
+    setClips(updatedClips);
+
+    try {
+      // 6. API Call
+      const res = await fetch('/api/clips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clip: newClip })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Creation failed');
+
+      // 7. Update Real ID
+      setClips(prev => prev.map(c => {
+        if (c.id === tempId) {
+          return {
+            ...c,
+            id: data.clip.id,
+            episode: data.clip.episode // Ensure consistent episode ID format
+          };
+        }
+        return c;
+      }));
+
+      // Trigger resolver to ensure images show up
+      // (Similar to handleSave)
+      // With real ID available.
+
+    } catch (e: any) {
+      console.error("Duplicate failed", e);
+      alert(`Failed to duplicate clip: ${e.message}`);
+      // Revert
+      setClips(prev => prev.filter(c => c.id !== tempId));
+    }
+  };
 
   const handleGenerate = async (clip: Clip, index: number) => {
     try {
@@ -590,7 +723,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.7.4</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.8.0</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -753,6 +886,25 @@ export default function Home() {
           }
           className="border-t border-white/5 border-b-0"
         >
+          {currentView === 'settings' && (
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-stone-500 uppercase tracking-wider font-light">Theme</span>
+              <div className="flex items-center gap-2 p-1 bg-black/40 rounded-full border border-white/5">
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`p-1.5 rounded-full transition-all ${theme === "light" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
+                >
+                  <Sun className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`p-1.5 rounded-full transition-all ${theme === "dark" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
+                >
+                  <Moon className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
           {currentView === 'clips' && (
             <ActionToolbar
               currentEpKey={currentEpKey}
@@ -802,6 +954,9 @@ export default function Home() {
                 selectedCount={selectedLibraryIds.size}
                 onGenerateSelected={handleLibraryGenerateSelected}
                 onDownloadSelected={handleLibraryDownloadSelected}
+                currentStyle={episodeStyles[currentEpKey] || ''}
+                onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
+                availableStyles={uniqueValues.styles}
               />
             </div>
           )}
@@ -903,6 +1058,7 @@ export default function Home() {
                   setPlaylist([url]);
                   setCurrentPlayIndex(0);
                 }}
+                onDelete={handleDeleteLibraryItem}
               />
             ) : (
               <ClipTable
@@ -928,6 +1084,8 @@ export default function Home() {
                   setCurrentPlayIndex(0);
                 }}
                 uniqueValues={uniqueValues}
+                onDelete={handleDeleteClip}
+                onDuplicate={handleDuplicateClip}
               />
             )}
           </div>

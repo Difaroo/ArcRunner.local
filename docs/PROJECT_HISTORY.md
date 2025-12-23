@@ -68,4 +68,23 @@ Addressed critical robustness issues in the "New Series" creation flow. Previous
 - **Robustness**: Implemented strict validation and proper HTTP error codes (409 Conflict) for duplicate series names.
 - **Async Handling**: Updated the parent-child component communication to be fully async, allowing the UI to wait for server confirmation.
 - **UI Polish**: Added loading states (spinners) and inline error messages (no more alerts). Also refined the Add Series dialog spacing to match the design system.
-- **Version Bump**: 0.7.2 -> 0.7.3.
+- **Version Bump**: 0.7.3 -> 0.8.0.
+
+## 2025-12-23: v0.8.0 - Duplicate Clip & Tombstone Deletion
+
+### Context
+Users needed a faster way to build sequential scenes (e.g. 1.1, 1.2) without manually creating new rows. Additionally, the deletion UX was "ghostly" due to polling lag, requiring an immediate visual feedback mechanism.
+
+### Changes
+- **Duplicate Clip Feature**:
+    - Added UI action to clone a clip row.
+    - Implemented smart scene incrementation (1.0 -> 1.1) with strict numeric validation.
+    - Added intelligent sorting to place the new clip immediately after the original.
+    - Optimistic UI updates for instant feedback.
+- **Tombstone Strategy**:
+    - Implemented a client-side "tombstone" list (`deletedClipIds`) to filter out deleted items instantly.
+    - This hides the item from the UI while the background deletion request processes, solving the "ghost reappearance" issue caused by polling.
+- **Robustness**:
+    - Fixed reactivity issues where deleted items wouldn't disappear until refresh.
+    - Added safety checks for sort order collisions.
+

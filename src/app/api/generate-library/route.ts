@@ -17,7 +17,7 @@ async function getSheetsClient() {
 
 export async function POST(req: Request) {
     try {
-        const { item, rowIndex } = await req.json();
+        const { item, rowIndex, style } = await req.json();
 
         if (!item || typeof rowIndex !== 'number') {
             return NextResponse.json({ error: 'Missing item or rowIndex' }, { status: 400 });
@@ -27,8 +27,12 @@ export async function POST(req: Request) {
         const spreadsheetId = process.env.SPREADSHEET_ID;
 
         // 1. Build Prompt
-        // For Library items, it's just Name + Description (maybe Type too)
-        const prompt = `Photorealistic image of ${item.name}: ${item.description}. High quality, cinematic, detailed.`;
+        // For Library items, it's just Name + Description + Style
+        let prompt = `Photorealistic image of ${item.name}: ${item.description}.`;
+        if (style) {
+            prompt += ` Style: ${style}.`;
+        }
+        prompt += ` High quality, cinematic, detailed.`;
 
         console.log('Generated Library Flux Prompt:', prompt);
 

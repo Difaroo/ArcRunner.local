@@ -103,7 +103,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
 
     if (isEditing) {
         return (
-            <div className="flex flex-row items-start gap-2">
+            <div className="flex flex-row items-center gap-2">
                 <div className="flex items-center gap-2">
                     <input
                         ref={fileInputRef}

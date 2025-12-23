@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useTheme } from "@/components/theme-provider"
+
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -20,7 +20,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Sun, Moon, ArrowLeft } from "lucide-react"
 import { DEFAULT_VIDEO_PROMPT, DEFAULT_IMAGE_PROMPT } from "@/lib/defaults"
 
 interface SettingsPageProps {
@@ -32,7 +31,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     const [imagePrompt, setImagePrompt] = useState("")
     const [isSaved, setIsSaved] = useState(false)
     const [activeTab, setActiveTab] = useState<'video' | 'image'>('video')
-    const { theme, setTheme } = useTheme()
 
     useEffect(() => {
         const savedVideo = localStorage.getItem("videoPromptTemplate")
@@ -50,28 +48,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
     return (
         <div className="flex flex-col h-full bg-stone-950 text-foreground">
-            {/* Theme Bar */}
-            <div className="flex items-center justify-between px-6 border-b border-white/5 h-[53px] shrink-0 bg-stone-900/30">
-                <h3 className="text-sm font-semibold text-stone-300">THEME</h3>
-                <div className="flex items-center gap-2 p-1 bg-black/40 rounded-full border border-white/5">
-                    <button
-                        onClick={() => setTheme("light")}
-                        className={`p-1.5 rounded-full transition-all ${theme === "light" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
-                    >
-                        <Sun className="h-4 w-4" />
-                    </button>
-                    <button
-                        onClick={() => setTheme("dark")}
-                        className={`p-1.5 rounded-full transition-all ${theme === "dark" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
-                    >
-                        <Moon className="h-4 w-4" />
-                    </button>
-                </div>
-            </div>
-
             {/* Prompt Templates Bar */}
-            <div className="flex items-center justify-between px-6 border-b border-white/5 h-[53px] shrink-0 bg-stone-900/30 mt-px">
-                <h3 className="text-sm font-semibold text-stone-300">PROMPT TEMPLATES</h3>
+            <div className="flex items-center justify-between px-6 border-b border-white/5 h-[53px] shrink-0 bg-stone-900/30">
+                <h3 className="text-sm font-semibold text-stone-300">Episode Prompt Templates</h3>
                 <div className="flex h-full items-center gap-6">
                     <div className="flex h-full bg-transparent p-0 gap-6 -mb-[1px]">
                         <button

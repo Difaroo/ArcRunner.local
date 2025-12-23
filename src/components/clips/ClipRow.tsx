@@ -33,6 +33,8 @@ import { CSS } from "@dnd-kit/utilities"
 import { MediaDisplay } from "@/components/media/MediaDisplay"
 import { RowActions } from "@/components/ui/RowActions"
 import { downloadFile, getClipFilename, getNextStatus } from "@/lib/download-utils"
+import { useClickOutside } from "@/hooks/useClickOutside"
+import React from "react"
 
 interface ClipRowProps {
     clip: Clip
@@ -51,6 +53,8 @@ interface ClipRowProps {
         styles: string[]
         cameras: string[]
     }
+    onDelete: (id: string) => void
+    onDuplicate: (id: string) => void
 }
 
 export function ClipRow({
@@ -64,7 +68,9 @@ export function ClipRow({
     onGenerate,
     onPlay,
     saving,
-    uniqueValues
+    uniqueValues,
+    onDelete,
+    onDuplicate
 }: ClipRowProps) {
     const [editValues, setEditValues] = useState<Partial<Clip>>({})
     const [downloadCount, setDownloadCount] = useState(0)
@@ -114,6 +120,68 @@ export function ClipRow({
         setShowEditGuard(false)
         startEditing()
     }
+
+    // --- CLICK OUTSIDE TO CANCEL ---
+    const rowRef = setNodeRef as unknown as React.RefObject<HTMLTableRowElement>;
+    // IMPORTANT: dnd-kit uses function ref, but we might need object ref for useClickOutside.
+    // Actually, setNodeRef handles dnd.
+    // For click outside, we can create a separate ref and merge, or just use a wrapper div ref inside the row?
+    // Or try to use a new useRef and combine it?
+    // Simpler: Use a separate useRef for the row DOM element.
+    const domRef = React.useRef<HTMLTableRowElement>(null);
+    const setRef = (element: HTMLTableRowElement) => {
+        setNodeRef(element);
+        // @ts-ignore
+        domRef.current = element;
+    };
+
+    useClickOutside(domRef as React.RefObject<HTMLElement>, () => {
+        if (isEditing) {
+            // Check if dialogs are open? If Alert Dialog is open, we shouldn't cancel underneath.
+            // But Alert Dialog is in a Portal, so click outside logic might trigger if clicking on Dialog overlay?
+            // Usually Portals are outside the ref.
+            // If deleting, we are in a dialog. We must NOT cancel edit while Deleting Dialog is open.
+            if (showDeleteDialog) return;
+
+            // If changes made?
+            // User requested: "if user clicks outside the editting row, it cancels automatically".
+            // We can just call onCancelEdit() which might trigger discard logic if implemented, or just force cancel.
+            // Current implementation of onCancelEdit checks nothing.
+            onCancelEdit();
+        }
+    }, isEditing);
+
+    // --- DELETE LOGIC ---
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const handleDeleteClick = () => {
+        setShowDeleteDialog(true);
+    };
+
+    const confirmDelete = async () => {
+        try {
+            const res = await fetch('/api/clips', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: clip.id })
+            });
+
+            if (!res.ok) throw new Error('Failed to delete');
+
+            // Notify Parent to remove from list (Needs a new prop or just refresh?)
+            // Parent ClipTable uses clips state. It needs to know.
+            // We probably need an onDelete prop passed down from Page -> Table -> Row.
+            // Or trigger a refresh.
+            // Let's call a prop.
+            if (onDelete) onDelete(clip.id);
+
+        } catch (e) {
+            console.error('Delete failed', e);
+            alert('Failed to delete clip');
+        } finally {
+            setShowDeleteDialog(false);
+        }
+    };
+
 
     const handleDownload = async () => {
         if (clip.resultUrl) {
@@ -171,7 +239,7 @@ export function ClipRow({
 
     return (
         <TableRow
-            ref={setNodeRef}
+            ref={setRef}
             style={style}
             className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''} ${isDragging ? 'opacity-50 bg-stone-800' : ''}`}
         >
@@ -209,7 +277,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[9%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[130px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
                     {isEditing ? (
                         <DropdownMenu>
@@ -257,7 +325,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[100px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[130px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <div className="relative w-full">
@@ -305,7 +373,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white text-xs w-[80px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white text-xs w-[110px] ${isEditing ? "p-1" : "py-3"}`}>
                 <div>
                     <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
                         {isEditing ? (
@@ -333,7 +401,7 @@ export function ClipRow({
                     </EditableCell>
                 </div>
             </TableCell>
-            <TableCell className={`align-top text-white w-[20%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[25%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
                     {isEditing ? (
                         <AutoResizeTextarea
@@ -346,7 +414,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white w-[20%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[15%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <AutoResizeTextarea
@@ -359,7 +427,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className="align-top py-3 w-[120px] text-right">
+            <TableCell className="align-top py-3 w-[80px] text-right">
                 {isEditing ? (
                     <div className="flex flex-col gap-2 items-end">
                         <ImageUploadCell
@@ -381,7 +449,7 @@ export function ClipRow({
                                         key={i}
                                         src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                         alt={`Ref ${i + 1}`}
-                                        className="w-[40px] h-[40px] object-cover rounded border border-stone-600 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                        className="w-[24px] h-[24px] object-cover rounded border border-stone-600 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                                         onError={(e) => {
                                             (e.target as HTMLImageElement).style.display = 'none';
                                         }}
@@ -401,7 +469,7 @@ export function ClipRow({
                                                     setAutoOpenUpload(true);
                                                     handleStartEdit();
                                                 }}
-                                                className="btn-icon-action w-[40px] h-[40px] p-0 opacity-50 hover:opacity-100 border-dashed border-stone-700"
+                                                className="btn-icon-action w-[24px] h-[24px] p-0 opacity-50 hover:opacity-100 border-dashed border-stone-700"
                                             >
                                                 <span className="material-symbols-outlined !text-lg text-primary">add</span>
                                             </Button>
@@ -419,7 +487,7 @@ export function ClipRow({
 
             {/* --- REFACTOR START: SHARED COMPONENTS --- */}
 
-            <TableCell className="align-top py-3 w-[110px] text-left">
+            <TableCell className="align-top py-3 w-[80px] text-left">
                 {/* RESULT Column using MediaDisplay */}
                 {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status === 'Error') && clip.resultUrl && (
                     <div className="flex justify-start">
@@ -427,13 +495,13 @@ export function ClipRow({
                             url={clip.resultUrl}
                             model={clip.model}
                             onPlay={onPlay}
-                            className="w-[100px] h-[56px] rounded-md overflow-hidden border border-stone-800 shadow-sm"
+                            className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
                         />
                     </div>
                 )}
             </TableCell>
 
-            <TableCell className="align-top text-left py-3 w-[45px] pr-12">
+            <TableCell className="align-top text-left py-3 w-[40px] px-1">
                 {/* ACTION Column using RowActions */}
                 <RowActions
                     status={clip.status || ''}
@@ -445,6 +513,9 @@ export function ClipRow({
                     onEditCancel={onCancelEdit}
                     onGenerate={() => onGenerate(clip)}
                     onDownload={handleDownload}
+                    onDelete={handleDeleteClick}
+                    onDuplicate={() => onDuplicate(clip.id)}
+                    className="items-center"
                 />
             </TableCell>
 
@@ -461,6 +532,21 @@ export function ClipRow({
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={handleDiscardAndEdit}>Discard</AlertDialogCancel>
                         <AlertDialogAction onClick={handleSaveAndDownload}>Save</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogContent className="border-destructive/50 bg-stone-900 text-white">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Clip?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-stone-400">
+                            Are you sure you want to delete this clip? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-row items-center justify-end gap-2">
+                        <Button variant="ghost" onClick={confirmDelete} className="text-stone-400 hover:text-destructive hover:bg-destructive/10">Delete</Button>
+                        <Button variant="default" onClick={() => setShowDeleteDialog(false)} className="bg-white text-black hover:bg-stone-200">Cancel</Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

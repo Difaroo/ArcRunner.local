@@ -14,6 +14,17 @@ export function useAppStore() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    const [deletedLibraryIds, setDeletedLibraryIds] = useState<Set<string>>(new Set());
+    const [deletedClipIds, setDeletedClipIds] = useState<Set<string>>(new Set());
+
+    const markLibraryItemDeleted = useCallback((id: string) => {
+        setDeletedLibraryIds(prev => new Set(prev).add(id));
+    }, []);
+
+    const markClipDeleted = useCallback((id: string) => {
+        setDeletedClipIds(prev => new Set(prev).add(id));
+    }, []);
+
     const hasFetched = useRef(false);
 
     const refreshData = useCallback(async (silent = false) => {
@@ -69,6 +80,8 @@ export function useAppStore() {
         episodeTitles, setEpisodeTitles,
         allEpisodes, setAllEpisodes,
         libraryItems, setLibraryItems,
+        deletedLibraryIds, markLibraryItemDeleted,
+        deletedClipIds, markClipDeleted,
         loading, setLoading,
         error, setError,
         refreshData

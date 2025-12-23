@@ -21,9 +21,9 @@ export function getClipFilename(clip: Clip): string {
         }
     }
 
-    let filename = `${scene} - ${safeTitle}`;
+    let filename = `${scene} ${safeTitle}`;
     if (ver > 1) {
-        filename += ` - v${ver.toString().padStart(2, '0')}`;
+        filename += ` ${ver.toString().padStart(2, '0')}`;
     }
 
     // Determine extension

@@ -13,6 +13,10 @@ interface RowActionsProps {
     onEditCancel: () => void
     onGenerate: () => void
     onDownload: () => Promise<void>
+    onDelete?: () => void
+    onDuplicate?: () => void
+    className?: string
+    alignStatus?: 'left' | 'right' | 'center'
 }
 
 export function RowActions({
@@ -24,7 +28,11 @@ export function RowActions({
     onEditSave,
     onEditCancel,
     onGenerate,
-    onDownload
+    onDownload,
+    onDelete,
+    onDuplicate,
+    className,
+    alignStatus = 'left'
 }: RowActionsProps) {
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -42,7 +50,7 @@ export function RowActions({
     // EDIT MODE
     if (isEditing) {
         return (
-            <div className="flex flex-col items-start gap-1">
+            <div className={`flex flex-col gap-1 ${className || 'items-center'}`}>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -66,15 +74,33 @@ export function RowActions({
                             <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={(e) => { e.stopPropagation(); onEditCancel(); }}
-                                className="btn-icon-action h-8 w-8"
+                                onClick={(e) => { e.stopPropagation(); onDelete && onDelete(); }}
+                                className="btn-icon-action h-8 w-8 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500"
                             >
                                 <span className="material-symbols-outlined !text-lg">close</span>
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent><p>Cancel editing</p></TooltipContent>
+                        <TooltipContent><p>Delete Row</p></TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
+
+                {onDuplicate && (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+                                    className="h-8 w-8 border-[0.5px] border-orange-500/50 text-orange-500 hover:bg-orange-500/10 hover:text-orange-500 hover:border-orange-500"
+                                >
+                                    <span className="material-symbols-outlined !text-lg">add</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Duplicate Row</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
             </div>
         )
     }
@@ -85,8 +111,8 @@ export function RowActions({
     const isError = status?.startsWith('Error') || status === 'Upload Err' || status === 'File 404' || status === 'Net Err';
 
     return (
-        <div className="flex flex-col items-start gap-1">
-            <div className="flex flex-col gap-2 items-start">
+        <div className={`flex flex-col gap-1 ${className || 'items-start'}`}>
+            <div className={`flex flex-col gap-2 ${className || 'items-start'}`}>
 
                 {/* 1. DOWNLOAD BUTTON (If Done) */}
                 {isDone && (
@@ -140,7 +166,7 @@ export function RowActions({
             </div>
 
             {/* STATUS TEXT */}
-            <div className="text-[10px] text-stone-500 font-medium text-left w-full mt-1">
+            <div className={`text-[10px] text-stone-500 font-medium w-full mt-1 text-${alignStatus}`}>
                 {isDone ? (
                     <span className="text-stone-500 block">
                         {status?.startsWith('Saved') ? status : 'Ready'}

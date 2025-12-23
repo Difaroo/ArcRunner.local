@@ -178,3 +178,80 @@ export async function GET() {
     }
 }
 
+export async function DELETE(req: Request) {
+    try {
+        const { id } = await req.json();
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+        const intId = parseInt(id);
+        if (isNaN(intId)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+
+        await db.clip.delete({
+            where: { id: intId }
+        });
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error('DELETE Error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+export async function POST(req: Request) {
+    try {
+        const { clip } = await req.json();
+
+        // Validate required fields
+        if (!clip.episode || !clip.series) {
+            return NextResponse.json({ error: 'Episode and Series are required' }, { status: 400 });
+        }
+
+        const seriesId = clip.series;
+        const episodeNum = parseInt(clip.episode); // "1" -> 1
+
+        const dbEpisode = await db.episode.findFirst({
+            where: {
+                seriesId: seriesId,
+                number: episodeNum
+            }
+        });
+
+        if (!dbEpisode) {
+            return NextResponse.json({ error: `Episode ${episodeNum} not found for Series ${seriesId}` }, { status: 404 });
+        }
+
+        const newClip = await db.clip.create({
+            data: {
+                scene: clip.scene,
+                title: clip.title,
+                character: clip.character,
+                location: clip.location,
+                style: clip.style,
+                camera: clip.camera,
+                action: clip.action,
+                dialog: clip.dialog,
+                status: clip.status || 'Ready',
+                refImageUrls: clip.explicitRefUrls || '', // Store explicit only
+                episodeId: dbEpisode.id,
+                sortOrder: clip.sortOrder || 0,
+            },
+            include: { episode: true }
+        });
+
+        return NextResponse.json({
+            success: true,
+            clip: {
+                ...clip,
+                id: newClip.id.toString(),
+                status: newClip.status,
+                episode: newClip.episode.number.toString(),
+                refImageUrls: newClip.refImageUrls
+            }
+        });
+
+    } catch (error: any) {
+        console.error('POST Error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+

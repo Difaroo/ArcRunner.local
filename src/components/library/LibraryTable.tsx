@@ -1,28 +1,7 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { ImageUploadCell } from "@/components/ui/ImageUploadCell";
-import { EditableCell } from "@/components/ui/EditableCell";
-import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea";
-import { LibraryActionToolbar } from "./LibraryActionToolbar";
-import { MediaDisplay } from "@/components/media/MediaDisplay";
-import { RowActions } from "@/components/ui/RowActions";
+import { LibraryRow } from "./LibraryRow";
 
 import { LibraryItem } from '@/lib/library';
 
@@ -36,47 +15,23 @@ interface LibraryTableProps {
     onGenerate?: (item: LibraryItem) => void;
     isGenerating?: (id: string) => boolean;
     onPlay?: (url: string) => void;
+    onDelete?: (id: string) => void;
 }
 
-export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, onSelect, onSelectAll, onGenerate, isGenerating, onPlay }: LibraryTableProps) {
+export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, onSelect, onSelectAll, onGenerate, isGenerating, onPlay, onDelete }: LibraryTableProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editValues, setEditValues] = useState<Partial<LibraryItem>>({});
-    const [saving, setSaving] = useState(false);
-    const [autoOpenUpload, setAutoOpenUpload] = useState(false);
-
-    // Filter items by series if provided (though passed items should already be filtered)
-    // We assume 'items' prop is already the correct list to display.
 
     const handleStartEdit = (item: LibraryItem) => {
         setEditingId(item.id);
-        const { refImageUrl, ...rest } = item;
-        // Strip TASK: prefix if present to avoid editing internal state
-        const safeUrl = refImageUrl?.startsWith('TASK:') ? '' : refImageUrl;
-        setEditValues({ ...rest, refImageUrl: safeUrl });
     };
 
     const handleCancelEdit = () => {
         setEditingId(null);
-        setEditValues({});
     };
 
-    const handleSave = async () => {
-        if (!editingId) return;
-        setSaving(true);
-        try {
-            await onSave(editingId, editValues);
-            setEditingId(null);
-            setEditValues({});
-        } catch (error) {
-            console.error(error);
-            alert('Failed to save library item');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleChange = (field: keyof LibraryItem, value: string) => {
-        setEditValues(prev => ({ ...prev, [field]: value }));
+    const handleSave = async (id: string, updates: Partial<LibraryItem>) => {
+        await onSave(id, updates);
+        setEditingId(null);
     };
 
     const handleDownload = async (url: string, name: string) => {
@@ -85,7 +40,9 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
         try {
             // Determine extension or default
             const ext = url.split('.').pop()?.split('?')[0] || 'png';
-            const filename = `${name.replace(/[^a-z0-9 ]/gi, '')}.${ext}`;
+            // Allow alphanumeric, spaces, underscores, and hyphens. Then trim.
+            const sanitizedName = name.replace(/[^a-z0-9_\- ]/gi, '').trim();
+            const filename = `${sanitizedName}.${ext}`;
 
             // Use the proxy to avoid CORS issues
             const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(url)}`;
@@ -109,8 +66,6 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
         }
     };
 
-    const LIBRARY_TYPES = ['LIB_CHARACTER', 'LIB_LOCATION', 'LIB_STYLE', 'LIB_CAMERA'];
-
     return (
         <div className="w-full h-full flex flex-col">
             <div className="flex-1 overflow-auto">
@@ -130,8 +85,8 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                             <TableHead className="font-semibold text-stone-500 text-left align-top py-3">DESCRIPTION</TableHead>
                             <TableHead className="w-[150px] font-semibold text-stone-500 text-left align-top py-3">NEGATIVES</TableHead>
                             <TableHead className="w-[150px] font-semibold text-stone-500 text-left align-top py-3">NOTES</TableHead>
-                            <TableHead className="w-[120px] font-semibold text-stone-500 text-left align-top py-3">REF IMG</TableHead>
-                            <TableHead className="w-24 font-semibold text-stone-500 align-top py-3"></TableHead>
+                            <TableHead className="w-[105px] font-semibold text-stone-500 text-left align-top py-3">REF IMG</TableHead>
+                            <TableHead className="w-[50px] font-semibold text-stone-500 align-top py-3"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -142,195 +97,27 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            items.map((item, index) => {
+                            items.map((item) => {
                                 const isEditing = editingId === item.id;
                                 const isSelected = selectedItems.has(item.id);
-                                const isItemGenerating = (isGenerating && isGenerating(item.id)) || item.refImageUrl?.startsWith('TASK:');
+                                const isItemGenerating = (isGenerating && isGenerating(item.id)) || (item.refImageUrl ? item.refImageUrl.startsWith('TASK:') : false);
 
                                 return (
-                                    <TableRow key={index} className={`group hover:bg-black transition-colors ${isEditing || isSelected ? 'bg-black' : ''}`}>
-                                        <TableCell className="align-top py-3 px-2">
-                                            <Checkbox
-                                                checked={isSelected}
-                                                onCheckedChange={() => onSelect(item.id)}
-                                            />
-                                        </TableCell>
-
-                                        <TableCell className="font-mono text-xs text-stone-500 align-top py-3">
-                                            {item.episode}
-                                        </TableCell>
-
-                                        {/* Name */}
-                                        <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
-                                            <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
-                                                {isEditing ? (
-                                                    <Input
-                                                        value={editValues.name || ''}
-                                                        onChange={e => handleChange('name', e.target.value)}
-                                                        className="table-input h-full"
-                                                    />
-                                                ) : (
-                                                    <span className="table-text font-medium">{item.name}</span>
-                                                )}
-                                            </EditableCell>
-                                        </TableCell>
-
-                                        {/* Type Dropdown */}
-                                        <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
-                                            <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
-                                                {isEditing ? (
-                                                    <DropdownMenu>
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button variant="outline" size="sm" className="h-full w-full justify-start text-[10px] px-2 text-left truncate border-stone-700 bg-stone-900 text-stone-300">
-                                                                            {editValues.type?.replace('LIB_', '') || "Select..."}
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    <p>Select Library Type</p>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                        <DropdownMenuContent className="bg-stone-900 border-stone-800 text-white">
-                                                            {LIBRARY_TYPES.map(type => (
-                                                                <DropdownMenuItem
-                                                                    key={type}
-                                                                    onClick={() => handleChange('type', type)}
-                                                                    className="text-xs focus:bg-stone-800 focus:text-white"
-                                                                >
-                                                                    {type.replace('LIB_', '')}
-                                                                </DropdownMenuItem>
-                                                            ))}
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                ) : (
-                                                    <Badge variant="outline" className="text-[10px] border-stone-700 text-stone-400 font-normal">
-                                                        {item.type.replace('LIB_', '')}
-                                                    </Badge>
-                                                )}
-                                            </EditableCell>
-                                        </TableCell>
-
-                                        {/* Description */}
-                                        <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
-                                            <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
-                                                {isEditing ? (
-                                                    <AutoResizeTextarea
-                                                        value={editValues.description || ''}
-                                                        onChange={e => handleChange('description', e.target.value)}
-                                                        className="min-h-[60px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
-                                                    />
-                                                ) : (
-                                                    <span className="table-text whitespace-pre-wrap">{item.description}</span>
-                                                )}
-                                            </EditableCell>
-                                        </TableCell>
-
-                                        {/* Negatives */}
-                                        <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
-                                            <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
-                                                {isEditing ? (
-                                                    <Input
-                                                        value={editValues.negatives || ''}
-                                                        onChange={e => handleChange('negatives', e.target.value)}
-                                                        className="table-input h-full"
-                                                    />
-                                                ) : (
-                                                    <span className="table-text">{item.negatives}</span>
-                                                )}
-                                            </EditableCell>
-                                        </TableCell>
-
-                                        {/* Notes */}
-                                        <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
-                                            <EditableCell isEditing={isEditing} onStartEdit={() => handleStartEdit(item)}>
-                                                {isEditing ? (
-                                                    <Input
-                                                        value={editValues.notes || ''}
-                                                        onChange={e => handleChange('notes', e.target.value)}
-                                                        className="table-input italic h-full"
-                                                    />
-                                                ) : (
-                                                    <span className="table-text italic">{item.notes}</span>
-                                                )}
-                                            </EditableCell>
-                                        </TableCell>
-
-                                        {/* Ref Image */}
-                                        <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
-                                            {isEditing ? (
-                                                <ImageUploadCell
-                                                    value={editValues.refImageUrl || ''}
-                                                    onChange={(url) => handleChange('refImageUrl', url)}
-                                                    isEditing={true}
-                                                    autoOpen={autoOpenUpload}
-                                                    onAutoOpenComplete={() => setAutoOpenUpload(false)}
-                                                    episode={item.episode}
-                                                />
-                                            ) : (
-                                                // View Mode
-                                                item.refImageUrl ? (
-                                                    isItemGenerating ? (
-                                                        <div className="w-24 h-24 rounded-md border border-stone-800 bg-stone-900 flex flex-col items-center justify-center ml-auto">
-                                                            <Loader2 className="h-6 w-6 text-primary animate-spin mb-2" />
-                                                            <span className="text-[10px] text-stone-500 font-mono">Generating...</span>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex justify-end w-24 h-24 ml-auto">
-                                                            <MediaDisplay
-                                                                url={item.refImageUrl}
-                                                                onPlay={onPlay || (() => { })}
-                                                                className="w-full h-full"
-                                                            />
-                                                        </div>
-                                                    )
-                                                ) : (
-                                                    // Empty state - Show Add Button with Auto-Open behavior
-                                                    <div className="w-full h-full min-h-[40px] flex items-center justify-center">
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        className="btn-icon-action w-full"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setAutoOpenUpload(true);
-                                                                            handleStartEdit(item);
-                                                                        }}
-                                                                    >
-                                                                        <span className="material-symbols-outlined !text-lg">add</span>
-                                                                    </Button>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    <p>Add Reference Image</p>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    </div>
-                                                )
-                                            )}
-                                        </TableCell>
-
-                                        {/* Actions */}
-                                        <TableCell className={`align-top text-right ${isEditing ? "p-1" : "py-3"}`}>
-                                            <RowActions
-                                                status={isItemGenerating ? 'Generating' : (item.refImageUrl ? 'Done' : '')}
-                                                resultUrl={item.refImageUrl}
-                                                isEditing={isEditing}
-                                                isSaving={saving}
-                                                onEditStart={() => handleStartEdit(item)}
-                                                onEditSave={handleSave}
-                                                onEditCancel={handleCancelEdit}
-                                                onGenerate={() => onGenerate && onGenerate(item)}
-                                                onDownload={() => handleDownload(item.refImageUrl, item.name)}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
+                                    <LibraryRow
+                                        key={item.id}
+                                        item={item}
+                                        isSelected={isSelected}
+                                        isEditing={isEditing}
+                                        isGenerating={isItemGenerating}
+                                        onSelect={onSelect}
+                                        onStartEdit={handleStartEdit}
+                                        onCancelEdit={handleCancelEdit}
+                                        onSave={handleSave}
+                                        onGenerate={onGenerate}
+                                        onPlay={onPlay}
+                                        onDownload={handleDownload}
+                                        onDelete={onDelete}
+                                    />
                                 );
                             })
                         )}
