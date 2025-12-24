@@ -134,8 +134,8 @@
 
   .nav-tab.active,
   .nav-tab[data-state="active"] {
-    border-color: var(--primary) !important;
-    color: var(--primary) !important;
+    border-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary)) !important;
     background-color: transparent !important;
     box-shadow: none !important;
   }

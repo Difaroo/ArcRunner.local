@@ -13,7 +13,7 @@ export async function POST(request: Request) {
         await db.$transaction(
             updates.map((update: { id: number | string; scene: string }) =>
                 db.clip.update({
-                    where: { id: update.id },
+                    where: { id: Number(update.id) },
                     data: { scene: update.scene }
                 })
             )

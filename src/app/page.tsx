@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2, Sun, Moon } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Loader2, Sun, Moon, Pencil, Check, X } from "lucide-react";
 import { Clip, Series } from './api/clips/route';
 import { resolveClipImages } from '@/lib/shared-resolvers';
 import { downloadFile, getClipFilename } from '@/lib/download-utils';
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   Tooltip,
   TooltipContent,
@@ -57,12 +59,150 @@ export default function Home() {
   const [episodeStyles, setEpisodeStyles] = useState<Record<string, string>>({});
   const [currentView, setCurrentView] = useState<'series' | 'script' | 'library' | 'clips' | 'settings'>('series');
 
+  // --- Series Renaming Logic ---
+  const [isEditingSeriesName, setIsEditingSeriesName] = useState(false);
+  const [tempSeriesName, setTempSeriesName] = useState("");
+
+  const handleRenameSeries = async () => {
+    if (!tempSeriesName.trim() || !currentSeriesId) return;
+
+    // Find current object to check if changed
+    const currentSeries = seriesList.find(s => s.id === currentSeriesId);
+    if (currentSeries?.title === tempSeriesName) {
+      setIsEditingSeriesName(false);
+      return;
+    }
+
+    try {
+      // Optimistic Update
+      setSeriesList(prev => prev.map(s => s.id === currentSeriesId ? { ...s, title: tempSeriesName } : s));
+      setIsEditingSeriesName(false);
+
+      const res = await fetch('/api/update_series', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seriesId: currentSeriesId, title: tempSeriesName })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error);
+      }
+    } catch (e: any) {
+      alert("Failed to rename series: " + e.message);
+      // Revert
+      setSeriesList(prev => prev.map(s => s.id === currentSeriesId ? { ...s, title: currentSeries?.title || s.title } : s));
+    }
+  };
+
   const [videoPromptTemplate, setVideoPromptTemplate] = useState("");
   const [imagePromptTemplate, setImagePromptTemplate] = useState("");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const { theme, setTheme } = useTheme();
 
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+
+  // --- Series Add Logic ---
+  const [showAddSeriesDialog, setShowAddSeriesDialog] = useState(false);
+  const [newSeriesTitle, setNewSeriesTitle] = useState("");
+  const [isAddingSeries, setIsAddingSeries] = useState(false);
+  const [addSeriesError, setAddSeriesError] = useState<string | null>(null);
+
+  // --- Episode Creation Logic ---
+  const [showNewEpisodeDialog, setShowNewEpisodeDialog] = useState(false);
+  const [newEpTitle, setNewEpTitle] = useState("");
+  const [newEpNumber, setNewEpNumber] = useState("");
+  const [isCreatingEpisode, setIsCreatingEpisode] = useState(false);
+
+  const handleCreateEpisode = async () => {
+    if (!newEpTitle.trim() || !newEpNumber.trim() || !currentSeriesId) return;
+    setIsCreatingEpisode(true);
+
+    try {
+      const res = await fetch('/api/episodes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          seriesId: currentSeriesId,
+          title: newEpTitle,
+          number: newEpNumber
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // Success: Optimistic update or refresh
+      // We need to refresh 'allEpisodes' to see it in the list
+      // Or append to 'allEpisodes' local state
+      const newEpisode = {
+        id: data.episode.id, // UUID
+        series: currentSeriesId,
+        title: data.episode.title,
+        // We need to map other fields if 'allEpisodes' uses them?
+        // "allEpisodes" is derived from API?
+        // Check useAppStore definition. It usually fetches from /api/clips which returns episodes.
+        // But if we just created it, it won't have clips.
+        // We should append it to 'allEpisodes' local cache if possible, or trigger refreshData.
+      };
+
+      // Refreshing is safest to get correct structure
+      refreshData();
+
+      setShowNewEpisodeDialog(false);
+      setNewEpTitle("");
+      setNewEpNumber("");
+
+    } catch (e: any) {
+      alert("Failed to create episode: " + e.message);
+    } finally {
+      setIsCreatingEpisode(false);
+    }
+  };
+
+  const handleAddSeries = async () => {
+    if (!newSeriesTitle.trim()) return;
+    setIsAddingSeries(true);
+    setAddSeriesError(null);
+
+    try {
+      const res = await fetch('/api/series', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newSeriesTitle })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const newSeries: Series = {
+          id: data.id,
+          title: data.title,
+          totalEpisodes: '0',
+          currentEpisodes: '0',
+          status: 'Active'
+        };
+        // Optimistic Update
+        setSeriesList(prev => [...prev, newSeries]);
+        setCurrentSeriesId(data.id);
+        setShowAddSeriesDialog(false);
+        setNewSeriesTitle("");
+      } else {
+        throw new Error(data.error || 'Failed to add series');
+      }
+    } catch (e: any) {
+      setAddSeriesError(e.message || "Failed to add series");
+    } finally {
+      setIsAddingSeries(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showAddSeriesDialog) {
+      setNewSeriesTitle("");
+      setAddSeriesError(null);
+      setIsAddingSeries(false);
+    }
+  }, [showAddSeriesDialog]);
 
   const handleViewChange = (view: 'series' | 'script' | 'library' | 'clips' | 'settings') => {
     if (currentView === 'settings' && view !== 'settings') {
@@ -82,6 +222,8 @@ export default function Home() {
     setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
     if (savedModel) setSelectedModel(savedModel)
   }, [])
+
+
 
   const hasFetched = useRef(false);
 
@@ -233,8 +375,13 @@ export default function Home() {
 
   // Filter Clips by Series
   const seriesClips = clips.filter(c => c.series === currentSeriesId);
-  // Get ALL library items for the series (not just current episode) for Dropdowns
-  const allSeriesAssets = libraryItems.filter(i => i.series === currentSeriesId);
+
+  // Optimization: Memoize Library Items for this Series
+  // This prevents recalculating the array on every render, though filter is cheap.
+  // More importantly, it serves as a stable reference for dependent hooks.
+  const allSeriesAssets = useMemo(() =>
+    libraryItems.filter(i => i.series === currentSeriesId),
+    [libraryItems, currentSeriesId]);
 
   seriesClips.forEach(clip => {
     const ep = clip.episode || '1';
@@ -314,6 +461,13 @@ export default function Home() {
     toggleSelect: toggleLibrarySelect,
     toggleSelectAll: toggleLibrarySelectAll
   } = useSharedSelection(currentLibraryItems);
+
+  // --- Robustness: Reset State on Series Change ---
+  useEffect(() => {
+    setCurrentEpisode(1);
+    setSelectedIds(new Set());
+    setSelectedLibraryIds(new Set());
+  }, [currentSeriesId, setSelectedIds, setSelectedLibraryIds]);
 
   const [generatingLibraryItems, setGeneratingLibraryItems] = useState<Set<string>>(new Set());
 
@@ -543,6 +697,11 @@ export default function Home() {
   };
 
   const handleAddClip = async () => {
+    if (!currentSeriesId) {
+      alert("Please select a series first.");
+      return;
+    }
+
     // 1. Calculate Next Scene Number
     let nextScene = "1";
     let newSortOrder = 0;
@@ -906,7 +1065,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.8.1</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.9.0</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1025,9 +1184,11 @@ export default function Home() {
         </div>
       </header>
 
+
       {/* Navigation & Toolbar */}
       <div className="flex flex-col border-b border-border/40 bg-background/50 backdrop-blur-sm">
         <div className="flex items-center justify-between px-6 h-[45px]">
+          {/* Episode Tabs (Non-Series View) */}
           {currentView !== 'series' && currentView !== 'settings' && (
             <EpisodeTabs
               episodeKeys={sortedEpKeys}
@@ -1035,6 +1196,36 @@ export default function Home() {
               episodeTitles={seriesEpisodeTitles}
               onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedIds(new Set()); setSelectedLibraryIds(new Set()); }}
             />
+          )}
+
+          {/* Series Tabs (Series View) - MOVED HERE */}
+          {currentView === 'series' && (
+            <div className="flex items-center -mb-px overflow-x-auto">
+              {seriesList.map(series => (
+                <button
+                  key={series.id}
+                  onClick={() => setCurrentSeriesId(series.id)}
+                  className={`nav-tab py-3 ${currentSeriesId === series.id ? 'active' : ''}`}
+                >
+                  {series.title}
+                </button>
+              ))}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setShowAddSeriesDialog(true)}
+                      className="nav-tab py-3 text-primary hover:text-primary/80 transition-colors ml-2"
+                    >
+                      <span className="material-symbols-outlined !text-lg">add</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Create a new Series</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           )}
 
           <div className="flex items-center gap-2 py-2 ml-auto">
@@ -1047,116 +1238,218 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Episode Title Header - Only for Clips, Library, Script, Series, AND Settings View */}
-      {(currentView === 'clips' || currentView === 'library' || currentView === 'script' || currentView === 'series' || currentView === 'settings') && (
-        <PageHeader
-          title={
-            currentView === 'series' ? (
-              <span>Series</span>
-            ) : currentView === 'settings' ? (
-              <span>Settings</span>
-            ) : (
-              <div className="flex items-center justify-start gap-2 w-fit whitespace-nowrap">
-                <span className="font-normal text-muted-foreground">{seriesList.find(s => s.id === currentSeriesId)?.title}</span>
-                {currentView !== 'script' && (
-                  <>
-                    <span className="text-stone-700">/</span>
-                    <span className="text-foreground">{seriesEpisodeTitles[currentEpKey] ? seriesEpisodeTitles[currentEpKey] : `Episode ${currentEpKey}`}</span>
-                  </>
-                )}
-              </div>
-            )
-          }
-          className="border-t border-white/5 border-b-0"
-        >
-          {currentView === 'settings' && (
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-stone-500 uppercase tracking-wider font-light">Theme</span>
-              <div className="flex items-center gap-2 p-1 bg-black/40 rounded-full border border-white/5">
-                <button
-                  onClick={() => setTheme("light")}
-                  className={`p-1.5 rounded-full transition-all ${theme === "light" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
-                >
-                  <Sun className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setTheme("dark")}
-                  className={`p-1.5 rounded-full transition-all ${theme === "dark" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
-                >
-                  <Moon className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          )}
-          {currentView === 'clips' && (
-            <ActionToolbar
-              currentEpKey={currentEpKey}
-              totalClips={activeClips.length}
-              readyClips={activeClips.filter(c => c.status === 'Done').length}
-              selectedCount={selectedIds.size}
-              onGenerateSelected={handleGenerateSelected}
-              onDownloadSelected={handleDownloadSelected}
-              selectedModel={selectedModel}
-              onModelChange={async (model) => {
-                setSelectedModel(model);
-                localStorage.setItem("selectedModel", model);
-                // Persist to Episode
-                try {
-                  await fetch('/api/update_episode', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      seriesId: currentSeriesId,
-                      episodeId: currentEpKey,
-                      updates: { model }
-                    })
-                  });
+      {/* ... (rest of code) ... */}
 
-                  // Update local state to prevent "flicker" on next refresh or switch
-                  setAllEpisodes(prev => prev.map(e =>
-                    (e.series === currentSeriesId && e.id === currentEpKey)
-                      ? { ...e, model }
-                      : e
-                  ));
-
-                } catch (e) {
-                  console.error("Failed to save episode model", e);
-                }
+      {/* Add Series Dialog (Global) */}
+      <Dialog open={showAddSeriesDialog} onOpenChange={setShowAddSeriesDialog}>
+        <DialogContent className="sm:max-w-[425px] border-stone-800 bg-stone-900 text-white p-6 grid gap-4">
+          <DialogHeader>
+            <DialogTitle>Add New Series</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={newSeriesTitle}
+              onChange={(e) => setNewSeriesTitle(e.target.value)}
+              placeholder="Series Title"
+              disabled={isAddingSeries}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAddSeries();
               }}
-              currentStyle={episodeStyles[currentEpKey] || ''}
-              onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
-              availableStyles={uniqueValues.styles}
-              aspectRatio={aspectRatio}
-              onAspectRatioChange={setAspectRatio}
-              onAddClip={handleAddClip}
-              clips={activeClips}
             />
-          )}
-          {currentView === 'library' && (
-            <div className="flex items-center">
-              {/* Reusing Action Toolbar style via pure component would be best, but LibraryActionToolbar is specific */}
-              <LibraryActionToolbar
-                selectedCount={selectedLibraryIds.size}
-                onGenerateSelected={handleLibraryGenerateSelected}
-                onDownloadSelected={handleLibraryDownloadSelected}
+            {addSeriesError && (
+              <p className="text-xs text-destructive flex items-center gap-2">
+                <span className="material-symbols-outlined !text-sm">error</span>
+                {addSeriesError}
+              </p>
+            )}
+          </div>
+          <DialogFooter className="mt-2">
+            <Button
+              onClick={() => setShowAddSeriesDialog(false)}
+              variant="ghost"
+              disabled={isAddingSeries}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddSeries}
+              disabled={!newSeriesTitle.trim() || isAddingSeries}
+            >
+              {isAddingSeries && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isAddingSeries ? 'Adding...' : 'Add Series'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {
+        (currentView === 'clips' || currentView === 'library' || currentView === 'script' || currentView === 'series' || currentView === 'settings') && (
+          <PageHeader
+            title={
+              currentView === 'series' ? (
+                isEditingSeriesName ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={tempSeriesName}
+                      onChange={(e) => setTempSeriesName(e.target.value)}
+                      className="h-7 text-sm w-64 bg-stone-900 border-stone-700"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRenameSeries();
+                        if (e.key === 'Escape') setIsEditingSeriesName(false);
+                      }}
+                    />
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleRenameSeries}>
+                      <Check className="w-4 h-4 text-green-500" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setIsEditingSeriesName(false)}>
+                      <X className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 group">
+                    <span>{seriesList.find(s => s.id === currentSeriesId)?.title || 'Select Series'}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => {
+                        setTempSeriesName(seriesList.find(s => s.id === currentSeriesId)?.title || "");
+                        setIsEditingSeriesName(true);
+                      }}
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-stone-500" />
+                    </Button>
+                  </div>
+                )
+              ) : currentView === 'settings' ? (
+                <span>Settings</span>
+              ) : (
+                <div className="flex items-center justify-start gap-2 w-fit whitespace-nowrap">
+                  <span className="font-normal text-muted-foreground">{seriesList.find(s => s.id === currentSeriesId)?.title}</span>
+                  {currentView !== 'script' && (
+                    <>
+                      <span className="text-stone-700">/</span>
+                      <span className="text-foreground">{seriesEpisodeTitles[currentEpKey] ? seriesEpisodeTitles[currentEpKey] : `Episode ${currentEpKey}`}</span>
+                    </>
+                  )}
+                </div>
+              )
+            }
+            className="border-t border-white/5 border-b-0"
+          >
+            {currentView === 'series' && (
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-stone-500 uppercase tracking-wider font-light">New Episode</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline-primary"
+                        size="icon"
+                        onClick={() => setShowNewEpisodeDialog(true)}
+                        className="h-8 w-8 hover:!bg-primary/20"
+                      >
+                        <span className="material-symbols-outlined !text-lg">add</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>NEW EPISODE</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
+            {currentView === 'settings' && (
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-stone-500 uppercase tracking-wider font-light">Theme</span>
+                <div className="flex items-center gap-2 p-1 bg-black/40 rounded-full border border-white/5">
+                  <button
+                    onClick={() => setTheme("light")}
+                    className={`p-1.5 rounded-full transition-all ${theme === "light" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
+                  >
+                    <Sun className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setTheme("dark")}
+                    className={`p-1.5 rounded-full transition-all ${theme === "dark" ? "bg-stone-700 text-white shadow-sm" : "text-stone-500 hover:text-stone-300"}`}
+                  >
+                    <Moon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+            {currentView === 'clips' && (
+              <ActionToolbar
+                currentEpKey={currentEpKey}
+                totalClips={activeClips.length}
+                readyClips={activeClips.filter(c => c.status === 'Done').length}
+                selectedCount={selectedIds.size}
+                onGenerateSelected={handleGenerateSelected}
+                onDownloadSelected={handleDownloadSelected}
+                selectedModel={selectedModel}
+                onModelChange={async (model) => {
+                  setSelectedModel(model);
+                  localStorage.setItem("selectedModel", model);
+                  // Persist to Episode
+                  try {
+                    await fetch('/api/update_episode', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        seriesId: currentSeriesId,
+                        episodeId: currentEpKey,
+                        updates: { model }
+                      })
+                    });
+
+                    // Update local state to prevent "flicker" on next refresh or switch
+                    setAllEpisodes(prev => prev.map(e =>
+                      (e.series === currentSeriesId && e.id === currentEpKey)
+                        ? { ...e, model }
+                        : e
+                    ));
+
+                  } catch (e) {
+                    console.error("Failed to save episode model", e);
+                  }
+                }}
                 currentStyle={episodeStyles[currentEpKey] || ''}
                 onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
                 availableStyles={uniqueValues.styles}
-                onAddItem={handleAddLibraryItem}
+                aspectRatio={aspectRatio}
+                onAspectRatioChange={setAspectRatio}
+                onAddClip={handleAddClip}
+                clips={activeClips}
               />
-            </div>
-          )}
-          {/* Script View needs no toolbar actions in header currently, or maybe move the ingestion controls here later? For now, empty or standard. */}
-        </PageHeader>
-      )}
+            )}
+            {currentView === 'library' && (
+              <div className="flex items-center">
+                {/* Reusing Action Toolbar style via pure component would be best, but LibraryActionToolbar is specific */}
+                <LibraryActionToolbar
+                  selectedCount={selectedLibraryIds.size}
+                  onGenerateSelected={handleLibraryGenerateSelected}
+                  onDownloadSelected={handleLibraryDownloadSelected}
+                  currentStyle={episodeStyles[currentEpKey] || ''}
+                  onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
+                  availableStyles={uniqueValues.styles}
+                  onAddItem={handleAddLibraryItem}
+                />
+              </div>
+            )}
+            {/* Script View needs no toolbar actions in header currently, or maybe move the ingestion controls here later? For now, empty or standard. */}
+          </PageHeader>
+        )
+      }
 
       {/* Error Banner */}
-      {error && (
-        <div className="mx-6 mt-6 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md flex items-center">
-          <span className="material-symbols-outlined mr-2">error</span>
-          {error}
-        </div>
-      )}
+      {
+        error && (
+          <div className="mx-6 mt-6 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md flex items-center">
+            <span className="material-symbols-outlined mr-2">error</span>
+            {error}
+          </div>
+        )
+      }
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden bg-background p-6">
@@ -1177,39 +1470,6 @@ export default function Home() {
                 seriesList={seriesList}
                 currentSeriesId={currentSeriesId}
                 onSeriesChange={setCurrentSeriesId}
-                onAddSeries={async (title) => {
-                  try {
-                    const res = await fetch('/api/series', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ title })
-                    });
-                    const data = await res.json();
-
-                    if (data.success) {
-                      // Create new Series object
-                      const newSeries: Series = {
-                        id: data.id,
-                        title: data.title,
-                        totalEpisodes: '0',
-                        currentEpisodes: '0',
-                        status: 'Active'
-                      };
-
-                      // Optimistic Update
-                      setSeriesList(prev => [...prev, newSeries]);
-                      setCurrentSeriesId(data.id);
-
-                      // Return strict true for success
-                      return Promise.resolve();
-                    } else {
-                      throw new Error(data.error || 'Failed to add series');
-                    }
-                  } catch (e: any) {
-                    console.error("Add Series Failed:", e);
-                    throw e; // Propagate to Child
-                  }
-                }}
                 onNavigateToEpisode={(sid, eid) => {
                   setCurrentSeriesId(sid);
                   setCurrentEpisode(parseInt(eid) || 1);
@@ -1278,6 +1538,43 @@ export default function Home() {
           </div>
         )}
       </main>
-    </div>
+      <Dialog open={showNewEpisodeDialog} onOpenChange={setShowNewEpisodeDialog}>
+        <DialogContent className="sm:max-w-[425px] bg-stone-900 border-stone-800 text-stone-100">
+          <DialogHeader>
+            <DialogTitle>New Episode</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="ep-number" className="text-sm font-medium">Episode Number</label>
+              <Input
+                id="ep-number"
+                value={newEpNumber}
+                onChange={(e) => setNewEpNumber(e.target.value)}
+                placeholder="e.g. 1"
+                className="bg-stone-950 border-stone-800"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="ep-title" className="text-sm font-medium">Title</label>
+              <Input
+                id="ep-title"
+                value={newEpTitle}
+                onChange={(e) => setNewEpTitle(e.target.value)}
+                placeholder="Episode Title"
+                className="bg-stone-950 border-stone-800"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowNewEpisodeDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreateEpisode} disabled={isCreatingEpisode}>
+              {isCreatingEpisode ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div >
   );
 }
+

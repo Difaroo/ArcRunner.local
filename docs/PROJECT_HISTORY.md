@@ -111,3 +111,26 @@ A refine-and-polish release following v0.8.0, focusing on Action Toolbar usabili
     - Updated Page Header titles to "Grey / White" hierarchy.
     - Restored material icons for Generate button.
 - **Version Bump**: 0.8.0 -> 0.8.1.
+
+## 2025-12-24: v0.9.0 - Series Page Overhaul
+
+### Context
+A significant UX overhaul for the Series Page to streamline episode management and improve visual consistency. Users needed faster ways to create, rename, and edit episodes without navigating away from the list view.
+
+### Features
+- **Series Renaming**:
+    - Added inline editing to the Series Page header.
+    - Hover-to-edit pencil icon with Save/Cancel controls.
+- **New Episode Workflow**:
+    - Introduced a dedicated "NEW EPISODE" button in the header.
+    - Implemented a modal dialog for creating episodes with Title and Number.
+- **Inline Episode Editing**:
+    - Clicking an episode number now activates "Row Edit Mode".
+    - Allows direct modification of Title and Episode Number.
+    - Replaced text buttons with square, outlined Icon Buttons (Check/X) using `outline-success` and `outline-destructive` variants for consistency.
+
+### UI Refinements
+- **Header Standardization**: Renamed "Series" to "Episodes" in the page header.
+- **Table Styling**: Updated table headers to standard uppercase/stone style.
+- **Visual Cleanup**: Removed redundant side panel titles and unified background colors.
+- **Version Bump**: 0.8.1 -> 0.9.0.

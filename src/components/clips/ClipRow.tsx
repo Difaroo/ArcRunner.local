@@ -264,7 +264,7 @@ export function ClipRow({
                 I will copy the standard cells from the view.
             */}
 
-            <TableCell className={`align-top w-[125px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[160px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="font-medium text-white block">
                     {isEditing ? (
                         <Input
@@ -277,7 +277,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[130px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[170px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
                     {isEditing ? (
                         <DropdownMenu>
@@ -303,8 +303,8 @@ export function ClipRow({
                     ) : (
                         <div className="flex flex-col gap-2">
                             {clip.character
-                                ? clip.character.split(',').map((char, i) => (
-                                    <div key={i} className="leading-tight truncate">{char.trim()}</div>
+                                ? clip.character.split(',').map((char, i, arr) => (
+                                    <div key={i} className="leading-tight truncate">{char.trim()}{i < arr.length - 1 ? ',' : ''}</div>
                                 ))
                                 : <span className="text-stone-500 italic">+</span>
                             }
@@ -325,7 +325,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[130px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[170px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <div className="relative w-full flex items-center gap-1">
@@ -376,7 +376,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white text-xs w-[110px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white text-xs w-[140px] ${isEditing ? "p-1" : "py-3"}`}>
                 <div>
                     <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
                         {isEditing ? (
@@ -404,7 +404,7 @@ export function ClipRow({
                     </EditableCell>
                 </div>
             </TableCell>
-            <TableCell className={`align-top text-white w-[25%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[15%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
                     {isEditing ? (
                         <AutoResizeTextarea

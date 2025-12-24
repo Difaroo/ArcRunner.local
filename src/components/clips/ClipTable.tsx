@@ -115,11 +115,11 @@ export function ClipTable({
                                 />
                             </TableHead>
                             <TableHead className="w-[24px] px-1 font-semibold text-stone-500 text-left align-top py-3">SCN</TableHead>
-                            <TableHead className="w-[125px] font-semibold text-stone-500 text-left align-top py-3">TITLE</TableHead>
-                            <TableHead className="w-[130px] font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
-                            <TableHead className="w-[130px] font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>
-                            <TableHead className="w-[110px] font-semibold text-stone-500 text-left align-top py-3">CAMERA</TableHead>
-                            <TableHead className="w-[25%] font-semibold text-stone-500 text-left align-top py-3">ACTION</TableHead>
+                            <TableHead className="w-[160px] font-semibold text-stone-500 text-left align-top py-3">TITLE</TableHead>
+                            <TableHead className="w-[170px] font-semibold text-stone-500 text-left align-top py-3">CHARACTER</TableHead>
+                            <TableHead className="w-[170px] font-semibold text-stone-500 text-left align-top py-3">LOCATION</TableHead>
+                            <TableHead className="w-[140px] font-semibold text-stone-500 text-left align-top py-3">CAMERA</TableHead>
+                            <TableHead className="w-[15%] font-semibold text-stone-500 text-left align-top py-3">ACTION</TableHead>
                             <TableHead className="w-[15%] font-semibold text-stone-500 text-left align-top py-3">DIALOG</TableHead>
                             <TableHead className="w-[80px] font-semibold text-stone-500 text-right align-top py-3">REF IMAGES</TableHead>
                             <TableHead className="w-[80px] font-semibold text-stone-500 text-left align-top py-3">RESULT</TableHead>

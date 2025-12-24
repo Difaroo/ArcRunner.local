@@ -44,7 +44,7 @@ export async function GET() {
         // 1. Fetch All Data in Parallel
         const [dbSeries, dbEpisodes, dbStudioItems, dbClips] = await Promise.all([
             db.series.findMany(),
-            db.episode.findMany(),
+            db.episode.findMany({ orderBy: { number: 'asc' } }),
             db.studioItem.findMany(),
             db.clip.findMany({
                 include: { episode: { include: { series: true } } },
