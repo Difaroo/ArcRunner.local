@@ -289,7 +289,8 @@ export function LibraryRow({
                             <div className="flex justify-start w-24 h-24">
                                 <MediaDisplay
                                     url={item.refImageUrl}
-                                    onPlay={onPlay || (() => { })}
+                                    originalUrl={item.refImageUrl}
+                                    // onPlay={onPlay || (() => { })} // Removed
                                     className="w-full h-full"
                                 />
                             </div>

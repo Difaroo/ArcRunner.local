@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { db } from '@/lib/db';
 import { convertDriveUrl } from '@/lib/utils';
 import { resolveClipImages } from '@/lib/shared-resolvers';
+import { generateThumbnail } from '@/lib/thumbnail-generator';
 
 // Types (Keep for compatibility if needed, though mostly inferred now)
 export interface Clip {
@@ -27,6 +28,8 @@ export interface Clip {
     series?: string;
     sortOrder?: number;
     model?: string;
+    isHiddenInStoryboard?: boolean;
+    thumbnailPath?: string;
 }
 
 export interface Series {
@@ -54,20 +57,10 @@ export async function GET() {
 
         // 2. Transform Series
         const series = dbSeries.map(s => ({
-            id: s.id, // UUID now, check if frontend handles string IDs ok? Yes, it did string IDs from sheets '1', '2'.
-            // Wait, previous IDs were '1', '2'. Now they are UUIDs. 
-            // Frontend might expect '1'. 
-            // The Frontend uses these IDs to filter. If we change them, URL dicts might break?
-            // "Series #" in sheet was '1'.
-            // In migration, we mapped '1' -> UUID.
-            // If the frontend relies on '1', we have a problem unless we expose the mapped ID or handle it.
-            // Actually, the Frontend likely receives the list of Series and uses their IDs for select boxes.
-            // So if we send UUIDs, the select box will use UUIDs.
-            // However, OLD links or saved selections might break?
-            // "Series" column in Clips table -> references the ID.
+            id: s.id,
             title: s.name,
             totalEpisodes: s.totalEpisodes?.toString() || '0',
-            currentEpisodes: '0', // Recalculate below
+            currentEpisodes: '0',
             status: s.status || ''
         }));
 
@@ -88,18 +81,17 @@ export async function GET() {
         // 4. Transform Studio Items (Library)
         const libraryItems = dbStudioItems.map(item => ({
             id: item.id.toString(),
-            type: item.type, // "LIB_CHARACTER" etc. Frontend checks "includes('Character')"
+            type: item.type,
             name: item.name,
             description: item.description || '',
             refImageUrl: item.refImageUrl || '',
             negatives: item.negatives || '',
             notes: item.notes || '',
-            episode: item.episode || '1', // String reference
-            series: item.seriesId // UUID
+            episode: item.episode || '1',
+            series: item.seriesId
         }));
 
         // Helper for Studio Lookups
-        // We need to map Name -> Image URL for automatic resolution
         const libraryImages: Record<string, Record<string, string>> = {};
         libraryItems.forEach(item => {
             if (item.name && item.refImageUrl) {
@@ -111,19 +103,10 @@ export async function GET() {
 
         // 5. Transform Clips
         const clips = dbClips.map(clip => {
-            // Reconstruct "Smart" Image URLs (Explicit + Library)
-            // The DB stores "refImageUrls" as the Explicit ones (from the migration script).
-            // Or did we store both? 
-            // Migration script: "refImageUrls: getVal(row, cSheet.headers, 'Ref Image URLs')"
-            // It just stored what was in the column.
-            // Logic must replicate "Library Lookup".
-
-            // Lookup Callback for this Series
             const seriesId = clip.episode.seriesId;
             const seriesLib = libraryImages[seriesId] || {};
 
             const findLib = (name: string) => {
-                // Ensure case-insensitive match
                 return seriesLib[name.toLowerCase()];
             };
 
@@ -132,7 +115,7 @@ export async function GET() {
             const allRefs = fullRefs;
 
             return {
-                id: clip.id.toString(), // DB ID is Int, convert to String
+                id: clip.id.toString(),
                 scene: clip.scene || '',
                 status: clip.status,
                 title: clip.title || '',
@@ -147,24 +130,19 @@ export async function GET() {
                 characterImageUrls,
                 locationImageUrls,
                 resultUrl: clip.resultUrl || '',
-                taskId: clip.taskId || '', // Expose Task ID separately
+                taskId: clip.taskId || '',
                 seed: clip.seed || '',
-                episode: clip.episode.number.toString(), // Return NUMBER string '1', not UUID, to match UI expectations?
-                // WARNING: If we return '1', but filtering expects something else...
-                // The frontend filters clips by `clip.episode === selectedEpisode`.
-                // If the Episode List returns UUIDs, filtering breaks.
-                // If Episode List returns '1', '2', then filtering works.
-                // Let's stick to "Episode Number" (String) for the 'episode' field in Clip JSON.
+                episode: clip.episode.number.toString(),
                 series: seriesId,
                 sortOrder: clip.sortOrder,
-                model: clip.model || ''
+                model: clip.model || '',
+                isHiddenInStoryboard: clip.isHiddenInStoryboard || false,
+                thumbnailPath: clip.thumbnailPath || ''
             };
         });
 
         // Update Series Episode Counts
         series.forEach(s => {
-            // Count unique Clip.Episodes or DB Episodes?
-            // DB Episodes
             const count = dbEpisodes.filter(e => e.seriesId === s.id).length;
             s.currentEpisodes = count.toString();
         });
@@ -234,9 +212,25 @@ export async function POST(req: Request) {
                 refImageUrls: clip.explicitRefUrls || '', // Store explicit only
                 episodeId: dbEpisode.id,
                 sortOrder: clip.sortOrder || 0,
+                // If initializing with a resultUrl (rare for new clips, but possible)
+                resultUrl: clip.resultUrl || undefined,
             },
             include: { episode: true }
         });
+
+        // Async Thumbnail Generation
+        if (newClip.resultUrl) {
+            generateThumbnail(newClip.resultUrl, newClip.id.toString())
+                .then(async (thumbnailPath) => {
+                    if (thumbnailPath) {
+                        await db.clip.update({
+                            where: { id: newClip.id },
+                            data: { thumbnailPath }
+                        });
+                        console.log(`Thumbnail generated for NEW clip ${newClip.id}: ${thumbnailPath}`);
+                    }
+                });
+        }
 
         return NextResponse.json({
             success: true,
@@ -251,6 +245,62 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error('POST Error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+export async function PUT(req: Request) {
+    try {
+        const { clip } = await req.json();
+
+        if (!clip.id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        const intId = parseInt(clip.id);
+
+        // Update the clip
+        const updatedClip = await db.clip.update({
+            where: { id: intId },
+            data: {
+                scene: clip.scene,
+                title: clip.title,
+                character: clip.character,
+                location: clip.location,
+                style: clip.style,
+                camera: clip.camera,
+                action: clip.action,
+                dialog: clip.dialog,
+                status: clip.status,
+                refImageUrls: clip.explicitRefUrls,
+                resultUrl: clip.resultUrl,
+                isHiddenInStoryboard: clip.isHiddenInStoryboard
+            }
+        });
+
+        // Helper to check if we need to generate a thumbnail
+        // 1. We have a resultUrl
+        // 2. AND (We don't have a thumbnail OR The resultUrl changed OR we are forced)
+        // For now, simpler: If resultUrl touches, try generating if missing? 
+        // Or just always try if resultUrl is present? 
+        // Better: If resultUrl exists, run generation. It's fast enough.
+        // Even better: Check if we already have one?
+        // Let's just generate if resultUrl is present and we are updating it.
+
+        if (clip.resultUrl && clip.resultUrl !== '') {
+            generateThumbnail(clip.resultUrl, intId.toString())
+                .then(async (thumbnailPath) => {
+                    if (thumbnailPath) {
+                        await db.clip.update({
+                            where: { id: intId },
+                            data: { thumbnailPath }
+                        });
+                        console.log(`Thumbnail updated for clip ${intId}`);
+                    }
+                });
+        }
+
+        return NextResponse.json({ success: true, clip: updatedClip });
+
+    } catch (error: any) {
+        console.error('PUT Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

@@ -1,3 +1,7 @@
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -25,6 +29,7 @@ model Episode {
   number    Int      // 1, 2, 3
   title     String?  // "The Beginning"
   model     String?  // "veo-2", "veo-3" (Episode-level override)
+  storyboardVersion Int @default(1)
   
   // Relations
   seriesId  String
@@ -42,9 +47,6 @@ model StudioItem {
   negatives   String?
   notes       String?
   episode     String?  // "1" (Keep as string for now to match sheet usage, or int?)
-                       // Sheet uses "Episode" column to scope items? 
-                       // Schema plan says "A Series has many Studio Assets".
-                       // But items are often filtered by Episode in UI.
   
   // Relations
   seriesId    String
@@ -74,12 +76,12 @@ model Clip {
   // Media
   refImageUrls    String?  // The EXPLICIT urls string "url1, url2"
   resultUrl       String?
+  thumbnailPath   String?  // Local static path
+  previewUrl      String?  // Temp Kie link
+  isHiddenInStoryboard Boolean @default(false)
   taskId          String?  // Kie.ai Task ID
   
   // Relations
   episodeId       String
   episode         Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
 }
-
-
-

@@ -140,3 +140,118 @@
     box-shadow: none !important;
   }
 }
+
+/* PRINT STYLES */
+@page {
+  size: auto;
+  margin: 14mm 9mm 0 9mm;
+}
+
+@media print {
+
+  /* Hide Non-Essential UI */
+  header,
+  nav,
+  aside,
+  .no-print,
+  [role="tooltip"] {
+    display: none !important;
+  }
+
+  /* Layout Reset */
+  body,
+  main,
+  #__next {
+    background: white !important;
+    color: black !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  /* Remove any errant borders from main containers in print */
+  .border,
+  .border-l,
+  .border-r,
+  .border-t,
+  .border-b {
+    border: none !important;
+  }
+
+  /* Re-enable border mainly for the specific items we want */
+  .print\:border-b-2 {
+    border-bottom: 2px solid black !important;
+  }
+
+  /* Force Background Graphics (needed for images/colors) */
+  /* Force Background Graphics ONLY for images/media to ensure they print */
+  img,
+  video,
+  .print-media {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Storyboard Specifics */
+
+  /* 3x2 Landscape Grid Logic */
+  /* We want roughly 6 items per page */
+  .print\:landscape-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    grid-auto-rows: min-content;
+    /* Sized to content, not fixed height */
+    page-break-inside: auto;
+    /* Allow breaking between rows */
+  }
+
+  .print\:landscape-grid>div {
+    page-break-inside: avoid;
+    /* Don't split a card */
+    break-inside: avoid;
+  }
+
+  /* 6x1 Portrait List Logic */
+  .print\:portrait-list {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .print\:portrait-list>div {
+    page-break-inside: avoid;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    display: flex !important;
+    flex-direction: row !important;
+    /* Horizontal layout for list items */
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  /* Targeting specific children in the list view (fragile but effective for simple structure) */
+  /* 1. Header (Scene #) */
+  .print\:portrait-list>div>div:nth-child(1) {
+    width: 40px;
+    flex-shrink: 0;
+  }
+
+  /* 2. Media Thumbnail */
+  .print\:portrait-list>div>div:nth-child(2) {
+    width: 160px !important;
+    /* Small thumbnail */
+    height: 90px !important;
+    flex-shrink: 0;
+    margin-bottom: 0 !important;
+    /* Reset margin */
+    border: 1px solid #ddd;
+  }
+
+  /* 3. Description + Dialog */
+  .print\:portrait-list>div>div:nth-child(3),
+  .print\:portrait-list>div>div:nth-child(4) {
+    flex: 1;
+    font-size: 10px;
+  }
+}

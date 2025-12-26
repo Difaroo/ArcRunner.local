@@ -496,8 +496,9 @@ export function ClipRow({
                     <div className="flex justify-start">
                         <MediaDisplay
                             url={clip.resultUrl}
+                            originalUrl={clip.resultUrl}
                             model={clip.model}
-                            onPlay={onPlay}
+                            // onPlay={onPlay} // Removed
                             className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
                         />
                     </div>

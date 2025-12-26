@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { checkKieTaskStatus } from '@/lib/kie';
+import { generateThumbnail } from '@/lib/thumbnail-generator';
 
 export async function POST(req: Request) {
     try {
@@ -74,11 +75,24 @@ export async function POST(req: Request) {
                             });
                             updateCount++;
                         } else {
+                            let thumbnailPath = undefined;
+                            if (status === 'Done' && finalResult) {
+                                try {
+                                    // Generate thumbnail before update to keep it atomic if possible, 
+                                    // or update separately. Here we do it sequentially to ensure db record is complete.
+                                    const path = await generateThumbnail(finalResult, idInt.toString());
+                                    if (path) thumbnailPath = path;
+                                } catch (e) {
+                                    console.error(`Thumbnail gen failed for ${taskId}:`, e);
+                                }
+                            }
+
                             await db.clip.update({
                                 where: { id: idInt },
                                 data: {
                                     status: finalStatus,
-                                    resultUrl: finalResult
+                                    resultUrl: finalResult,
+                                    ...(thumbnailPath ? { thumbnailPath } : {})
                                 }
                             });
                             updateCount++;

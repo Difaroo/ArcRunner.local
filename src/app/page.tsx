@@ -28,6 +28,7 @@ import { PageHeader } from "@/components/PageHeader"
 
 import { ScriptView } from "@/components/ingest/ScriptView"
 import { LibraryTable } from "@/components/library/LibraryTable"
+import { StoryboardView } from "@/components/storyboard/StoryboardView"
 
 
 import { LibraryItem } from '@/lib/library';
@@ -57,7 +58,8 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [selectedModel, setSelectedModel] = useState('veo-fast');
   const [episodeStyles, setEpisodeStyles] = useState<Record<string, string>>({});
-  const [currentView, setCurrentView] = useState<'series' | 'script' | 'library' | 'clips' | 'settings'>('series');
+  const [currentView, setCurrentView] = useState<'series' | 'script' | 'library' | 'clips' | 'settings' | 'storyboard'>('series');
+  const [printLayout, setPrintLayout] = useState<'3x2' | '6x1' | 'auto'>('3x2');
 
   // --- Series Renaming Logic ---
   const [isEditingSeriesName, setIsEditingSeriesName] = useState(false);
@@ -204,7 +206,7 @@ export default function Home() {
     }
   }, [showAddSeriesDialog]);
 
-  const handleViewChange = (view: 'series' | 'script' | 'library' | 'clips' | 'settings') => {
+  const handleViewChange = (view: 'series' | 'script' | 'library' | 'clips' | 'settings' | 'storyboard') => {
     if (currentView === 'settings' && view !== 'settings') {
       const savedVideo = localStorage.getItem("videoPromptTemplate")
       const savedImage = localStorage.getItem("imagePromptTemplate")
@@ -1138,6 +1140,27 @@ export default function Home() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
+
+            {/* Storyboard Button moved here */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={currentView === 'storyboard' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => handleViewChange('storyboard')}
+                    className={`text-xs ${currentView === 'storyboard' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
+                  >
+                    Storyboard
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>View Storyboard</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1182,11 +1205,11 @@ export default function Home() {
             </Tooltip>
           </TooltipProvider>
         </div>
-      </header>
+      </header >
 
 
       {/* Navigation & Toolbar */}
-      <div className="flex flex-col border-b border-border/40 bg-background/50 backdrop-blur-sm">
+      < div className="flex flex-col border-b border-border/40 bg-background/50 backdrop-blur-sm print:hidden" >
         <div className="flex items-center justify-between px-6 h-[45px]">
           {/* Episode Tabs (Non-Series View) */}
           {currentView !== 'series' && currentView !== 'settings' && (
@@ -1236,7 +1259,7 @@ export default function Home() {
             )}
           </div>
         </div>
-      </div>
+      </div >
 
       {/* ... (rest of code) ... */}
 
@@ -1282,7 +1305,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
       {
-        (currentView === 'clips' || currentView === 'library' || currentView === 'script' || currentView === 'series' || currentView === 'settings') && (
+        (currentView === 'clips' || currentView === 'library' || currentView === 'script' || currentView === 'series' || currentView === 'settings' || currentView === 'storyboard') && (
           <PageHeader
             title={
               currentView === 'series' ? (
@@ -1335,7 +1358,7 @@ export default function Home() {
                 </div>
               )
             }
-            className="border-t border-white/5 border-b-0"
+            className="border-t border-white/5 border-b-0 print:mb-8"
           >
             {currentView === 'series' && (
               <div className="flex items-center gap-4">
@@ -1436,6 +1459,50 @@ export default function Home() {
                 />
               </div>
             )}
+            {currentView === 'storyboard' && (
+              <div className="flex items-center gap-4 print:hidden">
+                <div className="flex gap-2 items-center text-sm text-stone-400 bg-stone-900 border border-stone-800 rounded-md p-1 mr-4">
+                  <span className="text-xs text-stone-500 uppercase tracking-wider font-semibold px-2">Layout</span>
+                  <Button
+                    onClick={() => setPrintLayout('3x2')}
+                    size="sm"
+                    variant={printLayout === '3x2' ? 'default' : 'outline'}
+                    className={`h-7 text-xs gap-1 ${printLayout !== '3x2' ? 'border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary' : ''}`}
+                  >
+                    <span className="material-symbols-outlined !text-sm">crop_landscape</span>
+                    Landscape
+                  </Button>
+                  <Button
+                    onClick={() => setPrintLayout('6x1')}
+                    size="sm"
+                    variant={printLayout === '6x1' ? 'default' : 'outline'}
+                    className={`h-7 text-xs gap-1 ${printLayout !== '6x1' ? 'border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary' : ''}`}
+                  >
+                    <span className="material-symbols-outlined !text-sm">crop_portrait</span>
+                    Portrait
+                  </Button>
+                  <Button
+                    onClick={() => setPrintLayout('auto')}
+                    size="sm"
+                    variant={printLayout === 'auto' ? 'default' : 'outline'}
+                    className={`h-7 text-xs gap-1 ${printLayout !== 'auto' ? 'border-primary/50 text-primary hover:bg-primary/10 hover:text-primary hover:border-primary' : ''}`}
+                  >
+                    <span className="material-symbols-outlined !text-sm">auto_awesome</span>
+                    Auto
+                  </Button>
+                </div>
+
+                <Button
+                  variant="default"
+                  size="icon"
+                  onClick={() => window.print()}
+                  className="h-8 w-8"
+                  title="Export PDF"
+                >
+                  <span className="material-symbols-outlined !text-lg">print</span>
+                </Button>
+              </div>
+            )}
             {/* Script View needs no toolbar actions in header currently, or maybe move the ingestion controls here later? For now, empty or standard. */}
           </PageHeader>
         )
@@ -1506,6 +1573,12 @@ export default function Home() {
                 }}
                 onDelete={handleDeleteLibraryItem}
                 onDuplicate={handleDuplicateLibraryItem}
+              />
+            ) : currentView === 'storyboard' ? (
+              <StoryboardView
+                clips={activeClips}
+                onToggleHide={(clipId, hidden) => handleSave(clipId, { isHiddenInStoryboard: hidden })}
+                printLayout={printLayout}
               />
             ) : (
               <ClipTable

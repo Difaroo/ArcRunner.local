@@ -134,3 +134,31 @@ A significant UX overhaul for the Series Page to streamline episode management a
 - **Table Styling**: Updated table headers to standard uppercase/stone style.
 - **Visual Cleanup**: Removed redundant side panel titles and unified background colors.
 - **Version Bump**: 0.8.1 -> 0.9.0.
+
+## 2025-12-24: Storyboard & Frontend Architecture Review
+
+### Context
+Implemented the Storyboard view to provide a visual timeline of scenes. Following this, a focused architectural review of the frontend was conducted to identify technical debt and future refactoring needs.
+
+### Features (Storyboard)
+- **Visual Grid**: 4-column layout for scene visualization.
+- **Print Optimization**: Global styles to strip UI chrome for clean PDF exports.
+- **Visibility Toggle**: "Soft hide" for clips (greyed out in UI, hidden in Print).
+
+### Architectural Review Findings
+A deep-dive into the stack structure revealed specific areas for improvement:
+- **Monolith Component**: `page.tsx` (>1600 lines) needs splitting into View components.
+- **State Management**: Complex `useState` trees should move to Zustand or Context.
+
+### Print Layout Refinements
+- **Native Browser Control**: Removed custom "Table Hacks" to allow cleaner browser margin management.
+- **Dual Layout Modes**:
+    - **Landscape**: Standard 3x2 Grid for high-fidelity thumbnails.
+    - **Portrait**: Specialized "Row Layout" (Image | Scene | Action | Dialog) for high-density lists (6 per page).
+- **Screen Decoupling**: Ensured changing Print Layout settings does not break the on-screen UI.
+- **Precision Margins**: Fine-tuned to 14mm Top, 9mm Sides, 0 Bottom with specific header spacing.
+- **State Management**: Current `useAppStore` hook causes excessive re-renders; recommendation to move to Zustand.
+- **Type Definitions**: Shared types (`Clip`, `Series`) are currently co-located in API routes, creating circular dependencies.
+
+### Reference
+- [Full Stack Review & Recommendations](architecture/full_stack_review_and_recommendations.md)

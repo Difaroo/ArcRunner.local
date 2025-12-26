@@ -94,7 +94,7 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                         {items.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={9} className="h-24 text-center text-stone-500">
-                                    No library items found.
+                                    No studio items found.
                                 </TableCell>
                             </TableRow>
                         ) : (

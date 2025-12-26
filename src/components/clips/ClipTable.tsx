@@ -150,6 +150,13 @@ export function ClipTable({
                                 />
                             ))}
                         </SortableContext>
+                        {clips.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={12} className="h-24 text-center text-stone-500">
+                                    No clips found.
+                                </TableCell>
+                            </TableRow>
+                        )}
                     </TableBody>
                 </Table>
             </DndContext>

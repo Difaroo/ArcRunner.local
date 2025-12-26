@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { generateThumbnail } from '@/lib/thumbnail-generator';
+import fs from 'fs';
+import path from 'path';
 
 export async function POST(request: Request) {
     try {
@@ -24,7 +27,7 @@ export async function POST(request: Request) {
         const prismaData: any = {};
         for (const [key, value] of Object.entries(updates)) {
             if (validFields.includes(key)) {
-                // Ensure correct types if needed (e.g. sortOrder is Int)
+                // ... (existing logic)
                 if (key === 'sortOrder') {
                     prismaData[key] = parseInt(value as string) || 0;
                 } else {
@@ -33,10 +36,39 @@ export async function POST(request: Request) {
             }
         }
 
-        await db.clip.update({
+        const updatedClip = await db.clip.update({
             where: { id },
             data: prismaData
         });
+
+        // Robustness Check: Does the thumbnail actually exist on disk?
+        let thumbnailFileExists = false;
+        if (updatedClip.thumbnailPath) {
+            // Remove leading slash if present to join correctly with public dir
+            const relPath = updatedClip.thumbnailPath.startsWith('/') ? updatedClip.thumbnailPath.slice(1) : updatedClip.thumbnailPath;
+            const absPath = path.join(process.cwd(), 'public', relPath);
+            thumbnailFileExists = fs.existsSync(absPath);
+        }
+
+        // Trigger Thumbnail Generation if:
+        // 1. resultUrl explicitly changed (updates.resultUrl)
+        // 2. OR resultUrl exists AND (thumbnail is missing in DB OR missing on Disk)
+        const shouldGenerate = (updates.resultUrl) || (updatedClip.resultUrl && (!updatedClip.thumbnailPath || !thumbnailFileExists));
+
+        if (shouldGenerate && updatedClip.resultUrl) {
+            // Run in background
+            generateThumbnail(updatedClip.resultUrl, id.toString())
+                .then(async (thumbnailPath) => {
+                    if (thumbnailPath) {
+                        await db.clip.update({
+                            where: { id },
+                            data: { thumbnailPath }
+                        });
+                        console.log(`Thumbnail generated/repaired for clip ${id}: ${thumbnailPath}`);
+                    }
+                })
+                .catch(err => console.error('Thumbnail generation failed:', err));
+        }
 
         return NextResponse.json({ success: true });
 
@@ -45,4 +77,3 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-
