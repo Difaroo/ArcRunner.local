@@ -162,3 +162,25 @@ A deep-dive into the stack structure revealed specific areas for improvement:
 
 ### Reference
 - [Full Stack Review & Recommendations](architecture/full_stack_review_and_recommendations.md)
+
+## 2025-12-26: v0.10.0 - Storyboard v1 & Universal Media Preview
+
+### Context
+This milestone release introduces the **Storyboard View** for visual storytelling and significantly upgrades the media handling architecture. It also solidifies the Print Workflow to support professional PDF exports.
+
+### Features
+- **Storyboard View**:
+    - A dedicated visual timeline for managing scenes.
+    - **Print Layout Engine**: Robust "Portrait 6x1" and "Landscape 3x2" modes with precision 14mm/9mm margins.
+    - **Visibility Controls**: Soft-hide clips from print without deleting them.
+- **Universal Media Preview**:
+    - **Smart Modals**: Centralized standard for viewing media. clicking a thumbnail now opens a high-fidelity Modal (Player for Video, Lightbox for Image).
+    - **Content Awareness**: The UI correctly identifies Video vs Image content even when displaying a fallback thumbnail.
+- **Backend Robustness**:
+    - **Defensive Thumbnailing**: Integrated `generateThumbnail` directly into the polling loop to ensure no "Missing Thumbnail" states occur after jobs complete.
+    - **Safe-Fail Logic**: Processing errors are logged but do not block result URL saving.
+
+### Architecture
+- **Refactor**: Decoupled `MediaDisplay` from ad-hoc `window.open` calls to a self-contained component using `MediaPreviewModal`.
+- **Docs**: Updated [Walkthrough](walkthrough.md) and [Full Stack Review](architecture/full_stack_review_and_recommendations.md).
+- **Version Bump**: 0.9.0 -> 0.10.0.
