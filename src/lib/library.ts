@@ -12,10 +12,13 @@ export interface LibraryItem {
     name: string;
     description: string;
     refImageUrl: string;
+    thumbnailPath?: string;
     negatives: string;
     notes: string;
     episode: string;
     series: string;
+    status?: string;
+    taskId?: string;
 }
 
 /**
@@ -38,10 +41,13 @@ export async function getLibraryItems(filterSeriesId?: string): Promise<LibraryI
             name: item.name,
             description: item.description || '',
             refImageUrl: item.refImageUrl ? (convertDriveUrl(item.refImageUrl) || item.refImageUrl) : '',
+            thumbnailPath: item.thumbnailPath || '',
             negatives: item.negatives || '',
             notes: item.notes || '',
             episode: item.episode || '1',
-            series: item.seriesId
+            series: item.seriesId,
+            status: item.status || 'IDLE',
+            taskId: item.taskId || ''
         }));
     } catch (error) {
         console.error('Error fetching library items (DB):', error);

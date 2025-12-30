@@ -7,6 +7,16 @@ export async function GET(request: NextRequest) {
         return new NextResponse('Missing URL parameter', { status: 400 });
     }
 
+    const lower = url.toLowerCase();
+    if (lower === 'waiting' || lower === 'generating' || lower.startsWith('task:') || lower.includes('error')) {
+        return new NextResponse('Invalid URL', { status: 400 });
+    }
+
+    // Check for valid protocol
+    if (!url.startsWith('http') && !url.startsWith('/')) {
+        return new NextResponse('Invalid Protocol', { status: 400 });
+    }
+
     try {
         const response = await fetch(url);
         if (!response.ok) {

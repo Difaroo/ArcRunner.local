@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { checkKieTaskStatus } from '@/lib/kie';
 import { generateThumbnail } from '@/lib/thumbnail-generator';
+import { persistLibraryImage } from '@/lib/media-persistence';
 
 export async function POST(req: Request) {
     try {
@@ -67,10 +68,46 @@ export async function POST(req: Request) {
                         const finalStatus = status === 'Done' ? 'Done' : 'Error';
 
                         if (isLibrary) {
+                            let thumbnailPath: string | undefined = undefined;
+                            let finalStoredUrl = finalResult; // Default to remote
+
+                            // Only persist if success and it's a valid remote URL
+                            if (status === 'Done' && finalResult?.startsWith('http')) {
+                                try {
+                                    const saved = await persistLibraryImage(finalResult, idInt.toString());
+                                    // Use the LOCAL path as the canonical URL
+                                    finalStoredUrl = saved.localPath;
+                                    thumbnailPath = saved.thumbnailPath || undefined;
+                                } catch (e) {
+                                    console.error(`Library persistence failed for ${taskId}, keeping remote URL:`, e);
+                                    // Fallback: Try generic thumbnail gen
+                                    try {
+                                        const path = await generateThumbnail(finalResult, idInt.toString());
+                                        if (path) thumbnailPath = path;
+                                    } catch (e2) { }
+                                }
+                            }
+
+                            // Fetch current state to prepend, not overwrite
+                            const currentItem = await db.studioItem.findUnique({ where: { id: idInt } });
+                            const existingUrl = currentItem?.refImageUrl || '';
+
+                            // Prepend the new URL (Local or Remote)
+                            const cleanExisting = existingUrl.replace(/^,|,$/g, '').trim();
+                            const newRefUrl = cleanExisting ? `${finalStoredUrl},${cleanExisting}` : finalStoredUrl;
+
+                            console.log(`[PollLibrary] Updating Item ${idInt}: Status=${finalStatus}`, {
+                                finalStoredUrl,
+                                newRefUrl,
+                                thumbnailPath
+                            });
+
                             await db.studioItem.update({
                                 where: { id: idInt },
                                 data: {
-                                    refImageUrl: finalResult
+                                    status: finalStatus,
+                                    refImageUrl: finalStatus === 'Done' ? newRefUrl : existingUrl,
+                                    ...(thumbnailPath ? { thumbnailPath } : {})
                                 }
                             });
                             updateCount++;

@@ -93,17 +93,20 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
 
             // 2. Scan Library
             libItems.forEach(i => {
-                if (i.refImageUrl && i.refImageUrl.startsWith('TASK:')) {
+                const isGenerating = i.status === 'GENERATING';
+                const hasTask = i.taskId && i.taskId.length > 5;
+
+                if (isGenerating && hasTask) {
                     targets.push({
                         type: 'LIBRARY',
                         id: i.id,
-                        taskId: i.refImageUrl.replace('TASK:', '')
+                        taskId: i.taskId!
                     });
                 }
             });
 
             if (targets.length > 0) {
-                console.log(`[Polling] Checking ${targets.length} active tasks...`);
+                console.log(`[Polling] Checking ${targets.length} active tasks:`, targets.map(t => ({ id: t.id, task: t.taskId })));
                 try {
                     const res = await fetch('/api/poll', {
                         method: 'POST',

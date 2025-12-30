@@ -1,10 +1,12 @@
 export interface FluxPayload {
-    model: string; // 'flux-2/flex-text-to-image'
+    model: string; // 'flux-2/pro-image-to-image'
+    callBackUrl?: string;
     input: {
         prompt: string;
         aspect_ratio: string; // '16:9'
         resolution: string; // '2K'
-        image_ref_urls?: string[];
+        input_urls?: string[]; // NEW SPEC
+        image_ref_urls?: string[]; // LEGACY
         disable_safety_checker?: boolean;
         [key: string]: any;
     };

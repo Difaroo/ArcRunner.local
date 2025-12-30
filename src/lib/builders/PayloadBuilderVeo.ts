@@ -1,7 +1,7 @@
 import { PayloadBuilder, GenerationContext } from './PayloadBuilder';
 import { VeoPayload } from '@/lib/kie-types';
 
-export class VeoPayloadBuilder implements PayloadBuilder {
+export class PayloadBuilderVeo implements PayloadBuilder {
 
     supports(modelId: string): boolean {
         // Legacy: 'veo', 'veo-2', 'veo-fast' all map to this builder

@@ -85,6 +85,14 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
     };
 
     const handleDeleteClick = (url: string) => {
+        // If it's a broken/status string, delete instantly without confirmation
+        const lower = url.toLowerCase();
+        if (lower === 'waiting' || lower === 'generating' || lower.startsWith('task:') || lower.includes('error')) {
+            const currentUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean) : [];
+            const newUrls = currentUrls.filter(u => u !== url);
+            onChange(newUrls.join(','));
+            return;
+        }
         setImageToDelete(url);
     };
 
@@ -133,36 +141,46 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                     </TooltipProvider>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-0">
-                    {imageUrls.map((url, idx) => (
-                        <div key={idx} className="relative group">
-                            <div className="w-10 h-10 rounded overflow-hidden border border-stone-700 bg-stone-900">
-                                <img
-                                    src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                    alt="Thumbnail"
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteClick(url);
+                    {imageUrls.map((url, idx) => {
+                        const lower = url.toLowerCase();
+                        const isStatus = lower === 'waiting' || lower === 'generating' || lower.startsWith('task:');
+                        const isError = lower.includes('error');
+
+                        return (
+                            <div key={idx} className="relative group" title={url}>
+                                <div className={`w-10 h-10 rounded overflow-hidden border ${isError ? 'border-red-500 bg-red-900/20' : 'border-stone-700 bg-stone-900'} flex items-center justify-center`}>
+                                    {isStatus ? (
+                                        <Loader2 className="h-5 w-5 animate-spin text-stone-500" />
+                                    ) : isError ? (
+                                        <span className="material-symbols-outlined text-red-500 text-lg">error</span>
+                                    ) : (
+                                        <img
+                                            src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                            alt="Thumbnail"
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                if (!isStatus && !isError) (e.target as HTMLImageElement).src = 'https://placehold.co/100x150/1a1a1a/666?text=Err';
                                             }}
-                                            className="absolute -top-1 -right-1 bg-stone-900 rounded-full p-0.5 shadow-sm border border-stone-700 hover:bg-stone-800 transition-colors z-10"
-                                        >
-                                            <X className="h-3 w-3 text-primary" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Delete image</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        </div>
-                    ))}
+                                        />
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleDeleteClick(url);
+                                    }}
+                                    className="absolute -top-2 -right-2 bg-stone-900 rounded-full p-1 shadow-md border border-stone-600 hover:bg-red-900/90 hover:border-red-500 transition-colors z-50 cursor-pointer flex items-center justify-center"
+                                    title="Delete Image"
+                                >
+                                    <X className="h-3 w-3 text-stone-200" />
+                                </button>
+                            </div>
+                        )
+                    })}
                 </div>
+
 
                 <AlertDialog open={!!imageToDelete} onOpenChange={(open) => !open && setImageToDelete(null)}>
                     <AlertDialogContent>
@@ -195,18 +213,28 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
 
     // Display Mode
     if (imageUrl) {
+        const lower = imageUrl.toLowerCase();
+        const isStatus = lower === 'waiting' || lower === 'generating' || lower.startsWith('task:');
+        const isError = lower.includes('error');
+
         return (
-            <div className="relative w-24 h-24 rounded-md overflow-hidden border border-black bg-stone-900 ml-auto group">
-                <img
-                    src={imageUrl.startsWith('/api/') ? imageUrl : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`}
-                    alt="Ref"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    loading="lazy"
-                    onError={(e) => {
-                        // Fallback if image fails to load
-                        (e.target as HTMLImageElement).src = 'https://placehold.co/100x150/1a1a1a/666?text=Error';
-                    }}
-                />
+            <div className="relative w-24 h-24 rounded-md overflow-hidden border border-black bg-stone-900 ml-auto group flex items-center justify-center">
+                {isStatus ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-stone-500" />
+                ) : isError ? (
+                    <span className="material-symbols-outlined text-red-500 text-2xl">error</span>
+                ) : (
+                    <img
+                        src={imageUrl.startsWith('/api/') ? imageUrl : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`}
+                        alt="Ref"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
+                        onError={(e) => {
+                            // Fallback if image fails to load
+                            (e.target as HTMLImageElement).src = 'https://placehold.co/100x150/1a1a1a/666?text=Error';
+                        }}
+                    />
+                )}
             </div>
         );
     }

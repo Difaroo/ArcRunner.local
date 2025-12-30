@@ -23,6 +23,10 @@ export function MediaDisplay({
 }: MediaDisplayProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // Handle comma-separated lists (take first)
+    const effectiveUrl = url ? url.split(',')[0].trim() : '';
+    const effectiveOriginalUrl = originalUrl ? originalUrl.split(',')[0].trim() : effectiveUrl;
+
     // 1. Determine Content Type (What it IS)
     // If explicit type provided, use it. Else detect.
     const getMediaType = (): 'video' | 'image' => {
@@ -35,7 +39,7 @@ export function MediaDisplay({
         if (lowerModel.includes('flux') || lowerModel.includes('dalle') || lowerModel.includes('midjourney')) return 'image';
 
         // Fallback to Extension on ORIGINAL url (most accurate)
-        const checkUrl = originalUrl || url;
+        const checkUrl = effectiveOriginalUrl || effectiveUrl;
         if (checkUrl.match(/\.(mp4|webm|mov)($|\?)/i)) return 'video';
 
         // Default to Image if unknown or image ext
@@ -43,7 +47,6 @@ export function MediaDisplay({
     }
 
     const type = getMediaType();
-    const effectiveOriginalUrl = originalUrl || url;
 
     // 2. Determine Display Format (How to show the preview)
     // If it's a thumbnail, or it's an Image type, we allow Image Tag.
@@ -53,6 +56,10 @@ export function MediaDisplay({
     // Proxy Helper
     const getSrc = (u: string, t: 'image' | 'video') => {
         if (!u) return '';
+        // Skip Proxy for Non-URLs (Status messages, TASK IDs, etc)
+        const lower = u.toLowerCase();
+        if (lower === 'waiting' || lower === 'generating' || lower.startsWith('task:') || lower.includes('error')) return '';
+
         if (u.startsWith('/api/') || u.startsWith('/thumbnails/') || u.startsWith('/uploads/')) return u;
         if (t === 'image') return `/api/proxy-image?url=${encodeURIComponent(u)}`;
         return `/api/proxy-download?url=${encodeURIComponent(u)}`;
@@ -76,7 +83,7 @@ export function MediaDisplay({
                 {/* Visual Representation */}
                 {isImageDisplay ? (
                     <img
-                        src={getSrc(url, 'image')}
+                        src={getSrc(effectiveUrl, 'image')}
                         className="w-full h-full object-cover rounded border border-stone-800 shadow-sm transition-opacity group-hover:opacity-90"
                         alt="Preview"
                         loading="lazy"
@@ -88,7 +95,7 @@ export function MediaDisplay({
                     />
                 ) : (
                     <video
-                        src={getSrc(url, 'video')}
+                        src={getSrc(effectiveUrl, 'video')}
                         className="w-full h-full object-cover rounded border border-stone-800 shadow-sm"
                         preload="metadata"
                         muted

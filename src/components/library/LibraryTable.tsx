@@ -101,7 +101,7 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                             items.map((item) => {
                                 const isEditing = editingId === item.id;
                                 const isSelected = selectedItems.has(item.id);
-                                const isItemGenerating = (isGenerating && isGenerating(item.id)) || (item.refImageUrl ? item.refImageUrl.startsWith('TASK:') : false);
+                                const isItemGenerating = (isGenerating && isGenerating(item.id)) || (item.status === 'GENERATING') || (item.refImageUrl ? (item.refImageUrl.startsWith('TASK:') || item.refImageUrl.toLowerCase().includes('waiting')) : false);
 
                                 return (
                                     <LibraryRow

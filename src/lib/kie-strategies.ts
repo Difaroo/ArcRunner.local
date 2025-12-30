@@ -23,6 +23,9 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
     const { method, body } = options;
     const url = endpoint.startsWith('http') ? endpoint : `${KIE_BASE_URL}${endpoint}`;
     console.log(`[KieFetch] ${method} ${url}`);
+    if (body) {
+        console.log('[KieFetch] Request Body:', JSON.stringify(body, null, 2));
+    }
 
     // Resilience: 15s Timeout
     const controller = new AbortController();
@@ -41,6 +44,8 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
         });
 
         const data = await res.json();
+        console.log(`[KieFetch] Response [${res.status}]:`, JSON.stringify(data, null, 2));
+
         if (!res.ok) {
             throw new Error(data.error?.message || data.msg || JSON.stringify(data) || `Failed to call Kie.ai ${endpoint}`);
         }
@@ -75,12 +80,13 @@ export class FluxStrategy implements KieStrategy {
 
     async checkStatus(taskId: string): Promise<StatusResult> {
         const res = await kieFetch<{ state: string, resultJson?: string }>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
+        console.log(`[FluxStrategy] Status Response for ${taskId}:`, JSON.stringify(res, null, 2));
         const state = (res.data?.state || '').toLowerCase();
         let status: AppStatus = 'Generating';
         let resultUrl = '';
         let errorMsg = '';
 
-        const activeStates = ['queued', 'generating', 'processing', 'created', 'starting'];
+        const activeStates = ['queued', 'queuing', 'waiting', 'generating', 'processing', 'created', 'starting'];
         if (activeStates.includes(state)) {
             status = 'Generating';
         } else if (['success', 'succeeded', 'completed', 'done'].includes(state)) {

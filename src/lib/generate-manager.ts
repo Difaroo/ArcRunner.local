@@ -86,7 +86,7 @@ export class GenerateManager {
         let rawModel = effectiveModel || 'veo'; // Downgrade default to 'veo' (veo-2 might be invalid)
 
         // NORMALIZE LEGACY MODELS
-        if (rawModel === 'flux' || rawModel === 'flux-pro') rawModel = 'flux-kontext-pro';
+        if (rawModel === 'flux' || rawModel === 'flux-pro') rawModel = 'flux-2/flex-image-to-image';
 
         // RESTORE LEGACY VEO ID
         // 'veo-2' and 'veo' and 'veo-fast' all failed (422). 
@@ -105,52 +105,74 @@ export class GenerateManager {
         try {
             let result;
 
-            if (isVideo) {
-                // --- VEO BUILDER REFACTOR ---
-                const builder = BuilderFactory.getBuilder(model);
-                if (!builder) throw new Error(`Model not supported: ${model}`);
+            // --- UNIFIED BUILDER PATTERN ---
+            // Works for both Veo (Video) and Flux (Image)
+            const builder = BuilderFactory.getBuilder(model);
+            if (!builder) throw new Error(`Model not supported: ${model}`);
 
-                let imageUrls: string[] = [];
-                if (fullRefs) {
-                    const rawUrls = fullRefs.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
-                    imageUrls = await Promise.all(rawUrls.map(url => this.ensurePublicUrl(url)));
-                }
+            let publicImageUrls: string[] = [];
+            if (fullRefs) {
+                const rawUrls = fullRefs.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
 
-                const payload = builder.build({ input, publicImageUrls: imageUrls });
+                // Robustness: Use allSettled to ensure one bad link doesn't kill usage of others
+                const results = await Promise.allSettled(rawUrls.map(url => this.ensurePublicUrl(url)));
 
-                if (input.dryRun) {
-                    // @ts-ignore
-                    return { taskId: 'DRY-RUN', debugPayload: payload };
-                }
+                publicImageUrls = results
+                    .filter(r => r.status === 'fulfilled')
+                    .map(r => (r as PromiseFulfilledResult<string>).value);
 
-                console.log(`[GenerateManager] Sending to Kie (Veo)...`, JSON.stringify(payload, null, 2));
-                result = await createVeoTask(payload);
-
-            } else {
-                // Prepare Flux Payload
-                let fluxImageUrls: string[] | undefined;
-                if (fullRefs) {
-                    const raw = fullRefs.split(',').map(s => s.trim()).filter(Boolean);
-                    fluxImageUrls = await Promise.all(raw.map(url => this.ensurePublicUrl(url)));
-                }
-
-                const payload: FluxPayload = {
-                    model: model,
-                    input: {
-                        prompt: input.clip.prompt || this.buildPrompt(input.clip, model),
-                        aspect_ratio: (input.aspectRatio || "16:9"),
-                        resolution: "2K", // Enforce Golden Master
-                        image_ref_urls: fluxImageUrls,
-                        disable_safety_checker: true
+                // Log failures for visibility
+                results.forEach((r, i) => {
+                    if (r.status === 'rejected') {
+                        console.warn(`[GenerateManager] Failed to resolve ref image '${rawUrls[i]}':`, r.reason);
                     }
-                };
+                });
+            }
 
-                if (input.dryRun) {
-                    return { taskId: 'DRY-RUN', debugPayload: payload };
+            // --- FLUX T2I PATCH ---
+            // 'flux-2/flex-image-to-image' requires input_urls to be non-empty.
+            // If we have no images (Text-to-Image), we must inject a dummy placeholder.
+            if (!isVideo && publicImageUrls.length === 0) {
+                console.log('[GenerateManager] No input images found for Flux. Injecting dummy placeholder for T2I.');
+                try {
+                    const dummyPath = '/api/media/defaults/empty.png';
+                    // We need to resolve this local path to a public URL via upload
+                    // ensurePublicUrl handles /api/ paths nicely?
+                    // Wait, ensurePublicUrl handles /api/media/uploads/ or /api/images/
+                    // I need to make sure ensurePublicUrl can handle this path or just manually do it.
+
+                    // Let's modify ensurePublicUrl logic slightly or just duplicate the logic here for safety
+                    const filePath = path.join(process.cwd(), 'storage/media/defaults/empty.png');
+                    if (fs.existsSync(filePath)) {
+                        const fileBuffer = await fs.promises.readFile(filePath);
+                        const base64 = fileBuffer.toString('base64');
+                        const uploadRes = await uploadFileBase64(base64, "empty.png");
+                        const publicUrl = uploadRes.data?.url || uploadRes.url || (uploadRes.data as any)?.downloadUrl;
+                        if (publicUrl) {
+                            publicImageUrls.push(publicUrl);
+                            console.log('[GenerateManager] Dummy injected:', publicUrl);
+                        }
+                    } else {
+                        console.error('[GenerateManager] CRITICAL: Dummy image missing at', filePath);
+                    }
+                } catch (e) {
+                    console.error('[GenerateManager] Failed to inject dummy image:', e);
                 }
+            }
 
-                console.log(`[GenerateManager] Sending to Kie (Flux)...`, payload);
-                result = await createFluxTask(payload);
+            const payload = builder.build({ input, publicImageUrls });
+
+            if (input.dryRun) {
+                // @ts-ignore
+                return { taskId: 'DRY-RUN', debugPayload: payload };
+            }
+
+            if (isVideo) {
+                console.log(`[GenerateManager] Sending to Kie (Veo)...`, JSON.stringify(payload, null, 2));
+                result = await createVeoTask(payload as VeoPayload);
+            } else {
+                console.log(`[GenerateManager] Sending to Kie (Flux)...`, JSON.stringify(payload, null, 2));
+                result = await createFluxTask(payload as FluxPayload);
             }
 
 

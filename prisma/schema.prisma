@@ -44,9 +44,12 @@ model StudioItem {
   name        String
   description String?
   refImageUrl String?
+  thumbnailPath String?
   negatives   String?
   notes       String?
   episode     String?  // "1" (Keep as string for now to match sheet usage, or int?)
+  status      String   @default("IDLE") // IDLE, GENERATING, DONE, ERROR
+  taskId      String?  // Active Kie Task ID (replacing URL hacking)
   
   // Relations
   seriesId    String

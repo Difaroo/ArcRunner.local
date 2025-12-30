@@ -35,6 +35,7 @@ import { MediaDisplay } from "@/components/media/MediaDisplay";
 import { RowActions } from "@/components/ui/RowActions";
 import { LibraryItem } from '@/lib/library';
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { useRowShortcuts } from "@/hooks/useRowShortcuts";
 
 interface LibraryRowProps {
     item: LibraryItem;
@@ -94,7 +95,18 @@ export function LibraryRow({
 
     const startLocalEdit = () => {
         const { refImageUrl, ...rest } = item;
-        const safeUrl = refImageUrl?.startsWith('TASK:') ? '' : refImageUrl;
+        // Sanitize: If Task ID, Error Status, or valid Error string -> Clear it for editing
+        const status = item.status?.toLowerCase() || '';
+        let urlCandidate = refImageUrl || '';
+
+        const isErrorStatus = status.includes('error') || status.includes('failed');
+        const isGarbage = urlCandidate.startsWith('TASK:') || urlCandidate.startsWith('DEBUG') || urlCandidate.length > 3000;
+
+        // Final check: Must start with http or /
+        const isUrl = urlCandidate.match(/^(http|\/)/);
+
+        const safeUrl = (isErrorStatus || isGarbage || !isUrl) ? '' : urlCandidate;
+
         setEditValues({ ...rest, refImageUrl: safeUrl });
         onStartEdit(item);
     };
@@ -117,12 +129,14 @@ export function LibraryRow({
         setEditValues(prev => ({ ...prev, [field]: value }));
     };
 
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
     // Click Outside
     // We need a ref for the TR
     const rowRef = useRef<HTMLTableRowElement>(null);
     useClickOutside(rowRef as React.RefObject<HTMLElement>, () => {
         if (isEditing) {
-            if (showDeleteDialog) return;
+            if (showDeleteDialog || isDropdownOpen) return;
             onCancelEdit();
         }
     }, isEditing);
@@ -151,6 +165,14 @@ export function LibraryRow({
         }
     };
 
+    useRowShortcuts({
+        isEditing,
+        onSave: handleLocalSave,
+        onDuplicate: onDuplicate ? () => onDuplicate(item.id) : undefined,
+        onDelete: handleDeleteClick,
+        onCancel: onCancelEdit
+    });
+
     return (
         <TableRow
             ref={rowRef}
@@ -163,8 +185,18 @@ export function LibraryRow({
                 />
             </TableCell>
 
-            <TableCell className="font-mono text-xs text-stone-500 align-top py-3">
-                {item.episode}
+            <TableCell className={`font-mono text-xs text-stone-500 align-top ${isEditing ? "p-1" : "py-3"}`}>
+                <EditableCell isEditing={isEditing} onStartEdit={startLocalEdit}>
+                    {isEditing ? (
+                        <Input
+                            value={editValues.episode || ''}
+                            onChange={e => handleChange('episode', e.target.value)}
+                            className="table-input h-full w-12 text-center"
+                        />
+                    ) : (
+                        <span className="table-text">{item.episode}</span>
+                    )}
+                </EditableCell>
             </TableCell>
 
             {/* Name */}
@@ -186,7 +218,7 @@ export function LibraryRow({
             <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={startLocalEdit}>
                     {isEditing ? (
-                        <DropdownMenu>
+                        <DropdownMenu onOpenChange={setIsDropdownOpen}>
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -270,7 +302,7 @@ export function LibraryRow({
             <TableCell className={`align-top px-3 ${isEditing ? "py-1" : "py-3"}`}>
                 {isEditing ? (
                     <ImageUploadCell
-                        value={editValues.refImageUrl || ''}
+                        value={(editValues.refImageUrl && editValues.refImageUrl.match(/^(http|\/)/) && editValues.refImageUrl.length < 500) ? editValues.refImageUrl : ''}
                         onChange={(url) => handleChange('refImageUrl', url)}
                         isEditing={true}
                         autoOpen={autoOpenUpload}
@@ -285,11 +317,17 @@ export function LibraryRow({
                                 <Loader2 className="h-6 w-6 text-primary animate-spin mb-2" />
                                 <span className="text-[10px] text-stone-500 font-mono">Generating...</span>
                             </div>
+                        ) : item.status === 'Error' ? (
+                            <div className="w-24 h-24 rounded-md border border-red-900/50 bg-red-950/20 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
+                                <span className="material-symbols-outlined text-red-500 mb-1">error</span>
+                                <span className="text-[10px] text-red-400 font-mono font-bold">Failed</span>
+                            </div>
                         ) : (
                             <div className="flex justify-start w-24 h-24">
                                 <MediaDisplay
-                                    url={item.refImageUrl}
+                                    url={item.thumbnailPath || item.refImageUrl}
                                     originalUrl={item.refImageUrl}
+                                    isThumbnail={!!item.thumbnailPath}
                                     // onPlay={onPlay || (() => { })} // Removed
                                     className="w-full h-full"
                                 />
@@ -327,7 +365,7 @@ export function LibraryRow({
             {/* Actions */}
             <TableCell className={`align-top text-right px-1 ${isEditing ? "py-1" : "py-3"}`}>
                 <RowActions
-                    status={isGenerating ? 'Generating' : (item.refImageUrl ? 'Done' : '')}
+                    status={isGenerating ? 'Generating' : (item.status === 'Error' ? 'Error' : ((item.refImageUrl && (item.refImageUrl.startsWith('http') || item.refImageUrl.startsWith('/'))) ? 'Done' : ''))}
                     resultUrl={item.refImageUrl}
                     isEditing={isEditing}
                     isSaving={saving}

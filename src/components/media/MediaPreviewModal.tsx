@@ -1,5 +1,5 @@
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
 import { X, ZoomIn, Play, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -26,6 +26,8 @@ export function MediaPreviewModal({ isOpen, onClose, url, type, title }: MediaPr
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="max-w-4xl w-[90vw] p-0 overflow-hidden bg-black/95 border-stone-800">
+                <DialogTitle className="sr-only">{title || 'Preview'}</DialogTitle>
+                <DialogDescription className="sr-only">Media Preview</DialogDescription>
                 <div className="relative w-full h-full flex flex-col">
                     {/* Header Overlay */}
                     <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">

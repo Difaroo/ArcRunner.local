@@ -38,19 +38,34 @@ export async function generateThumbnail(videoUrl: string, clipId: string): Promi
         const filename = `thumb_${clipId}_${Date.now()}.jpg`;
         const publicPath = `/thumbnails/${filename}`;
 
-        ffmpeg(videoUrl)
-            .screenshots({
-                timestamps: ['1'], // Take shot at 1s mark (avoids ffprobe dependency)
+        // Simple extension check (robust for standard URLs)
+        const isImage = videoUrl.match(/\.(jpg|jpeg|png|webp|gif)($|\?)/i) || videoUrl.includes('flux');
+
+        const proc = ffmpeg(videoUrl);
+
+        if (isImage) {
+            // Processing for Static Images (Resize only, no seeking)
+            proc.output(path.join(THUMBNAIL_DIR, filename))
+                .size('320x180')
+                .on('end', () => resolve(publicPath))
+                .on('error', (err) => {
+                    console.error('Error generating image thumbnail:', err);
+                    resolve(null);
+                })
+                .run();
+        } else {
+            // Processing for Videos (Screenshot at 1s)
+            proc.screenshots({
+                timestamps: ['1'], // Take shot at 1s mark
                 filename: filename,
                 folder: THUMBNAIL_DIR,
-                size: '320x180' // Small thumbnail size
+                size: '320x180'
             })
-            .on('end', () => {
-                resolve(publicPath);
-            })
-            .on('error', (err) => {
-                console.error('Error generating thumbnail:', err);
-                resolve(null);
-            });
+                .on('end', () => resolve(publicPath))
+                .on('error', (err) => {
+                    console.error('Error generating video thumbnail:', err);
+                    resolve(null);
+                });
+        }
     });
 }

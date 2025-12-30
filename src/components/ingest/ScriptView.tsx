@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { PageHeader } from "@/components/PageHeader"
@@ -16,6 +16,17 @@ export function ScriptView({ episodeId, seriesId, seriesTitle, onIngest }: Scrip
     const [error, setError] = useState<string | null>(null)
 
     const [defaultModel, setDefaultModel] = useState("veo-fast")
+
+    // Load from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem("scriptViewJson")
+        if (saved) setJsonInput(saved)
+    }, [])
+
+    // Save to localStorage on change
+    useEffect(() => {
+        localStorage.setItem("scriptViewJson", jsonInput)
+    }, [jsonInput])
 
     const handleIngest = async () => {
         setError(null)

@@ -525,15 +525,20 @@ export default function Home() {
 
       // If we got a Task ID (or URL), update the item locally so polling picks it up
       // The API should have updated the sheet, but local state needs to match
-      if (data.resultUrl) {
-        setLibraryItems(prev => prev.map(i => i.id === item.id ? { ...i, refImageUrl: data.resultUrl } : i));
-
-        // If it's a TASK, keep the spinner going by NOT removing it from 'generatingLibraryItems' immediately?
-        // Actually, the main polling loop drives the spinner now based on 'TASK:' prefix in refImageUrl.
-        // But LibraryTable checks 'generatingLibraryItems' prop OR refImageUrl.
-        // If we remove it here, the spinner might flicker if refImageUrl isn't updated?
-        // Wait, LibraryTable checks: item.refImageUrl.startsWith('TASK:') ? Spinner : ...
-        // So updating libraryItems is key.
+      // If we got a Task ID (or STATUS), update the item locally so polling picks it up
+      // The API should have updated the DB, but local state needs to match immediately
+      if (data.status === 'GENERATING' || data.resultUrl) {
+        setLibraryItems(prev => prev.map(i => {
+          if (i.id === item.id) {
+            return {
+              ...i,
+              status: data.status || i.status,
+              taskId: data.taskId || i.taskId,
+              refImageUrl: data.resultUrl || i.refImageUrl
+            };
+          }
+          return i;
+        }));
       }
 
     } catch (e) {
@@ -552,7 +557,8 @@ export default function Home() {
 
   const handleLibraryGenerateSelected = async () => {
     const toGen = currentLibraryItems.filter(item => selectedLibraryIds.has(item.id));
-    alert(`Generating ${toGen.length} library items...`);
+    setCopyMessage(`Generating ${toGen.length} library items...`);
+    setTimeout(() => setCopyMessage(null), 3000);
 
     for (const item of toGen) {
       await generateLibraryItem(item);
@@ -1067,7 +1073,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.10.0</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.11.0</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1349,12 +1355,10 @@ export default function Home() {
               ) : (
                 <div className="flex items-center justify-start gap-2 w-fit whitespace-nowrap">
                   <span className="font-normal text-muted-foreground">{seriesList.find(s => s.id === currentSeriesId)?.title}</span>
-                  {currentView !== 'script' && (
-                    <>
-                      <span className="text-stone-700">/</span>
-                      <span className="text-foreground">{seriesEpisodeTitles[currentEpKey] ? seriesEpisodeTitles[currentEpKey] : `Episode ${currentEpKey}`}</span>
-                    </>
-                  )}
+                  <>
+                    <span className="text-stone-700">/</span>
+                    <span className="text-foreground">{seriesEpisodeTitles[currentEpKey] ? seriesEpisodeTitles[currentEpKey] : `Episode ${currentEpKey}`}</span>
+                  </>
                 </div>
               )
             }
@@ -1612,7 +1616,7 @@ export default function Home() {
         )}
       </main>
       <Dialog open={showNewEpisodeDialog} onOpenChange={setShowNewEpisodeDialog}>
-        <DialogContent className="sm:max-w-[425px] bg-stone-900 border-stone-800 text-stone-100">
+        <DialogContent className="sm:max-w-[425px] bg-stone-900 border-stone-800 text-stone-100 p-6">
           <DialogHeader>
             <DialogTitle>New Episode</DialogTitle>
           </DialogHeader>

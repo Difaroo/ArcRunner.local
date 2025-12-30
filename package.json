@@ -1,9 +1,9 @@
 {
   "name": "arcrunner-local",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "npx -y kill-port 3000 && npx prisma generate && next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "eslint",

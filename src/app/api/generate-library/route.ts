@@ -1,7 +1,10 @@
-
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { createFluxTask, FluxPayload } from '@/lib/kie';
+import { createFluxTask, uploadFileBase64 } from '@/lib/kie';
+import { db } from '@/lib/db';
+import { BuilderFactory } from '@/lib/builders/BuilderFactory';
+import fs from 'fs';
+import path from 'path';
 
 // Helper to get authenticated sheets client - DUPLICATE from generate-image (should refactor to lib)
 async function getSheetsClient() {
@@ -15,6 +18,48 @@ async function getSheetsClient() {
     return google.sheets({ version: 'v4', auth });
 }
 
+// Helper: Ensure URL is public (upload local files to Kie)
+async function ensurePublicUrl(url: string): Promise<string> {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+
+    // Detect Local Path
+    let filePath = '';
+    if (url.startsWith('/api/media/uploads/')) {
+        const filename = url.replace('/api/media/uploads/', '');
+        filePath = path.join(process.cwd(), 'storage/media/uploads', filename);
+    } else if (url.startsWith('/api/images/')) {
+        const filename = url.replace('/api/images/', '');
+        filePath = path.join(process.cwd(), 'storage/media/uploads', filename);
+    }
+
+    if (filePath && fs.existsSync(filePath)) {
+        try {
+            console.log(`[LibraryGen] Uploading local file to Kie: ${filePath}`);
+            const fileBuffer = await fs.promises.readFile(filePath);
+            const base64 = fileBuffer.toString('base64');
+            const filenameStr = path.basename(filePath);
+
+            const uploadRes = await uploadFileBase64(base64, filenameStr);
+
+            // Handle diverse response shapes
+            const publicUrl = uploadRes.data?.url || uploadRes.url || (uploadRes.data as any)?.downloadUrl;
+
+            if (publicUrl) {
+                return publicUrl;
+            }
+
+            throw new Error('Upload response missing URL/downloadUrl');
+        } catch (err) {
+            console.error(`[LibraryGen] Failed to upload local file ${filePath}:`, err);
+            // Don't fail hard, return original (will likely fail downstream but keeps process alive)
+            return url;
+        }
+    }
+
+    return url;
+}
+
 export async function POST(req: Request) {
     try {
         const { item, rowIndex, style } = await req.json();
@@ -26,78 +71,130 @@ export async function POST(req: Request) {
         const sheets = await getSheetsClient();
         const spreadsheetId = process.env.SPREADSHEET_ID;
 
-        // 1. Build Prompt
-        // For Library items, it's just Name + Description + Style
-        let prompt = `Photorealistic image of ${item.name}: ${item.description}.`;
-        if (style) {
-            prompt += ` Style: ${style}.`;
-        }
-        prompt += ` High quality, cinematic, detailed.`;
+        // 1. Resolve Style Reference (Server-Side)
+        let styleRefUrl = '';
+        let styleDescription = '';
 
-        console.log('Generated Library Flux Prompt:', prompt);
+        if (style && item.series) {
+            // Find the style item for this series
+            const styleItem = await db.studioItem.findFirst({
+                where: {
+                    seriesId: item.series,
+                    type: 'LIB_STYLE',
+                    name: style
+                }
+            });
+            if (styleItem) {
+                if (styleItem.refImageUrl) {
+                    styleRefUrl = styleItem.refImageUrl;
+                }
 
-        // 2. Prepare Payload via Standard Factory (Flux Strategy)
-        const payload: FluxPayload = {
-            model: 'flux-2/flex-text-to-image',
-            input: {
-                prompt: prompt,
-                aspect_ratio: '16:9',
-                resolution: '2K'
+                if (styleItem.description) {
+                    styleDescription = styleItem.description;
+                }
             }
-        };
-
-        console.log('Library Flux Payload:', JSON.stringify(payload, null, 2));
-
-        // 3. Call Kie.ai via Standard Client
-        const kieRes = await createFluxTask(payload);
-
-        // 4. Handle Response
-        // Standard Factory returns { taskId, rawData }
-        let resultUrl = '';
-        if (kieRes.taskId) {
-            resultUrl = `TASK:${kieRes.taskId}`;
-        } else {
-            // Try to find direct URL if sync?
-            console.error('No Task ID returned:', kieRes);
         }
 
-        const kieData = kieRes.rawData; // Maintain compatibility for response
-
-        // 5. Update Sheet immediately (assuming Sync result for now)
-        // Library Sheet Structure: Dynamically find column
-        const headerRes = await sheets.spreadsheets.values.get({
-            spreadsheetId,
-            range: 'LIBRARY!1:1',
-        });
-        const headers = headerRes.data.values?.[0] || [];
-        const refImageColIndex = headers.indexOf('Ref Image URLs');
-
-        if (refImageColIndex === -1) {
-            throw new Error('Could not find "Ref Image URLs" column in LIBRARY sheet');
+        // 2. Prepare Payload via Builder Factory
+        // Combine Item Ref + Style Ref
+        const rawUrls = [];
+        if (item.refImageUrl && !item.refImageUrl.startsWith('TASK:')) {
+            // Handle comma-separated input if user uploaded multiple
+            item.refImageUrl.split(',').forEach((u: string) => rawUrls.push(u.trim()));
         }
+        if (styleRefUrl && !styleRefUrl.startsWith('TASK:')) rawUrls.push(styleRefUrl);
 
-        const refImageColLetter = String.fromCharCode(65 + refImageColIndex); // 0=A, ... (Simple version for <26 cols)
+        // Resolve Local Files to Public URLs
+        const publicImageUrls: string[] = [];
+        if (rawUrls.length > 0) {
+            const results = await Promise.allSettled(rawUrls.map(url => ensurePublicUrl(url)));
 
-        const sheetRow = rowIndex + 2;
-
-        // Handle Async Task ID
-        if (kieData.data?.taskId && !resultUrl) {
-            resultUrl = `TASK:${kieData.data.taskId}`;
-        }
-
-        if (resultUrl) {
-            await sheets.spreadsheets.values.update({
-                spreadsheetId,
-                range: `LIBRARY!${refImageColLetter}${sheetRow}`,
-                valueInputOption: 'USER_ENTERED',
-                requestBody: { values: [[resultUrl]] }
+            results.forEach(r => {
+                if (r.status === 'fulfilled' && r.value) {
+                    publicImageUrls.push(r.value);
+                }
             });
         }
 
-        return NextResponse.json({ success: true, data: kieData, resultUrl });
+        const builder = BuilderFactory.getBuilder('flux-2/flex-image-to-image');
+        if (!builder) throw new Error('Flux Builder not found');
+
+        // Construct minimal input for builder
+        const builderInput = {
+            clipId: item.id.toString(), // Pseudo ID
+            seriesId: item.series || '',
+            model: 'flux-2/flex-image-to-image',
+            aspectRatio: '16:9',
+            // Smart Prompt: Item Name + Item Desc + Style Desc + Quality Tags
+            prompt: `Photorealistic image of ${item.name}: ${item.description}. ${styleDescription ? `Style: ${styleDescription}` : (style ? `Style: ${style}` : '')}. High quality, cinematic, detailed.`,
+            clip: item
+        };
+
+        // Build Payload
+        const payload = builder.build({
+            input: builderInput,
+            publicImageUrls
+        }); // as FluxPayload
+
+        // 3. Call Kie.ai via Standard Client
+        // Note: Builder returns Generic Payload, we cast or pass to specific create function.
+        // Since we know it's Flux:
+        const kieRes = await createFluxTask(payload as any);
+
+        // Debug Metadata
+        const debugMeta = {
+            attemptedModel: payload.model,
+            hasInputUrls: !!(payload.input as any).input_urls,
+            fallbackTriggered: payload.model !== builderInput.model
+        };
+
+        // 4. Handle Response
+        // Standard Factory returns { taskId, rawData }
+        let taskId = '';
+        if (kieRes.taskId) {
+            taskId = kieRes.taskId;
+        } else {
+            console.error('No Task ID returned:', JSON.stringify(kieRes));
+            return NextResponse.json({
+                error: 'Generation failed (Missing Task ID)',
+                debug: {
+                    ...debugMeta,
+                    kieResponseString: 'See Server Logs'
+                }
+            }, { status: 500 });
+        }
+
+        const kieData = kieRes.rawData;
+
+        // 5. Update Database with Status and TaskID
+        // We do NOT touch the sheet here anymore for transient "Generating" state.
+        // We only care about the StudioItem table.
+        // Also, 'rowIndex' passed from client is sheet row, but we have 'item.id' which is our DB ID (string id in Prisma).
+        // Check schema: id is Int. item.id passed from client is string. Parse it.
+        const dbId = parseInt(item.id);
+
+        await db.studioItem.update({
+            where: { id: dbId },
+            data: {
+                status: 'GENERATING',
+                taskId: taskId
+            }
+        });
+
+        // We return 'generating' status to client so it can update local state immediately if desired
+        return NextResponse.json({ success: true, data: kieData, taskId, status: 'GENERATING', debug: debugMeta });
 
     } catch (error: any) {
         console.error('Library Generate Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({
+            error: error.message,
+            debug: {
+                // Try to infer what was attempted if possible, though 'payload' variable is block-scoped.
+                // We can't access 'payload' here easily without lifting it out.
+                // Instead, just return the standard error message but formatted for client visibility.
+                msg: error.message || 'Unknown Error',
+                code: error.code || 500
+            }
+        }, { status: 500 }); // Return 500 so client sees it's an error, but with body
     }
 }

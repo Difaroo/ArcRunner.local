@@ -34,6 +34,7 @@ import { MediaDisplay } from "@/components/media/MediaDisplay"
 import { RowActions } from "@/components/ui/RowActions"
 import { downloadFile, getClipFilename, getNextStatus } from "@/lib/download-utils"
 import { useClickOutside } from "@/hooks/useClickOutside"
+import { useRowShortcuts } from "@/hooks/useRowShortcuts"
 import React from "react"
 
 interface ClipRowProps {
@@ -237,6 +238,14 @@ export function ClipRow({
         handleChange('character', next.join(', '));
     }
 
+    useRowShortcuts({
+        isEditing,
+        onSave: handleSave,
+        onDuplicate: () => onDuplicate(clip.id),
+        onDelete: handleDeleteClick,
+        onCancel: onCancelEdit
+    });
+
     return (
         <TableRow
             ref={setRef}
@@ -413,7 +422,7 @@ export function ClipRow({
                             className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
                         />
                     ) : (
-                        <span className="table-text">{clip.action || '+'}</span>
+                        <span className="table-text whitespace-pre-wrap">{clip.action || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>
@@ -426,7 +435,7 @@ export function ClipRow({
                             className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
                         />
                     ) : (
-                        <span className="table-text">{clip.dialog || '+'}</span>
+                        <span className="table-text whitespace-pre-wrap">{clip.dialog || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>

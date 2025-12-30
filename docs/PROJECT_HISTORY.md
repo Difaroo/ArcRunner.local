@@ -184,3 +184,25 @@ This milestone release introduces the **Storyboard View** for visual storytellin
 - **Refactor**: Decoupled `MediaDisplay` from ad-hoc `window.open` calls to a self-contained component using `MediaPreviewModal`.
 - **Docs**: Updated [Walkthrough](walkthrough.md) and [Full Stack Review](architecture/full_stack_review_and_recommendations.md).
 - **Version Bump**: 0.9.0 -> 0.10.0.
+
+## 2025-12-30: v0.11.0 - Flux Generation & Environment Hardening
+
+### Context
+Completed a major epic to integrate the "Flux" image generation model into the Studio library workflow, prioritizing high-quality "cinematic" output and smart style referencing. During this process, we identified and resolved critical environmental instabilities caused by ghost server processes.
+
+### Features
+- **Flux Model Integration**:
+    - **Smart Model Selection**: Automatically switches between `flex-text-to-image` and `flex-image-to-image` based on input availability.
+    - **Style Injection**: Automatically resolves and injects "Style" descriptions and reference images into the prompt pipeline.
+    - **Local Persistence**: Full-resolution images are now downloaded and stored locally (`public/media/library`) to prevent link expiry.
+- **Library UI Improvements**:
+    - **Status Alignment**: Moved generation status/error text to the "Row Actions" column (beneath buttons) to match the Clip table layout.
+    - **Input Sanitization**: Implemented "Nuclear" protection to prevent error dumps/debug text from rendering in the image input field.
+
+### Environmental Hardening (DevOps)
+- **Anti-Ghosting**: `npm run dev` now automatically kills any process on Port 3000 before starting.
+- **Auto-Sync**: `npm run dev` now automatically runs `npx prisma generate` to prevent database schema mismatches.
+- **Logging Hygiene**: Enforced strict `no-console` linting rules to keep production logs clean.
+
+### Version Bump
+- **Core**: 0.10.0 -> 0.11.0.

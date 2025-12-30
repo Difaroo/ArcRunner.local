@@ -1,10 +1,11 @@
 import { PayloadBuilder } from './PayloadBuilder';
-import { VeoPayloadBuilder } from './VeoPayloadBuilder';
+import { PayloadBuilderVeo } from './PayloadBuilderVeo';
+import { PayloadBuilderFlux } from './PayloadBuilderFlux';
 
 // Map of Builders
 const builders: PayloadBuilder[] = [
-    new VeoPayloadBuilder(),
-    // Future: new FluxPayloadBuilder()
+    new PayloadBuilderVeo(),
+    new PayloadBuilderFlux()
 ];
 
 export class BuilderFactory {

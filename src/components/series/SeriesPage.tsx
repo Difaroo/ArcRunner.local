@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -35,8 +36,8 @@ export function SeriesPage({
     videoPromptTemplate,
     imagePromptTemplate
 }: SeriesPageProps) {
+    const router = useRouter()
     const [activeTab, setActiveTab] = useState<'video' | 'image'>('video')
-
 
     // Derived States
     const [videoPrompt, setVideoPrompt] = useState("")
@@ -66,7 +67,8 @@ export function SeriesPage({
                 const data = await res.json()
                 if (!res.ok) throw new Error(data.error || 'Failed to update')
 
-                window.location.reload()
+                router.refresh()
+                setEditingEpisodeId(null)
             } else {
                 setEditingEpisodeId(null)
             }
@@ -93,7 +95,7 @@ export function SeriesPage({
         const status = clip.status || '';
         if (status.startsWith('Saved')) {
             data.savedCount++
-        } else if (status === 'Ready' || status === 'Done') {
+        } else if (status === 'Done') {
             data.readyCount++
         }
     })

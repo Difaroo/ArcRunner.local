@@ -108,7 +108,7 @@
 
 @layer components {
   .table-input {
-    @apply w-full bg-stone-900 border-stone-700 text-white text-xs px-2 py-1 h-8 focus:ring-1 focus:ring-primary focus:border-primary transition-all;
+    @apply w-full bg-stone-900 border-stone-700 text-white text-xs px-2 py-1 h-8 focus:ring-1 focus:ring-primary transition-all;
   }
 
   .table-text {
