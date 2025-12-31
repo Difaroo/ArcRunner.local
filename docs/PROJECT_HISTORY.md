@@ -237,3 +237,15 @@ A follow-up patch to v0.12.0 addressing visual regressions in the Studio Edit mo
     - **Preview Modal**: Removed duplicate "Close" (X) icon caused by default Dialog behavior.
     - **Styling**: Standardized Preview Modal buttons (Download/Close) to uniform size and Orange branding for better visibility.
 - **Version Bump**: 0.12.0 -> 0.12.1.
+
+## 2025-12-31: v0.12.2 - Database Synchronization
+
+### Context
+This patch resolves a schema drift issue encountered after migrating the Production database to the Development environment. The older Production database lacked the `thumbnailPath` column in the `StudioItem` table, causing application crashes.
+
+### Changes
+- **Database**: 
+    - Migrated Production data to Development environment (`prod.db` -> `dev.db`).
+    - Forced schema synchronization (`prisma db push`) to add the missing `thumbnailPath` column.
+    - Cleared stale database locks caused by zombie processes.
+- **Version Bump**: 0.12.1 -> 0.12.2.
