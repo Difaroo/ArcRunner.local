@@ -224,3 +224,16 @@ A critical robustness release addressing regression in "Broken Icons" and Studio
     - **Prompt Engineering**: Added specific "Style Reference" weights `(text:1.3)` to the Flux payload.
     - **Bug Fixes**: Whitelisted `/media/` paths to fix broken previews for locally generated images.
 - **Version Bump**: 0.11.0 -> 0.12.0.
+
+## 2025-12-31: v0.12.1 - UI Polish & Hotfixes
+
+### Context
+A follow-up patch to v0.12.0 addressing visual regressions in the Studio Edit mode and refining the Media Preview experience.
+
+### Changes
+- **Bug Fixes**:
+    - **Edit Mode Thumbnails**: Whitelisted `/media/` paths in `ImageUploadCell` to correctly display locally persisted images during editing (previously showed "Err").
+- **UI Refinements**:
+    - **Preview Modal**: Removed duplicate "Close" (X) icon caused by default Dialog behavior.
+    - **Styling**: Standardized Preview Modal buttons (Download/Close) to uniform size and Orange branding for better visibility.
+- **Version Bump**: 0.12.0 -> 0.12.1.

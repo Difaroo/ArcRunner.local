@@ -133,7 +133,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                                         <span className="material-symbols-outlined text-red-500 text-lg">error</span>
                                     ) : (
                                         <img
-                                            src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                            src={(url.startsWith('/api/') || url.startsWith('/media/') || url.startsWith('/uploads/') || url.startsWith('/thumbnails/')) ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                             alt="Thumbnail"
                                             className="w-full h-full object-cover"
                                             onError={(e) => {
@@ -179,7 +179,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                     <span className="material-symbols-outlined text-red-500 text-2xl">error</span>
                 ) : (
                     <img
-                        src={imageUrl.startsWith('/api/') ? imageUrl : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`}
+                        src={(imageUrl.startsWith('/api/') || imageUrl.startsWith('/media/') || imageUrl.startsWith('/uploads/') || imageUrl.startsWith('/thumbnails/')) ? imageUrl : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`}
                         alt="Ref"
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         loading="lazy"

@@ -65,7 +65,7 @@ export function MediaPreviewModal({ isOpen, onClose, url, type, title, urls = []
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-4xl w-[90vw] p-0 overflow-hidden bg-black/95 border-stone-800" onKeyDown={(e) => {
+            <DialogContent className="max-w-4xl w-[90vw] p-0 overflow-hidden bg-black/95 border-stone-800 [&>button]:hidden" onKeyDown={(e) => {
                 if (e.key === 'ArrowRight') setCurrentIndex((prev) => (prev + 1) % validUrls.length);
                 if (e.key === 'ArrowLeft') setCurrentIndex((prev) => (prev - 1 + validUrls.length) % validUrls.length);
             }}>
@@ -84,17 +84,17 @@ export function MediaPreviewModal({ isOpen, onClose, url, type, title, urls = []
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/20"
+                                className="h-9 w-9 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
                                 onClick={async () => {
                                     const filename = `${title || 'download'}.${type === 'video' ? 'mp4' : 'png'}`;
                                     await downloadFile(src, filename);
                                 }}
                                 title="Download File"
                             >
-                                <Download className="h-4 w-4" />
+                                <Download className="h-5 w-5" />
                             </Button>
-                            <DialogClose className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground text-white">
-                                <X className="h-6 w-6" />
+                            <DialogClose className="flex items-center justify-center rounded-md h-9 w-9 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 transition-colors focus:outline-none disabled:pointer-events-none">
+                                <X className="h-5 w-5" />
                                 <span className="sr-only">Close</span>
                             </DialogClose>
                         </div>
