@@ -62,7 +62,7 @@ async function ensurePublicUrl(url: string): Promise<string> {
 
 export async function POST(req: Request) {
     try {
-        const { item, rowIndex, style } = await req.json();
+        const { item, rowIndex, style, styleStrength, refStrength, seed } = await req.json();
 
         if (!item || typeof rowIndex !== 'number') {
             return NextResponse.json({ error: 'Missing item or rowIndex' }, { status: 400 });
@@ -125,9 +125,17 @@ export async function POST(req: Request) {
             seriesId: item.series || '',
             model: 'flux-2/flex-image-to-image',
             aspectRatio: '16:9',
-            // Smart Prompt: Item Name + Item Desc + Style Desc + Quality Tags
-            prompt: `Photorealistic image of ${item.name}: ${item.description}. ${styleDescription ? `Style: ${styleDescription}` : (style ? `Style: ${style}` : '')}. High quality, cinematic, detailed.`,
-            clip: item
+            // Smart Prompt Elements (Passed separately for Builder to assemble)
+            subjectName: item.name,
+            subjectDescription: item.description,
+            styleName: style,
+            styleDescription: styleDescription,
+            clip: item,
+            styleStrength, // Pass through
+            refStrength, // Pass through
+            // If styleRefUrl existed AND we have enough public urls, the LAST one is likely the style.
+            styleImageIndex: (styleRefUrl && publicImageUrls.length > 0) ? publicImageUrls.length - 1 : undefined,
+            seed: seed || undefined // Pass through if present
         };
 
         // Build Payload
@@ -139,13 +147,22 @@ export async function POST(req: Request) {
         // 3. Call Kie.ai via Standard Client
         // Note: Builder returns Generic Payload, we cast or pass to specific create function.
         // Since we know it's Flux:
+        console.log('[LibraryGen] Sending Payload Input to Kie:', JSON.stringify(payload.input, null, 2));
         const kieRes = await createFluxTask(payload as any);
 
         // Debug Metadata
         const debugMeta = {
             attemptedModel: payload.model,
             hasInputUrls: !!(payload.input as any).input_urls,
-            fallbackTriggered: payload.model !== builderInput.model
+            fallbackTriggered: payload.model !== builderInput.model,
+            params: {
+                styleStrength,
+                refStrength,
+                guidanceScale: (payload.input as any).guidance_scale,
+                enhancedPrompt: (payload.input as any).prompt,
+                seed: (payload.input as any).seed, // Explicitly return passed seed
+                fullInputKeys: Object.keys(payload.input)
+            }
         };
 
         // 4. Handle Response

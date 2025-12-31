@@ -22,6 +22,16 @@ export interface GenerateTaskInput {
 
     // Diagnosis
     dryRun?: boolean;
+    styleStrength?: number;
+    refStrength?: number;
+    seed?: number;
+
+    // Structured Prompt Fields (Optional)
+    subjectName?: string;
+    subjectDescription?: string;
+    styleName?: string;
+    styleDescription?: string;
+    styleImageIndex?: number;
 }
 
 export class GenerateManager {

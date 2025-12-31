@@ -206,3 +206,21 @@ Completed a major epic to integrate the "Flux" image generation model into the S
 
 ### Version Bump
 - **Core**: 0.10.0 -> 0.11.0.
+
+## 2025-12-31: v0.12.0 - Persistence & Robustness
+
+### Context
+A critical robustness release addressing regression in "Broken Icons" and Studio State Persistence. Also finalized the "Flux" optimization with tuned parameters for high-fidelity generation.
+
+### Changes
+- **Downloads Architecture**:
+    - **Proxy Stream**: Replaced Blob downloading with a direct `Content-Disposition` stream to prevent OOM on large files.
+    - **Security**: Added strict filename sanitization on both client and server proxies.
+- **Persistence & State**:
+    - **Race Condition Fix**: Solved a critical bug where Studio settings (Seed, Style, Guidance) reset on page load.
+    - **Local State**: Now correctly persists `seed`, `currentEpisode`, and `currentSeriesId` to `localStorage`.
+- **Flux Optimization**:
+    - **Guidance Tuning**: Mapped UI (1-10) to API (1.5-10.0) for full control range.
+    - **Prompt Engineering**: Added specific "Style Reference" weights `(text:1.3)` to the Flux payload.
+    - **Bug Fixes**: Whitelisted `/media/` paths to fix broken previews for locally generated images.
+- **Version Bump**: 0.11.0 -> 0.12.0.

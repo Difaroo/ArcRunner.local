@@ -68,46 +68,38 @@ export async function POST(req: Request) {
                         const finalStatus = status === 'Done' ? 'Done' : 'Error';
 
                         if (isLibrary) {
-                            let thumbnailPath: string | undefined = undefined;
-                            let finalStoredUrl = finalResult; // Default to remote
+                            // Persistence Enabled (User Request)
+                            let newRefUrl = finalResult;
 
-                            // Only persist if success and it's a valid remote URL
-                            if (status === 'Done' && finalResult?.startsWith('http')) {
+                            // Attempt Persistence
+                            if (status === 'Done' && finalResult && finalResult.startsWith('http')) {
                                 try {
-                                    const saved = await persistLibraryImage(finalResult, idInt.toString());
-                                    // Use the LOCAL path as the canonical URL
-                                    finalStoredUrl = saved.localPath;
-                                    thumbnailPath = saved.thumbnailPath || undefined;
+                                    const { localPath } = await persistLibraryImage(finalResult, idInt.toString());
+                                    newRefUrl = localPath;
                                 } catch (e) {
-                                    console.error(`Library persistence failed for ${taskId}, keeping remote URL:`, e);
-                                    // Fallback: Try generic thumbnail gen
-                                    try {
-                                        const path = await generateThumbnail(finalResult, idInt.toString());
-                                        if (path) thumbnailPath = path;
-                                    } catch (e2) { }
+                                    console.error(`Persistence failed for Item ${idInt}, falling back to remote:`, e);
                                 }
                             }
 
-                            // Fetch current state to prepend, not overwrite
+                            // Prepend URL Logic
+                            // Fetch current state to prepend
                             const currentItem = await db.studioItem.findUnique({ where: { id: idInt } });
                             const existingUrl = currentItem?.refImageUrl || '';
-
-                            // Prepend the new URL (Local or Remote)
                             const cleanExisting = existingUrl.replace(/^,|,$/g, '').trim();
-                            const newRefUrl = cleanExisting ? `${finalStoredUrl},${cleanExisting}` : finalStoredUrl;
+
+                            // Create CSV string
+                            const updatedUrlCsv = cleanExisting ? `${newRefUrl},${cleanExisting}` : newRefUrl;
 
                             console.log(`[PollLibrary] Updating Item ${idInt}: Status=${finalStatus}`, {
-                                finalStoredUrl,
-                                newRefUrl,
-                                thumbnailPath
+                                newRefUrl
                             });
 
                             await db.studioItem.update({
                                 where: { id: idInt },
                                 data: {
                                     status: finalStatus,
-                                    refImageUrl: finalStatus === 'Done' ? newRefUrl : existingUrl,
-                                    ...(thumbnailPath ? { thumbnailPath } : {})
+                                    refImageUrl: finalStatus === 'Done' ? updatedUrlCsv : existingUrl,
+                                    taskId: finalStatus === 'Done' ? '' : undefined
                                 }
                             });
                             updateCount++;

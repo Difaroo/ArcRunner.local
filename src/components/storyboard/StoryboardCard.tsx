@@ -13,9 +13,7 @@ interface StoryboardCardProps {
 export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: StoryboardCardProps) {
     const isHidden = clip.isHiddenInStoryboard;
 
-    const handlePlay = (url: string) => {
-        window.open(url, '_blank')
-    }
+
 
     if (printLayout === '6x1') {
         return (

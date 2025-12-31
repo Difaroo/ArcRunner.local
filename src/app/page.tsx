@@ -58,6 +58,66 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [selectedModel, setSelectedModel] = useState('veo-fast');
   const [episodeStyles, setEpisodeStyles] = useState<Record<string, string>>({});
+  // New States for Flux Style Control
+  // New States for Flux Style Control
+  const [styleStrength, setStyleStrength] = useState(5)
+  // refStrength removed per user request
+  const [seed, setSeed] = useState<number | null>(null)
+
+  // Persistence Guard to prevent overwriting inputs with defaults on hydration
+  const [isRestored, setIsRestored] = useState(false);
+
+  // Persist Flux Settings & Navigation State
+  useEffect(() => {
+    const savedStrength = localStorage.getItem('arcrunner_styleStrength');
+    if (savedStrength) setStyleStrength(parseInt(savedStrength));
+
+    const savedSeed = localStorage.getItem('arcrunner_seed');
+    if (savedSeed) setSeed(parseInt(savedSeed));
+
+    const savedStyles = localStorage.getItem('arcrunner_episodeStyles');
+    if (savedStyles) {
+      try {
+        setEpisodeStyles(JSON.parse(savedStyles));
+      } catch (e) { console.error('Failed to parse saved styles', e); }
+    }
+
+    const savedEpisode = localStorage.getItem('arcrunner_currentEpisode');
+    if (savedEpisode) setCurrentEpisode(parseInt(savedEpisode));
+
+    const savedSeries = localStorage.getItem('arcrunner_currentSeriesId');
+    if (savedSeries && setCurrentSeriesId) setCurrentSeriesId(savedSeries);
+
+    setIsRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isRestored) return;
+    localStorage.setItem('arcrunner_styleStrength', styleStrength.toString());
+  }, [styleStrength, isRestored]);
+
+  useEffect(() => {
+    if (!isRestored) return;
+    if (seed !== null) localStorage.setItem('arcrunner_seed', seed.toString());
+    else localStorage.removeItem('arcrunner_seed');
+  }, [seed, isRestored]);
+
+  useEffect(() => {
+    if (!isRestored) return;
+    localStorage.setItem('arcrunner_episodeStyles', JSON.stringify(episodeStyles));
+  }, [episodeStyles, isRestored]);
+
+  useEffect(() => {
+    if (!isRestored) return;
+    localStorage.setItem('arcrunner_currentEpisode', currentEpisode.toString());
+  }, [currentEpisode, isRestored]);
+
+  useEffect(() => {
+    if (!isRestored) return;
+    if (currentSeriesId) localStorage.setItem('arcrunner_currentSeriesId', currentSeriesId);
+  }, [currentSeriesId, isRestored]);
+
+  // Episode & Series State
   const [currentView, setCurrentView] = useState<'series' | 'script' | 'library' | 'clips' | 'settings' | 'storyboard'>('series');
   const [printLayout, setPrintLayout] = useState<'3x2' | '6x1' | 'auto'>('3x2');
 
@@ -284,13 +344,19 @@ export default function Home() {
   };
 
   const handleLibrarySave = async (index: string, updates: Partial<any>) => {
+    // Auto-clear error status if image is updated (added or removed)
+    const effectiveUpdates = { ...updates };
+    if ('refImageUrl' in effectiveUpdates) {
+      effectiveUpdates.status = '';
+    }
+
     try {
       const res = await fetch('/api/update_library', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rowIndex: index,
-          updates: updates
+          updates: effectiveUpdates
         }),
       });
 
@@ -518,7 +584,14 @@ export default function Home() {
       const res = await fetch('/api/generate-library', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item, rowIndex, style: styleToUse })
+        body: JSON.stringify({
+          item,
+          rowIndex,
+          style: styleToUse,
+          styleStrength, // Pass global slider value
+          // refStrength removed
+          seed: seed ?? undefined
+        })
       });
       const data = await res.json();
       console.log('Library Generate Result:', data);
@@ -569,10 +642,19 @@ export default function Home() {
     await generateLibraryItem(item);
   };
 
-  const handleLibraryDownloadSelected = () => {
+  const handleLibraryDownloadSelected = async () => {
     const toDownload = currentLibraryItems.filter(item => selectedLibraryIds.has(item.id) && item.refImageUrl);
     if (toDownload.length === 0) return alert("No completed items selected.");
-    toDownload.forEach(item => window.open(item.refImageUrl, '_blank'));
+
+    // Sequential download to prevent browser blocking
+    for (const item of toDownload) {
+      if (!item.refImageUrl) continue;
+      const ext = item.refImageUrl.split('.').pop()?.split('?')[0] || 'png';
+      const filename = `${item.name}.${ext}`;
+      await downloadFile(item.refImageUrl, filename);
+      // Small delay to help browser manager
+      await new Promise(r => setTimeout(r, 200));
+    }
   };
 
   const handleDeleteLibraryItem = (id: string) => {
@@ -1073,7 +1155,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.11.0</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.12.0</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1460,6 +1542,11 @@ export default function Home() {
                   onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
                   availableStyles={uniqueValues.styles}
                   onAddItem={handleAddLibraryItem}
+                  styleStrength={styleStrength}
+                  onStyleStrengthChange={setStyleStrength}
+                  // refStrength removed
+                  seed={seed}
+                  onSeedChange={setSeed}
                 />
               </div>
             )}

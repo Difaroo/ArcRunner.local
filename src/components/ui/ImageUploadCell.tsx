@@ -1,15 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+
 import {
     Tooltip,
     TooltipContent,
@@ -85,21 +76,8 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
     };
 
     const handleDeleteClick = (url: string) => {
-        // If it's a broken/status string, delete instantly without confirmation
-        const lower = url.toLowerCase();
-        if (lower === 'waiting' || lower === 'generating' || lower.startsWith('task:') || lower.includes('error')) {
-            const currentUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean) : [];
-            const newUrls = currentUrls.filter(u => u !== url);
-            onChange(newUrls.join(','));
-            return;
-        }
-        setImageToDelete(url);
-    };
-
-    const confirmDelete = () => {
-        if (!imageToDelete) return;
         const currentUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean) : [];
-        const newUrls = currentUrls.filter(u => u !== imageToDelete);
+        const newUrls = currentUrls.filter(u => u !== url);
         onChange(newUrls.join(','));
         setImageToDelete(null);
     };
@@ -182,31 +160,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                 </div>
 
 
-                <AlertDialog open={!!imageToDelete} onOpenChange={(open) => !open && setImageToDelete(null)}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Image</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Are you sure you want to delete this image?
-                            </AlertDialogDescription>
-                            <div className="flex justify-center py-4">
-                                {imageToDelete && (
-                                    <div className="w-32 h-32 rounded-md overflow-hidden border border-stone-700 bg-stone-900">
-                                        <img
-                                            src={imageToDelete.startsWith('/api/') ? imageToDelete : `/api/proxy-image?url=${encodeURIComponent(imageToDelete)}`}
-                                            alt="To Delete"
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setImageToDelete(null)} className="bg-primary text-primary-foreground hover:bg-primary/90 border-0">Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={confirmDelete} className="bg-secondary text-secondary-foreground hover:bg-secondary/80">Delete</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+
             </div>
         );
     }

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
         }
 
         // Filter updates to valid fields
-        const validFields = ['type', 'name', 'description', 'refImageUrl', 'negatives', 'notes', 'episode'];
+        const validFields = ['type', 'name', 'description', 'refImageUrl', 'negatives', 'notes', 'episode', 'status'];
         const prismaData: any = {};
 
         for (const [key, value] of Object.entries(updates)) {

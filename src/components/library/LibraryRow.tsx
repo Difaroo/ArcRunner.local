@@ -137,6 +137,7 @@ export function LibraryRow({
     useClickOutside(rowRef as React.RefObject<HTMLElement>, () => {
         if (isEditing) {
             if (showDeleteDialog || isDropdownOpen) return;
+            // Save on blur instead of cancel to prevent data loss
             onCancelEdit();
         }
     }, isEditing);

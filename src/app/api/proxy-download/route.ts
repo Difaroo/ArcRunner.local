@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
     const url = request.nextUrl.searchParams.get('url');
-    const filename = request.nextUrl.searchParams.get('filename') || 'download.mp4';
+    const rawFilename = request.nextUrl.searchParams.get('filename') || 'download.mp4';
+    // Sanitize to alphanumeric, dots, dashes, underscores only
+    const filename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
 
     if (!url) {
         return new NextResponse('Missing URL parameter', { status: 400 });

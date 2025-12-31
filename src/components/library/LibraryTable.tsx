@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { LibraryRow } from "./LibraryRow";
 
 import { LibraryItem } from '@/lib/library';
+import { downloadFile } from '@/lib/download-utils';
 
 interface LibraryTableProps {
     items: LibraryItem[];
@@ -38,33 +39,11 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
     const handleDownload = async (url: string, name: string) => {
         if (!url || url.startsWith('TASK:')) return;
 
-        try {
-            // Determine extension or default
-            const ext = url.split('.').pop()?.split('?')[0] || 'png';
-            // Allow alphanumeric, spaces, underscores, and hyphens. Then trim.
-            const sanitizedName = name.replace(/[^a-z0-9_\- ]/gi, '').trim();
-            const filename = `${sanitizedName}.${ext}`;
+        // Determine extension or default
+        const ext = url.split('.').pop()?.split('?')[0] || 'png';
+        const filename = `${name}.${ext}`;
 
-            // Use the proxy to avoid CORS issues
-            const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error('Download failed');
-
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-        } catch (error) {
-            console.error('Download error:', error);
-            alert('Failed to download file');
-        }
+        await downloadFile(url, filename);
     };
 
     return (

@@ -60,7 +60,7 @@ export function MediaDisplay({
         const lower = u.toLowerCase();
         if (lower === 'waiting' || lower === 'generating' || lower.startsWith('task:') || lower.includes('error')) return '';
 
-        if (u.startsWith('/api/') || u.startsWith('/thumbnails/') || u.startsWith('/uploads/')) return u;
+        if (u.startsWith('/api/') || u.startsWith('/thumbnails/') || u.startsWith('/uploads/') || u.startsWith('/media/')) return u;
         if (t === 'image') return `/api/proxy-image?url=${encodeURIComponent(u)}`;
         return `/api/proxy-download?url=${encodeURIComponent(u)}`;
     }
@@ -73,6 +73,9 @@ export function MediaDisplay({
             setIsModalOpen(true);
         }
     }
+
+    // Parse all available URLs for slideshow
+    const allUrls = (originalUrl || url || '').split(',').map(u => u.trim()).filter(Boolean);
 
     return (
         <>
@@ -126,6 +129,7 @@ export function MediaDisplay({
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 url={effectiveOriginalUrl}
+                urls={allUrls}
                 type={type}
                 title={model || 'Media Preview'}
             />
