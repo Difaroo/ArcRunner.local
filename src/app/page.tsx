@@ -1155,7 +1155,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.12.2</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.12.3</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1535,6 +1535,7 @@ export default function Home() {
               <div className="flex items-center">
                 {/* Reusing Action Toolbar style via pure component would be best, but LibraryActionToolbar is specific */}
                 <LibraryActionToolbar
+                  totalItems={libraryItems.filter(i => i.series === currentSeriesId).length}
                   selectedCount={selectedLibraryIds.size}
                   onGenerateSelected={handleLibraryGenerateSelected}
                   onDownloadSelected={handleLibraryDownloadSelected}

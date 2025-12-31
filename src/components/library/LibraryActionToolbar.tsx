@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 interface LibraryActionToolbarProps {
+    totalItems: number
     selectedCount: number
     onGenerateSelected: () => void
     onDownloadSelected: () => void
@@ -24,6 +25,7 @@ interface LibraryActionToolbarProps {
 }
 
 export function LibraryActionToolbar({
+    totalItems,
     selectedCount,
     onGenerateSelected,
     onDownloadSelected,
@@ -38,12 +40,13 @@ export function LibraryActionToolbar({
     onSeedChange
 }: LibraryActionToolbarProps) {
     return (
-        <div className="flex items-center gap-3 py-1.5">
+        <div className="flex items-center gap-4 py-1.5">
             <div className="flex gap-2 text-xs text-zinc-500 uppercase tracking-wider items-center">
-                <span>{selectedCount} Selected</span>
+                <span className="text-zinc-900">Studio</span>
+                <span>{totalItems} Assets</span>
             </div>
 
-
+            <div className="h-4 w-px bg-zinc-700"></div>
 
             {/* Style Selection */}
             <DropdownMenu>
@@ -80,8 +83,6 @@ export function LibraryActionToolbar({
             </DropdownMenu>
 
 
-            <div className="h-4 w-px bg-zinc-700 mx-2"></div>
-
             {/* GUIDANCE (Style Pwr) */}
             <DropdownMenu>
                 <TooltipProvider>
@@ -115,8 +116,6 @@ export function LibraryActionToolbar({
             </DropdownMenu>
 
             {/* PROMPT STRENGTH REMOVED per user request */}
-
-            <div className="h-4 w-px bg-zinc-700 mx-2"></div>
 
             {/* SEED CONTROL */}
             <TooltipProvider>
@@ -169,67 +168,72 @@ export function LibraryActionToolbar({
 
             <div className="h-4 w-px bg-zinc-700 mx-2"></div>
 
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            size="sm"
-                            onClick={onGenerateSelected}
-                            disabled={selectedCount === 0}
-                            className="h-8 px-3 text-xs"
-                        >
-                            <span className="material-symbols-outlined !text-sm mr-2">image</span>
-                            Generate ({selectedCount})
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Generate images for selected items</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+            {/* --- RIGHT GROUP: Actions --- */}
+            <div className="flex items-center gap-2">
 
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={onDownloadSelected}
-                            disabled={selectedCount === 0}
-                            className="h-8 px-3 text-xs border-primary border-opacity-50 text-primary hover:bg-primary hover:bg-opacity-10 hover:text-primary hover:border-primary disabled:text-primary disabled:text-opacity-50 disabled:border-opacity-30"
-                        >
-                            <span className="material-symbols-outlined !text-sm mr-2">download</span>
-                            Download
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Download generated images</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+                {/* Selected Count */}
+                <span className={`text-xs font-medium uppercase transition-colors mr-1 ${selectedCount > 0 ? "text-primary" : "text-zinc-600"}`}>
+                    {selectedCount} SELECTED
+                </span>
+
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                size="icon"
+                                onClick={onGenerateSelected}
+                                disabled={selectedCount === 0}
+                                className="h-8 w-8"
+                            >
+                                <span className="material-symbols-outlined !text-lg">image</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Generate images for selected items</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="outline-primary"
+                                size="icon"
+                                onClick={onDownloadSelected}
+                                disabled={selectedCount === 0}
+                                className="h-8 w-8"
+                            >
+                                <span className="material-symbols-outlined !text-lg">download</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Download generated images</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
 
 
+                <div className="h-4 w-px bg-zinc-700 mx-2"></div>
 
-
-            <div className="h-4 w-px bg-zinc-700 mx-2"></div>
-
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={onAddItem}
-                            className="h-8 w-8 text-primary border-primary hover:bg-primary/10 hover:text-primary hover:border-primary border-opacity-50 cursor-pointer"
-                        >
-                            <span className="material-symbols-outlined !text-lg">add</span>
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Add New Studio Asset</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="outline-primary"
+                                size="icon"
+                                onClick={onAddItem}
+                                className="h-8 w-8 text-primary border-primary hover:bg-primary/10 hover:text-primary hover:border-primary border-opacity-50 cursor-pointer"
+                            >
+                                <span className="material-symbols-outlined !text-lg">add</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Add New Studio Asset</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
         </div>
     )
 }

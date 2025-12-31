@@ -249,3 +249,15 @@ This patch resolves a schema drift issue encountered after migrating the Product
     - Forced schema synchronization (`prisma db push`) to add the missing `thumbnailPath` column.
     - Cleared stale database locks caused by zombie processes.
 - **Version Bump**: 0.12.1 -> 0.12.2.
+
+## 2025-12-31: v0.12.3 - Studio UI Polish
+
+### Context
+Refined the Studio (Library) Screen UI to match the aesthetic and layout of the Episode Screen, creating a more consistent user experience across the application.
+
+### Changes
+- **Action Toolbar Alignment**:
+    - **Buttons**: Converted "Generate" and "Download" to compact, square icon-only buttons (matching Episode view), reducing visual clutter.
+    - **Labels**: Aligned header labelling. Left side now displays "Studio | {N} Assets". Right side displays "{N} SELECTED" count.
+    - **Layout**: Removed vertical dividers between Style, Guidance, and Seed controls for a cleaner, grouped appearance.
+- **Version Bump**: 0.12.2 -> 0.12.3.
