@@ -70,7 +70,11 @@ export async function GET() {
             id: e.number.toString(),
             uuid: e.id,
             title: e.title || `Episode ${e.number}`,
-            model: e.model || ''
+            model: e.model || '',
+            aspectRatio: e.aspectRatio || '16:9',
+            style: e.style || '',
+            guidance: e.guidance ?? 5.0,
+            seed: e.seed || null
         }));
 
         const episodeTitles: Record<string, string> = {};

@@ -62,7 +62,7 @@ async function ensurePublicUrl(url: string): Promise<string> {
 
 export async function POST(req: Request) {
     try {
-        const { item, rowIndex, style, styleStrength, refStrength, seed } = await req.json();
+        const { item, rowIndex, style, styleStrength, refStrength, seed, aspectRatio } = await req.json();
 
         if (!item || typeof rowIndex !== 'number') {
             return NextResponse.json({ error: 'Missing item or rowIndex' }, { status: 400 });
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
             clipId: item.id.toString(), // Pseudo ID
             seriesId: item.series || '',
             model: 'flux-2/flex-image-to-image',
-            aspectRatio: '16:9',
+            aspectRatio: aspectRatio || '16:9',
             // Smart Prompt Elements (Passed separately for Builder to assemble)
             subjectName: item.name,
             subjectDescription: item.description,

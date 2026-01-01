@@ -173,14 +173,14 @@ export function ActionToolbar({
                     </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Aspect Ratio Selection */}
+                {/* Aspect Ratio Selection (Renamed to VIEW) */}
                 <DropdownMenu>
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2">
-                                        <span className="text-zinc-500 mr-2 font-semibold">RATIO</span>
+                                        <span className="text-zinc-500 mr-2 font-semibold">VIEW</span>
                                         {aspectRatio}
                                         <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                     </Button>

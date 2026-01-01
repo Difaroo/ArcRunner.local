@@ -39,7 +39,7 @@ import { useMediaArchiver } from "@/hooks/useMediaArchiver";
 export default function Home() {
   const {
     clips, setClips,
-    seriesList, setSeriesList, // setSeriesList might be unused if handled by store? exposed anyway
+    seriesList, setSeriesList,
     currentSeriesId, setCurrentSeriesId,
     episodeTitles,
     allEpisodes, setAllEpisodes,
@@ -57,31 +57,72 @@ export default function Home() {
   const [editValues, setEditValues] = useState<Partial<Clip>>({});
   const [saving, setSaving] = useState(false);
   const [selectedModel, setSelectedModel] = useState('veo-fast');
-  const [episodeStyles, setEpisodeStyles] = useState<Record<string, string>>({});
-  // New States for Flux Style Control
-  // New States for Flux Style Control
-  const [styleStrength, setStyleStrength] = useState(5)
-  // refStrength removed per user request
-  const [seed, setSeed] = useState<number | null>(null)
 
-  // Persistence Guard to prevent overwriting inputs with defaults on hydration
+  // Persistence Guard (Nav only)
   const [isRestored, setIsRestored] = useState(false);
 
-  // Persist Flux Settings & Navigation State
-  useEffect(() => {
-    const savedStrength = localStorage.getItem('arcrunner_styleStrength');
-    if (savedStrength) setStyleStrength(parseInt(savedStrength));
+  // --- Derive Current Episode Data ---
+  // Find the episode object for the current series and episode number
+  const currentEpObj = useMemo(() => {
+    return allEpisodes.find(e => e.series === currentSeriesId && e.id === currentEpisode.toString());
+  }, [allEpisodes, currentSeriesId, currentEpisode]);
 
-    const savedSeed = localStorage.getItem('arcrunner_seed');
-    if (savedSeed) setSeed(parseInt(savedSeed));
+  // Derived State (with defaults if missing)
+  const currentStyle = currentEpObj?.style || '';
+  const currentGuidance = currentEpObj?.guidance ?? 5.0; // Default 5
+  // const currentSeed = currentEpObj?.seed ?? null; // Prisma might return null
+  // Careful: DB seed is number or null.
+  const currentSeed = currentEpObj?.seed !== undefined ? currentEpObj.seed : null;
+  const currentAspectRatio = currentEpObj?.aspectRatio || '16:9';
 
-    const savedStyles = localStorage.getItem('arcrunner_episodeStyles');
-    if (savedStyles) {
-      try {
-        setEpisodeStyles(JSON.parse(savedStyles));
-      } catch (e) { console.error('Failed to parse saved styles', e); }
+  // Optimize: Memoize filtered items
+  const activeLibraryItems = useMemo(() =>
+    libraryItems.filter(i => i.series === currentSeriesId),
+    [libraryItems, currentSeriesId]
+  );
+
+
+  // --- Persistence Handler ---
+  const updateEpisodeSetting = useCallback(async (updates: Partial<typeof currentEpObj>) => {
+    if (!currentEpObj || !currentSeriesId) return;
+
+    // 0. Snapshot for Revert
+    const previousSnapshot = { ...currentEpObj };
+
+    // 1. Optimistic Update
+    setAllEpisodes(prev => prev.map(e =>
+      (e.series === currentSeriesId && e.id === currentEpisode.toString()) ? { ...e, ...updates } : e
+    ));
+
+    // 2. API Call
+    try {
+      const res = await fetch('/api/update_episode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          seriesId: currentSeriesId,
+          episodeId: currentEpisode.toString(), // API expects '1'
+          updates: updates
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Save failed: ${res.statusText}`);
+      }
+    } catch (e) {
+      console.error("Failed to save episode settings", e);
+      // 3. Revert Logic
+      setAllEpisodes(prev => prev.map(e =>
+        // Restore only the fields that were in the snapshot for this specific episode
+        (e.series === currentSeriesId && e.id === currentEpisode.toString()) ? previousSnapshot : e
+      ));
+      alert("Failed to save settings. Reverting changes.");
     }
+  }, [currentEpObj, currentSeriesId, currentEpisode, setAllEpisodes]);
 
+
+  // Persist Navigation State Only
+  useEffect(() => {
     const savedEpisode = localStorage.getItem('arcrunner_currentEpisode');
     if (savedEpisode) setCurrentEpisode(parseInt(savedEpisode));
 
@@ -90,22 +131,6 @@ export default function Home() {
 
     setIsRestored(true);
   }, []);
-
-  useEffect(() => {
-    if (!isRestored) return;
-    localStorage.setItem('arcrunner_styleStrength', styleStrength.toString());
-  }, [styleStrength, isRestored]);
-
-  useEffect(() => {
-    if (!isRestored) return;
-    if (seed !== null) localStorage.setItem('arcrunner_seed', seed.toString());
-    else localStorage.removeItem('arcrunner_seed');
-  }, [seed, isRestored]);
-
-  useEffect(() => {
-    if (!isRestored) return;
-    localStorage.setItem('arcrunner_episodeStyles', JSON.stringify(episodeStyles));
-  }, [episodeStyles, isRestored]);
 
   useEffect(() => {
     if (!isRestored) return;
@@ -578,7 +603,7 @@ export default function Home() {
     // Note: 'currentEpKey' might not be available here as this function is used in loops.
     // However, Library items HAVE an 'episode' field. We should look up the style for THAT episode.
     const epKey = item.episode || '1';
-    const styleToUse = episodeStyles[epKey] || '';
+    const styleToUse = allEpisodes.find(e => e.series === currentSeriesId && e.id === epKey)?.style || '';
 
     try {
       const res = await fetch('/api/generate-library', {
@@ -588,9 +613,10 @@ export default function Home() {
           item,
           rowIndex,
           style: styleToUse,
-          styleStrength, // Pass global slider value
+          styleStrength: currentGuidance, // Pass persistent guidance
           // refStrength removed
-          seed: seed ?? undefined
+          seed: currentSeed ?? undefined,
+          aspectRatio: currentAspectRatio // Pass persistent aspect ratio
         })
       });
       const data = await res.json();
@@ -628,7 +654,16 @@ export default function Home() {
     }
   }
 
-  const handleLibraryGenerateSelected = async () => {
+  // --- Studio Generation Confirmation ---
+  const [showStudioConfirm, setShowStudioConfirm] = useState(false);
+
+  const handleOpenStudioConfirm = () => {
+    if (selectedLibraryIds.size === 0) return;
+    setShowStudioConfirm(true);
+  };
+
+  const executeStudioGeneration = async () => {
+    setShowStudioConfirm(false); // Close first
     const toGen = currentLibraryItems.filter(item => selectedLibraryIds.has(item.id));
     setCopyMessage(`Generating ${toGen.length} library items...`);
     setTimeout(() => setCopyMessage(null), 3000);
@@ -985,7 +1020,7 @@ export default function Home() {
       // Use Episode Style if available, otherwise fallback to clip style (which might be empty now)
       // Actually, user said "Make clip render function reference episode STYLE for all clips of the Ep"
       // So we override the clip's style with the Episode Style.
-      const styleToUse = episodeStyles[currentEpKey] || clip.style;
+      const styleToUse = currentStyle || clip.style;
 
       // Default to Image (Flux) if not explicitly Video (Veo) to prevent accidental cost
       const isVideo = selectedModel.startsWith('veo');
@@ -1155,7 +1190,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.12.3</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.13.0</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1522,11 +1557,11 @@ export default function Home() {
                     console.error("Failed to save episode model", e);
                   }
                 }}
-                currentStyle={episodeStyles[currentEpKey] || ''}
-                onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
+                currentStyle={currentStyle}
+                onStyleChange={(style) => updateEpisodeSetting({ style })}
                 availableStyles={uniqueValues.styles}
-                aspectRatio={aspectRatio}
-                onAspectRatioChange={setAspectRatio}
+                aspectRatio={currentAspectRatio}
+                onAspectRatioChange={(ratio) => updateEpisodeSetting({ aspectRatio: ratio })}
                 onAddClip={handleAddClip}
                 clips={activeClips}
               />
@@ -1535,19 +1570,21 @@ export default function Home() {
               <div className="flex items-center">
                 {/* Reusing Action Toolbar style via pure component would be best, but LibraryActionToolbar is specific */}
                 <LibraryActionToolbar
-                  totalItems={libraryItems.filter(i => i.series === currentSeriesId).length}
+                  totalItems={activeLibraryItems.length}
                   selectedCount={selectedLibraryIds.size}
-                  onGenerateSelected={handleLibraryGenerateSelected}
+                  onGenerateSelected={handleOpenStudioConfirm}
                   onDownloadSelected={handleLibraryDownloadSelected}
-                  currentStyle={episodeStyles[currentEpKey] || ''}
-                  onStyleChange={(style) => setEpisodeStyles(prev => ({ ...prev, [currentEpKey]: style }))}
+                  currentStyle={currentStyle}
+                  onStyleChange={(style) => updateEpisodeSetting({ style })}
                   availableStyles={uniqueValues.styles}
                   onAddItem={handleAddLibraryItem}
-                  styleStrength={styleStrength}
-                  onStyleStrengthChange={setStyleStrength}
+                  styleStrength={currentGuidance}
+                  onStyleStrengthChange={(val) => updateEpisodeSetting({ guidance: val })}
                   // refStrength removed
-                  seed={seed}
-                  onSeedChange={setSeed}
+                  seed={currentSeed}
+                  onSeedChange={(val) => updateEpisodeSetting({ seed: val })}
+                  aspectRatio={currentAspectRatio}
+                  onAspectRatioChange={(ratio) => updateEpisodeSetting({ aspectRatio: ratio })}
                 />
               </div>
             )}
@@ -1739,7 +1776,39 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div >
+      <Dialog open={showStudioConfirm} onOpenChange={setShowStudioConfirm}>
+        <DialogContent className="sm:max-w-[400px] bg-stone-900 border-stone-800 text-stone-100 p-6">
+          <DialogHeader>
+            <DialogTitle>Confirm Generation</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <p className="text-sm text-stone-400">
+              Generating <span className="text-white font-semibold">{selectedLibraryIds.size}</span> items with settings:
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-sm bg-black/20 p-3 rounded-md border border-white/5">
+              <span className="text-stone-500">View</span>
+              <span className="text-right font-medium">{currentAspectRatio}</span>
+
+              <span className="text-stone-500">Style</span>
+              <span className="text-right font-medium truncate">{currentStyle || 'None'}</span>
+
+              <span className="text-stone-500">Strength</span>
+              <span className="text-right font-medium">{currentGuidance}</span>
+
+              <span className="text-stone-500">Seed</span>
+              <span className="text-right font-medium font-mono text-xs pt-0.5">{currentSeed !== null ? currentSeed : 'Random'}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowStudioConfirm(false)}>Cancel</Button>
+            <Button onClick={executeStudioGeneration}>
+              <span className="material-symbols-outlined !text-lg mr-2">auto_awesome</span>
+              Generate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 

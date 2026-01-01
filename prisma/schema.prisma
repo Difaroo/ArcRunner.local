@@ -31,6 +31,12 @@ model Episode {
   model     String?  // "veo-2", "veo-3" (Episode-level override)
   storyboardVersion Int @default(1)
   
+  // Generation Settings (Per-Episode Persistence)
+  aspectRatio String  @default("16:9")
+  style       String?
+  guidance    Float?  @default(5.0)
+  seed        Int?
+  
   // Relations
   seriesId  String
   series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)

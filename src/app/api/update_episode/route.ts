@@ -28,13 +28,23 @@ export async function POST(request: Request) {
         }
 
         // 2. Perform Updates
-        // Map frontend fields if necessary. 
-        // Frontend sends: 'model', 'title'. 
-        // Prisma has: 'model', 'title'. Matches.
+        // Whitelist allowed fields for security
+        const ALLOWED_KEYS = ['model', 'style', 'guidance', 'seed', 'aspectRatio'];
+        const filteredUpdates: Record<string, any> = {};
+
+        Object.keys(updates).forEach(key => {
+            if (ALLOWED_KEYS.includes(key)) {
+                filteredUpdates[key] = updates[key];
+            }
+        });
+
+        if (Object.keys(filteredUpdates).length === 0) {
+            return NextResponse.json({ error: 'No valid update fields provided' }, { status: 400 });
+        }
 
         await db.episode.update({
             where: { id: episode.id },
-            data: updates
+            data: filteredUpdates
         });
 
         return NextResponse.json({ success: true, rowIndex: episode.id });

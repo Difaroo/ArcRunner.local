@@ -9,7 +9,17 @@ export function useAppStore() {
     const [seriesList, setSeriesList] = useState<Series[]>([]);
     const [currentSeriesId, setCurrentSeriesId] = useState<string>("1"); // Default ID? Maybe should be empty initially
     const [episodeTitles, setEpisodeTitles] = useState<Record<string, string>>({});
-    const [allEpisodes, setAllEpisodes] = useState<{ series: string, id: string, title: string, model?: string }[]>([]);
+    const [allEpisodes, setAllEpisodes] = useState<{
+        series: string,
+        id: string,
+        uuid: string,
+        title: string,
+        model?: string,
+        style?: string,
+        guidance?: number,
+        seed?: number | null,
+        aspectRatio?: string
+    }[]>([]);
     const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');

@@ -261,3 +261,20 @@ Refined the Studio (Library) Screen UI to match the aesthetic and layout of the 
     - **Labels**: Aligned header labelling. Left side now displays "Studio | {N} Assets". Right side displays "{N} SELECTED" count.
     - **Layout**: Removed vertical dividers between Style, Guidance, and Seed controls for a cleaner, grouped appearance.
 - **Version Bump**: 0.12.2 -> 0.12.3.
+
+## 2026-01-01: v0.13.0 - Studio Persistence & Confidence
+### Context
+Addressed critical usability gaps in the Studio (Library) workflow. Users reported that style/guidance settings were not sticking, and accidental credit usage was common due to lack of confirmation.
+### Features
+- **Studio Persistence**:
+    - **Reactivity**: Fixed bug where "Style" selection was ignored due to dependency on transient UUIDs. Now uses robust Series/Episode ID matching.
+    - **Sync**: Implemented bidirectional synchronization of Style, Guidance, Seed, and Aspect Ratio between Studio and Episode views.
+    - **View Support**: Added "VIEW" (Aspect Ratio) control to Studio toolbar, persisting correctly to all generations.
+- **Confidence Dialog**:
+    - **Confirmation**: Added a "Generate" confirmation dialog in Studio.
+    - **Summary**: Displays precise settings (View, Style, Strength, Seed) before commit.
+- **UI Refinements**:
+    - **Clarity**: Renamed "Guidance" -> "STRENGTH" for better user understanding.
+    - **Seed Control**: Narrowed seed input to loosely suggest 4-digit localized usage; changed placeholder to "Auto".
+### Version Bump
+- **Minor**: 0.12.3 -> 0.13.0.

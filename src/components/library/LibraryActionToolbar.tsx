@@ -22,6 +22,9 @@ interface LibraryActionToolbarProps {
     // refStrength removed
     seed: number | null
     onSeedChange: (val: number | null) => void
+    // New: Aspect Ratio (View)
+    aspectRatio: string
+    onAspectRatioChange: (ratio: string) => void
 }
 
 export function LibraryActionToolbar({
@@ -37,7 +40,9 @@ export function LibraryActionToolbar({
     onStyleStrengthChange,
     // refStrength removed
     seed,
-    onSeedChange
+    onSeedChange,
+    aspectRatio,
+    onAspectRatioChange
 }: LibraryActionToolbarProps) {
     return (
         <div className="flex items-center gap-4 py-1.5">
@@ -47,6 +52,38 @@ export function LibraryActionToolbar({
             </div>
 
             <div className="h-4 w-px bg-zinc-700"></div>
+
+            {/* VIEW / RATIO SELECTION */}
+            <DropdownMenu>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white mr-2">
+                                    <span className="text-zinc-500 mr-2 font-semibold">VIEW</span>
+                                    <span className="truncate inline-block align-bottom">{aspectRatio || '16:9'}</span>
+                                    <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Aspect Ratio (View)</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+                <DropdownMenuContent className="w-24 bg-stone-900 border-stone-800 text-white">
+                    {['16:9', '9:16', '1:1', '21:9', '4:3', '3:4'].map((ratio) => (
+                        <DropdownMenuItem
+                            key={ratio}
+                            onClick={() => onAspectRatioChange(ratio)}
+                            className="focus:bg-stone-800 focus:text-white cursor-pointer justify-center"
+                        >
+                            {ratio}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+
 
             {/* Style Selection */}
             <DropdownMenu>
@@ -90,7 +127,7 @@ export function LibraryActionToolbar({
                         <TooltipTrigger asChild>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-                                    <span className="text-zinc-500 mr-2 font-semibold">GUIDANCE</span>
+                                    <span className="text-zinc-500 mr-2 font-semibold">STRENGTH</span>
                                     <span className="truncate inline-block align-bottom">{styleStrength}</span>
                                     <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                 </Button>
@@ -125,12 +162,18 @@ export function LibraryActionToolbar({
                             <span className="text-[10px] text-zinc-500 font-semibold tracking-wider">SEED</span>
                             <input
                                 type="number"
-                                placeholder="Random"
-                                className="bg-transparent text-xs w-16 text-zinc-300 placeholder:text-zinc-700 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder="Auto"
+                                className="bg-transparent text-xs w-[42px] text-zinc-300 placeholder:text-zinc-600 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 value={seed === null || seed === undefined ? '' : seed}
                                 onChange={(e) => {
                                     const val = e.target.value;
-                                    onSeedChange(val === '' ? null : parseInt(val));
+                                    // Robustness: Handle empty string or invalid number
+                                    if (val === '') {
+                                        onSeedChange(null);
+                                    } else {
+                                        const parsed = parseInt(val);
+                                        if (!isNaN(parsed)) onSeedChange(parsed);
+                                    }
                                 }}
                             />
                             {/* CLEAR BUTTON (Only if value exists) */}
