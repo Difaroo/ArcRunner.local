@@ -32,6 +32,8 @@ export interface GenerateTaskInput {
     styleName?: string;
     styleDescription?: string;
     styleImageIndex?: number;
+    subjectNegatives?: string;
+    styleNegatives?: string;
 }
 
 export class GenerateManager {

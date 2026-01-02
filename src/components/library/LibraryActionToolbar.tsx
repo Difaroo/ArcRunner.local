@@ -216,7 +216,8 @@ export function LibraryActionToolbar({
 
                 {/* Selected Count */}
                 <span className={`text-xs font-medium uppercase transition-colors mr-1 ${selectedCount > 0 ? "text-primary" : "text-zinc-600"}`}>
-                    {selectedCount} SELECTED
+                    <span className="font-bold">{selectedCount}</span>
+                    <span className="ml-1.5">SELECTED</span>
                 </span>
 
                 <TooltipProvider>

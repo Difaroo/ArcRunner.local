@@ -1190,7 +1190,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.13.0</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.14.0</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1754,6 +1754,9 @@ export default function Home() {
                 onChange={(e) => setNewEpNumber(e.target.value)}
                 placeholder="e.g. 1"
                 className="bg-stone-950 border-stone-800"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateEpisode();
+                }}
               />
             </div>
             <div className="grid gap-2">
@@ -1764,6 +1767,9 @@ export default function Home() {
                 onChange={(e) => setNewEpTitle(e.target.value)}
                 placeholder="Episode Title"
                 className="bg-stone-950 border-stone-800"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateEpisode();
+                }}
               />
             </div>
           </div>
@@ -1777,13 +1783,21 @@ export default function Home() {
         </DialogContent>
       </Dialog>
       <Dialog open={showStudioConfirm} onOpenChange={setShowStudioConfirm}>
-        <DialogContent className="sm:max-w-[400px] bg-stone-900 border-stone-800 text-stone-100 p-6">
+        <DialogContent
+          className="sm:max-w-[400px] bg-stone-900 border-stone-800 text-stone-100 p-6"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              executeStudioGeneration();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Confirm Generation</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
-            <p className="text-sm text-stone-400">
-              Generating <span className="text-white font-semibold">{selectedLibraryIds.size}</span> items with settings:
+            <p className="text-sm text-stone-400 mb-4">
+              Generating <span className="text-white font-semibold mx-1">{selectedLibraryIds.size}</span> {selectedLibraryIds.size === 1 ? "image" : "images"} with settings:
             </p>
             <div className="grid grid-cols-2 gap-2 text-sm bg-black/20 p-3 rounded-md border border-white/5">
               <span className="text-stone-500">View</span>

@@ -106,12 +106,28 @@ export async function POST(req: Request) {
 
         // Resolve Local Files to Public URLs
         const publicImageUrls: string[] = [];
+        let rStyleIndex: number | undefined = undefined;
+
         if (rawUrls.length > 0) {
             const results = await Promise.allSettled(rawUrls.map(url => ensurePublicUrl(url)));
 
-            results.forEach(r => {
-                if (r.status === 'fulfilled' && r.value) {
-                    publicImageUrls.push(r.value);
+            // Map results maintaining correlation with rawUrls
+            const resolvedMap = results.map((r, i) => ({
+                original: rawUrls[i],
+                success: r.status === 'fulfilled',
+                url: r.status === 'fulfilled' ? (r as PromiseFulfilledResult<string>).value : null,
+                isStyle: rawUrls[i] === styleRefUrl // Identify if this was the style
+            }));
+
+            // Filter for success only, but track where the style went
+            resolvedMap.forEach(item => {
+                if (item.success && item.url) {
+                    publicImageUrls.push(item.url);
+                    if (item.isStyle) {
+                        rStyleIndex = publicImageUrls.length - 1; // Current Last Index
+                    }
+                } else if (item.isStyle) {
+                    console.warn('[LibraryGen] Style Reference failed to resolve/upload:', item.original);
                 }
             });
         }
@@ -133,8 +149,8 @@ export async function POST(req: Request) {
             clip: item,
             styleStrength, // Pass through
             refStrength, // Pass through
-            // If styleRefUrl existed AND we have enough public urls, the LAST one is likely the style.
-            styleImageIndex: (styleRefUrl && publicImageUrls.length > 0) ? publicImageUrls.length - 1 : undefined,
+            // Use the robustly calculated index
+            styleImageIndex: rStyleIndex,
             seed: seed || undefined // Pass through if present
         };
 

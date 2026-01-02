@@ -278,3 +278,22 @@ Addressed critical usability gaps in the Studio (Library) workflow. Users report
     - **Seed Control**: Narrowed seed input to loosely suggest 4-digit localized usage; changed placeholder to "Auto".
 ### Version Bump
 - **Minor**: 0.12.3 -> 0.13.0.
+
+## 2026-01-02: v0.14.0 - Payload Hardening & UI Polish
+
+### Context
+Major refinement of the Flux generation payload to strictly control style transfer intensity. Implemented specific user-requested prompt structures ("Negatives", "ABSOLUTE STYLE SOURCE") and hardcoded weightings. Also addressed UI spacing issues.
+
+### Features
+- **Payload Optimization**: 
+    - Integrated "Negatives" support in both Style and Subject prompt blocks.
+    - Implemented authoritative "ABSOLUTE STYLE SOURCE" system headers.
+    - Hardcoded "Facial proportions: 200%" into the instruction footer.
+- **UI Polish**:
+    - **Studio Toolbar**: Fixed spacing between count and label in "Selected Items" display.
+
+### Technical
+- **Schema**: Leveraged `negatives` field in `StudioItem`.
+- **Backend**: Updated `generate-library` route and `PayloadBuilderFlux` to support detailed negative prompts and strictly formatted templates.
+- **Version Bump**: 0.13.0 -> 0.14.0.
+

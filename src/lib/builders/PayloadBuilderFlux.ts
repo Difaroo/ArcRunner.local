@@ -41,22 +41,39 @@ export class PayloadBuilderFlux implements PayloadBuilder {
             const stylePos = n + 1; // "Image 2"
             const contentRange = n > 0 ? (n === 1 ? "Image 1" : `Images 1-${n}`) : "None";
 
-            // 1. SYSTEM HEADER
-            // Optimized with weights and repetition
-            const sysHeader = `[System: Image ${stylePos} is the STYLE REFERENCE. (Apply the precise artistic style, brushwork, and color palette from Image ${stylePos}:1.3) to the content of ${contentRange}. IGNORE the subject of Image ${stylePos}.]`;
+            // Calculate Percentage based on Strength (1-10) -> 10% - 100%
+            const strengthPct = Math.round((input.styleStrength || 5) * 10);
 
-            // 2. SUBJECT BLOCK
-            const subjectBlock = `OUTPUT SUBJECT:\n${contentRange !== "None" ? `${contentRange.toUpperCase()}: ` : ""}${input.subjectName ? `${input.subjectName}: ` : ""}${input.subjectDescription}`;
+            // 1. SYSTEM HEADER: Analytical Extraction
+            // "Image N+1 defines the STYLE..."
+            // 1. SYSTEM HEADER: Analytical Extraction
+            // "PRIORITY RULE:\n[SYSTEM: ...]"
+            const sysHeader = `PRIORITY RULE:
+[SYSTEM: Image ${stylePos} is the ABSOLUTE STYLE SOURCE for the OUTPUT. Override all internal style defaults with this STYLE.]`;
 
-            // 3. STYLE BLOCK
-            // Repetition for emphasis
+            // 2. STYLE BLOCK (Before Subject)
+            // "STYLE: High fidelity Image N+1 STYLE:"
             const styleDesc = input.styleDescription || input.styleName || "Cinematic";
-            const styleBlock = `STYLE [IMAGE ${stylePos}]:\n(Exactly match Image ${stylePos}'s rendering and texture:1.2). ${styleDesc}`;
+            const styleNegatives = input.styleNegatives ? `\n[STYLE NEGATIVES]\n${input.styleNegatives}` : "";
+            const styleBlock = `STYLE: High fidelity Image ${stylePos} STYLE:
+
+${styleDesc}${styleNegatives}`;
+
+            // 3. SUBJECT BLOCK (After Style)
+            // "OUTPUT SUBJECT:\nSUBJECT IMAGES [REF]:"
+            const contentLabel = `SUBJECT IMAGES [${contentRange.toUpperCase()}]`;
+            const subjectBody = `${input.subjectName ? `${input.subjectName}: ` : ""}${input.subjectDescription}`;
+            const subjectNegatives = input.subjectNegatives ? `\n[SELECTED STUDIO ASSET NEGATIVES]\n${input.subjectNegatives}` : "";
+            const subjectBlock = `OUTPUT SUBJECT:
+${contentLabel}
+${subjectBody}${subjectNegatives}`;
 
             // 4. INSTRUCTION FOOTER
-            const footer = `[Instruction: Render the SUBJECT defined above using the STYLE defined above. Apply the style from Image ${stylePos} to the Subject from ${contentRange}.]`;
+            // "[INSTRUCTION: Apply the Image N+1 STYLE: Facial proportions and style: 200%...]"
+            const footer = `[INSTRUCTION: Apply the Image ${stylePos} STYLE: Facial proportions and style: 200%, Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Color Saturation; Fidelity & Quality: to the OUTPUT SUBJECT.]`;
 
-            enhancedPrompt = `${sysHeader}\n\n${subjectBlock}\n\n${styleBlock}\n\n${footer}`;
+            // Reordered: Header -> Style -> Subject -> Footer
+            enhancedPrompt = `${sysHeader}\n\n${styleBlock}\n\n${subjectBlock}\n\n${footer}`;
 
         } else if (input.subjectDescription) {
             // Fallback: No Style Image, just clean description
@@ -67,21 +84,18 @@ export class PayloadBuilderFlux implements PayloadBuilder {
             model: model,
             input: {
                 prompt: enhancedPrompt,
-                // prompt_strength removed per user request (unsupported by Flux)
+                // prompt_strength removed per user request
                 aspect_ratio: input.aspectRatio || "16:9",
                 resolution: "1K",
                 // Corrected Params per BFL Docs
                 safety_tolerance: 5, // 5 = Most permissive
                 guidance: Number(guidanceScale.toFixed(1)), // 1.5 - 10.0
                 num_inference_steps: 50, // High quality
-                // Dual-send seed to handle potential API parameter naming variance (seed vs random_seed)
-                ...(input.seed ? {
-                    seed: Number(input.seed),
-                    random_seed: Number(input.seed)
-                } : {}),
+                // Removed random_seed as requested. Only pass seed if explicitly provided.
+                ...(input.seed ? { seed: Number(input.seed) } : {}),
                 ...(validImageUrls.length > 0 ? { input_urls: validImageUrls } : {})
             },
-            ...(input.seed ? { seed: Number(input.seed) } : {}) // Root level fallback
+            // Removed root level seed fallback to avoid ambiguity
         };
 
         // VISUAL CONFIG LOG FOR DEBUGGING AND TUNING
