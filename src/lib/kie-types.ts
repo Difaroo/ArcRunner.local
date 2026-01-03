@@ -30,4 +30,17 @@ export interface VeoPayload {
     [key: string]: any;
 }
 
+export interface NanoPayload {
+    model: string;
+    callBackUrl?: string;
+    input: {
+        prompt: string;
+        image_input?: string[];
+        aspect_ratio?: string;
+        resolution?: string;
+        output_format?: string;
+        [key: string]: any;
+    };
+}
+
 export type AppStatus = 'Generating' | 'Done' | 'Error';

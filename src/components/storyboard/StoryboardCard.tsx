@@ -26,6 +26,7 @@ export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: Stor
                                 url={clip.thumbnailPath || clip.resultUrl!}
                                 originalUrl={clip.resultUrl || undefined}
                                 model={clip.model || ''}
+                                title={clip.title || clip.scene || 'Clip'}
                                 // onPlay removed to use internal modal
                                 isThumbnail={!!clip.thumbnailPath}
                                 className="w-full h-full object-cover"
@@ -105,6 +106,7 @@ export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: Stor
                         url={clip.thumbnailPath || clip.resultUrl!}
                         originalUrl={clip.resultUrl || undefined}
                         model={clip.model || ''}
+                        title={clip.title || clip.scene || 'Clip'}
                         // onPlay removed to use internal modal
                         isThumbnail={!!clip.thumbnailPath}
                         className="w-full h-full object-cover"

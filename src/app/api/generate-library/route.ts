@@ -62,7 +62,7 @@ async function ensurePublicUrl(url: string): Promise<string> {
 
 export async function POST(req: Request) {
     try {
-        const { item, rowIndex, style, styleStrength, refStrength, seed, aspectRatio } = await req.json();
+        const { item, rowIndex, style, styleStrength, refStrength, seed, aspectRatio, model } = await req.json();
 
         if (!item || typeof rowIndex !== 'number') {
             return NextResponse.json({ error: 'Missing item or rowIndex' }, { status: 400 });
@@ -132,14 +132,16 @@ export async function POST(req: Request) {
             });
         }
 
-        const builder = BuilderFactory.getBuilder('flux-2/flex-image-to-image');
+        const targetModel = model || 'flux-2/flex-image-to-image';
+        console.log(`[LibraryGen] Using Model: ${targetModel}`);
+        const builder = BuilderFactory.getBuilder(targetModel);
         if (!builder) throw new Error('Flux Builder not found');
 
         // Construct minimal input for builder
         const builderInput = {
             clipId: item.id.toString(), // Pseudo ID
             seriesId: item.series || '',
-            model: 'flux-2/flex-image-to-image',
+            model: targetModel,
             aspectRatio: aspectRatio || '16:9',
             // Smart Prompt Elements (Passed separately for Builder to assemble)
             subjectName: item.name,

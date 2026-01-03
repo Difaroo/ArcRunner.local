@@ -266,7 +266,8 @@ export default function Home() {
           title: data.title,
           totalEpisodes: '0',
           currentEpisodes: '0',
-          status: 'Active'
+          status: 'Active',
+          defaultModel: 'veo-fast'
         };
         // Optimistic Update
         setSeriesList(prev => [...prev, newSeries]);
@@ -280,6 +281,25 @@ export default function Home() {
       setAddSeriesError(e.message || "Failed to add series");
     } finally {
       setIsAddingSeries(false);
+    }
+  };
+
+  const handleSeriesUpdate = async (id: string, updates: Partial<Series>) => {
+    // 1. Optimistic Update
+    setSeriesList(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+
+    try {
+      // 2. API Call
+      const payload = { seriesId: id, ...updates };
+      const res = await fetch('/api/update_series', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error("Update failed");
+    } catch (e) {
+      console.error("Series update failed", e);
+      refreshData(); // Revert/Refresh on error
     }
   };
 
@@ -526,15 +546,27 @@ export default function Home() {
 
   // --- Auto-Set Model from Episode Settings ---
   useEffect(() => {
+    if (loading) return;
     // Find current episode object
     const currentEpObj = allEpisodes.find(e => e.series === currentSeriesId && e.id === currentEpKey);
+    const currentSeries = seriesList.find(s => s.id === currentSeriesId);
 
-    if (currentEpObj?.model) {
-      if (currentEpObj.model !== selectedModel) {
-        setSelectedModel(currentEpObj.model);
-      }
+    // Hierarchy: Episode Override > Series Default > Global Default
+    const targetModel = currentEpObj?.model || currentSeries?.defaultModel || 'veo-fast';
+
+    console.log('[ModelSelect] Calc:', {
+      epModel: currentEpObj?.model,
+      seriesDefault: currentSeries?.defaultModel,
+      target: targetModel,
+      currentSelected: selectedModel
+    });
+
+    // Only update if different to avoid loops (though strict equality check handles it)
+    if (targetModel !== selectedModel) {
+      console.log('[ModelSelect] UPDATING to', targetModel);
+      setSelectedModel(targetModel);
     }
-  }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey]); // Check deps
+  }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey, seriesList, loading]); // Added seriesList dependency
 
   // --- Selection Logic via Hooks ---
   const {
@@ -567,7 +599,18 @@ export default function Home() {
 
   // --- Actions ---
   const handleGenerateSelected = async () => {
+    // Check if any selected
     const toGen = activeClips.filter(c => selectedIds.has(c.id));
+    if (toGen.length === 0) return;
+
+    // Show Confirmation Dialog
+    setShowClipConfirm(true);
+  };
+
+  const executeClipGeneration = async () => {
+    setShowClipConfirm(false);
+    const toGen = activeClips.filter(c => selectedIds.has(c.id));
+
     // Non-blocking notification
     setCopyMessage(`Generating ${toGen.length} clips...`);
     setTimeout(() => setCopyMessage(null), 3000);
@@ -605,6 +648,11 @@ export default function Home() {
     const epKey = item.episode || '1';
     const styleToUse = allEpisodes.find(e => e.series === currentSeriesId && e.id === epKey)?.style || '';
 
+    // DIRECT RESOLUTION: Solve Stale State Issue
+    // Look up the series model directly from the source of truth
+    const currentSeriesDirect = seriesList.find(s => s.id === currentSeriesId);
+    const resolvedModel = currentSeriesDirect?.defaultModel || 'flux-2/flex-image-to-image';
+
     try {
       const res = await fetch('/api/generate-library', {
         method: 'POST',
@@ -616,7 +664,8 @@ export default function Home() {
           styleStrength: currentGuidance, // Pass persistent guidance
           // refStrength removed
           seed: currentSeed ?? undefined,
-          aspectRatio: currentAspectRatio // Pass persistent aspect ratio
+          aspectRatio: currentAspectRatio, // Pass persistent aspect ratio
+          model: resolvedModel // Use resolved model
         })
       });
       const data = await res.json();
@@ -656,6 +705,7 @@ export default function Home() {
 
   // --- Studio Generation Confirmation ---
   const [showStudioConfirm, setShowStudioConfirm] = useState(false);
+  const [showClipConfirm, setShowClipConfirm] = useState(false);
 
   const handleOpenStudioConfirm = () => {
     if (selectedLibraryIds.size === 0) return;
@@ -1089,11 +1139,15 @@ export default function Home() {
     }
   };
 
-  const handleIngest = async (json: string, defaultModel: string) => {
+  const handleIngest = async (json: string) => {
+    // Resolve Default Model from Series
+    const currentSeries = seriesList.find(s => s.id === currentSeriesId);
+    const resolvedModel = currentSeries?.defaultModel || 'veo-3'; // Default to Veo 3 if not set
+
     const res = await fetch('/api/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ json, episodeId: currentEpKey, seriesId: currentSeriesId, defaultModel }),
+      body: JSON.stringify({ json, episodeId: currentEpKey, seriesId: currentSeriesId, defaultModel: resolvedModel }),
     });
 
     const data = await res.json();
@@ -1190,7 +1244,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.14.0</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.14.1</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1676,6 +1730,8 @@ export default function Home() {
                 libraryItems={libraryItems} // Pass all library items, filtering happens inside or we pass filtered
                 videoPromptTemplate={videoPromptTemplate}
                 imagePromptTemplate={imagePromptTemplate}
+                onRefresh={refreshData}
+                onUpdateSeries={handleSeriesUpdate}
               />
             ) : currentView === 'settings' ? (
               <SettingsPage onBack={() => handleViewChange('series')} />
@@ -1811,6 +1867,11 @@ export default function Home() {
 
               <span className="text-stone-500">Seed</span>
               <span className="text-right font-medium font-mono text-xs pt-0.5">{currentSeed !== null ? currentSeed : 'Random'}</span>
+
+              <span className="text-stone-500">Model</span>
+              <span className="text-right font-medium truncate">
+                {seriesList.find(s => s.id === currentSeriesId)?.defaultModel || 'flux-pro'}
+              </span>
             </div>
           </div>
           <DialogFooter>
@@ -1818,6 +1879,51 @@ export default function Home() {
             <Button onClick={executeStudioGeneration}>
               <span className="material-symbols-outlined !text-lg mr-2">auto_awesome</span>
               Generate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clip (Episode) Generation Confirm Dialog */}
+      <Dialog open={showClipConfirm} onOpenChange={setShowClipConfirm}>
+        <DialogContent
+          className="sm:max-w-[400px] bg-stone-900 border-stone-800 text-stone-100 p-6"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              executeClipGeneration();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Confirm Clip Generation</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <p className="text-sm text-stone-400 mb-4">
+              Generating <span className="text-white font-semibold mx-1">{selectedIds.size}</span> {selectedIds.size === 1 ? "clip" : "clips"} with settings:
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-sm bg-black/20 p-3 rounded-md border border-white/5">
+              <span className="text-stone-500">View</span>
+              <span className="text-right font-medium">{currentAspectRatio}</span>
+
+              <span className="text-stone-500">Style</span>
+              <span className="text-right font-medium truncate">{currentStyle || 'None'}</span>
+
+              <span className="text-stone-500">Strength</span>
+              <span className="text-right font-medium">{currentGuidance}</span>
+
+              <span className="text-stone-500">Seed</span>
+              <span className="text-right font-medium font-mono text-xs pt-0.5">{currentSeed !== null ? currentSeed : 'Random'}</span>
+
+              <span className="text-stone-500">Model</span>
+              <span className="text-right font-medium truncate">{selectedModel}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowClipConfirm(false)}>Cancel</Button>
+            <Button onClick={executeClipGeneration}>
+              <span className="material-symbols-outlined !text-lg mr-2">movie_filter</span>
+              Generate Clips
             </Button>
           </DialogFooter>
         </DialogContent>

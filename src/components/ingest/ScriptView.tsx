@@ -7,15 +7,13 @@ interface ScriptViewProps {
     episodeId: string
     seriesId: string
     seriesTitle: string
-    onIngest: (json: string, defaultModel: string) => Promise<void>
+    onIngest: (json: string) => Promise<void>
 }
 
 export function ScriptView({ episodeId, seriesId, seriesTitle, onIngest }: ScriptViewProps) {
     const [jsonInput, setJsonInput] = useState("")
     const [isIngesting, setIsIngesting] = useState(false)
     const [error, setError] = useState<string | null>(null)
-
-    const [defaultModel, setDefaultModel] = useState("veo-fast")
 
     // Load from localStorage on mount
     useEffect(() => {
@@ -40,7 +38,9 @@ export function ScriptView({ episodeId, seriesId, seriesTitle, onIngest }: Scrip
             JSON.parse(jsonInput)
 
             setIsIngesting(true)
-            await onIngest(jsonInput, defaultModel)
+            setIsIngesting(true)
+            await onIngest(jsonInput)
+            setJsonInput("") // Clear on success
             setJsonInput("") // Clear on success
         } catch (err: any) {
             setError("Invalid JSON format: " + err.message)
@@ -71,17 +71,7 @@ export function ScriptView({ episodeId, seriesId, seriesTitle, onIngest }: Scrip
 
             <div className="bg-stone-900/50 p-2 rounded-lg border border-white/5 flex justify-end items-center gap-4">
                 <div className="flex items-center gap-2 px-2">
-                    <label className="text-[10px] text-stone-500 uppercase tracking-wider font-semibold">Default Episode Model:</label>
-                    <select
-                        value={defaultModel}
-                        onChange={(e) => setDefaultModel(e.target.value)}
-                        className="bg-transparent border border-stone-700 text-xs text-stone-300 rounded px-2 py-1 outline-none cursor-pointer hover:border-stone-500 transition-colors"
-                    >
-                        <option value="veo-fast">Veo Fast (Video)</option>
-                        <option value="veo-quality">Veo Quality (Video)</option>
-                        <option value="flux-pro">Flux Pro (Image)</option>
-                        <option value="flux-flex">Flux Flex (Image)</option>
-                    </select>
+                    {/* Model Selector Moved to Series Page */}
                 </div>
                 <Button
                     onClick={handleIngest}

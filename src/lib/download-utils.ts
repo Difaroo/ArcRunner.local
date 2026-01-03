@@ -37,40 +37,64 @@ export function getClipFilename(clip: Clip): string {
 
 /**
  * Downloads a file via Proxy to avoid CORS and force download dialog.
- * Returns true if successful.
- */
 /**
- * Downloads a file via Proxy to avoid CORS and force download dialog.
- * OPTIMIZED: Uses direct link navigation to avoid loading file into Browser Memory (Blob).
- * This prevents crashes on mobile for large video files.
+ * Downloads a file, handling both Local (same-origin) and Remote (cross-origin) files modularly.
+ * 
+ * Strategy:
+ * 1. If Local (starts with '/'): Use direct DOM link with `download` attribute. Browser handles this natively.
+ * 2. If Remote: Use Proxy Route to fetch the file server-side and pipe it with Content-Disposition headers.
  */
 export async function downloadFile(url: string, filename: string): Promise<boolean> {
     try {
-        // Sanitize filename client-side for safety
+        if (!url) {
+            console.error('Download failed: No URL provided');
+            return false;
+        }
+
+        // Handle CSV URLs (Take first)
+        const effectiveUrl = url.split(',')[0].trim();
+        if (!effectiveUrl) return false;
+
+        // Sanitize filename
         const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
 
-        let targetUrl = url;
-        // Construct Proxy URL if remote or needing headers
-        // If it's already a local API route (e.g. /media/...), we might still want proxy to force Content-Disposition
-        const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(safeFilename)}`;
+        // Check if Local
+        const isLocal = effectiveUrl.startsWith('/') || effectiveUrl.startsWith(window.location.origin);
 
-        // Create invisible link and click it
-        // This triggers the browser's download manager directly from the headers
+        if (isLocal) {
+            console.log(`[Download] Handling Local File: ${effectiveUrl}`);
+
+            // Direct Link Method for Same-Origin
+            const a = document.createElement('a');
+            a.href = effectiveUrl;
+            a.download = safeFilename; // Browser respects this for same-origin
+            a.style.display = 'none';
+            document.body.appendChild(a);
+
+            a.click();
+
+            // Cleanup
+            document.body.removeChild(a);
+            return true;
+        }
+
+        // Remote (Cross-Origin) - Needs Proxy
+        console.log(`[Download] Handling Remote File via Proxy: ${effectiveUrl}`);
+        const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(effectiveUrl)}&filename=${encodeURIComponent(safeFilename)}`;
+
         const a = document.createElement('a');
         a.href = proxyUrl;
-        a.download = safeFilename; // Fallback attribute
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
 
-        // Cleanup
+        // Cleanup with delay
         setTimeout(() => document.body.removeChild(a), 100);
         return true;
+
     } catch (error) {
         console.error('Download Helper Error:', error);
-        // Fallback to alert if something specifically regarding element creation fails
-        // But actual network errors will be handled by browser download manager UI
-        alert(`Download init failed: ${error}`);
+        alert(`Download failed: ${error}`);
         return false;
     }
 }

@@ -1,62 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Readable } from 'stream';
+import fs from 'fs';
+import path from 'path';
 
 export async function GET(request: NextRequest) {
     const url = request.nextUrl.searchParams.get('url');
     const rawFilename = request.nextUrl.searchParams.get('filename') || 'download.mp4';
-    // Sanitize to alphanumeric, dots, dashes, underscores only
     const filename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
 
-    if (!url) {
-        return new NextResponse('Missing URL parameter', { status: 400 });
-    }
+    if (!url) return new NextResponse('Missing URL', { status: 400 });
+
+    console.log(`[Proxy-DL] Request: URL=${url}, Filename=${filename}`);
 
     try {
+        // OPTIMIZATION: If local file in /media, read directly from disk
+        if (url.startsWith('/media/') || url.startsWith('/uploads/')) {
+            const localPath = path.join(process.cwd(), 'public', url);
+            console.log(`[Proxy-DL] Resolving Local: ${localPath}`);
+
+            if (fs.existsSync(localPath)) {
+                // Determine Content Type
+                const ext = path.extname(localPath).toLowerCase().replace('.', '');
+                // Map common types...
+                let contentType = 'application/octet-stream';
+                if (ext === 'png') contentType = 'image/png';
+                if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
+                if (ext === 'mp4') contentType = 'video/mp4';
+                if (ext === 'webp') contentType = 'image/webp';
+
+                const fileBuffer = fs.readFileSync(localPath);
+
+                const headers = new Headers();
+                headers.set('Content-Type', contentType);
+                headers.set('Content-Disposition', `attachment; filename="${filename}"`);
+                headers.set('Content-Length', fileBuffer.length.toString());
+
+                return new NextResponse(new Uint8Array(fileBuffer), { status: 200, headers });
+            } else {
+                console.error(`[Proxy-DL] File NOT FOUND at ${localPath}`);
+                return new NextResponse(`File not found on server at ${localPath}`, { status: 404 });
+            }
+        }
+
+        // ... Remote Fetch Fallback ...
         let targetUrl = url;
         if (targetUrl.startsWith('/')) {
             targetUrl = `${request.nextUrl.origin}${targetUrl}`;
         }
 
-        // Forward Range header if present
-        const range = request.headers.get('range');
-        const headers: HeadersInit = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        };
-        if (range) {
-            headers['Range'] = range;
-        }
-
-        const response = await fetch(targetUrl, { headers });
+        console.log(`[Proxy-DL] Fetching Remote: ${targetUrl}`);
+        const response = await fetch(targetUrl);
 
         if (!response.ok) {
-            // Forward error status
-            return new NextResponse(`Failed to fetch file: ${response.statusText}`, { status: response.status });
+            console.error(`[Proxy-DL] Remote Fetch Failed: ${response.status} ${response.statusText}`);
+            return new NextResponse(`Failed to fetch remote file: ${response.statusText}`, { status: response.status });
         }
 
-        // Prepare response headers
         const resHeaders = new Headers();
         const contentType = response.headers.get('content-type') || 'application/octet-stream';
         resHeaders.set('Content-Type', contentType);
         resHeaders.set('Content-Disposition', `attachment; filename="${filename}"`);
-        resHeaders.set('Cache-Control', 'no-cache');
+        if (response.headers.get('content-length')) resHeaders.set('Content-Length', response.headers.get('content-length')!);
 
-        // Forward Critical Streaming Headers
-        const contentLength = response.headers.get('content-length');
-        if (contentLength) resHeaders.set('Content-Length', contentLength);
+        // Read remote body to buffer to ensure completion before sending? 
+        // Or stream. Let's strictly buffer for now to isolate issues.
+        const blob = await response.arrayBuffer();
 
-        const contentRange = response.headers.get('content-range');
-        if (contentRange) resHeaders.set('Content-Range', contentRange);
+        return new NextResponse(new Uint8Array(blob), { status: 200, headers: resHeaders });
 
-        const acceptRanges = response.headers.get('accept-ranges');
-        if (acceptRanges) resHeaders.set('Accept-Ranges', acceptRanges);
-
-        // Return Stream
-        return new NextResponse(response.body, {
-            status: response.status,
-            headers: resHeaders
-        });
-
-    } catch (error) {
-        console.error('Error proxying download:', error);
-        return new NextResponse('Internal Server Error', { status: 500 });
+    } catch (error: any) {
+        console.error('Proxy Error:', error);
+        return new NextResponse(`Internal Proxy Error: ${error.message}`, { status: 500 });
     }
 }

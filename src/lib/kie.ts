@@ -1,7 +1,7 @@
 import { KieClient } from './kie-strategies';
-import { FluxPayload, VeoPayload, AppStatus } from './kie-types';
+import { FluxPayload, VeoPayload, NanoPayload, AppStatus } from './kie-types';
 
-export type { FluxPayload, VeoPayload, AppStatus };
+export type { FluxPayload, VeoPayload, NanoPayload, AppStatus };
 
 // Delegate create functions
 /**
@@ -20,6 +20,13 @@ export async function createVeoTask(payload: VeoPayload) {
 }
 
 /**
+ * Creates a Nano Task via Strategy
+ */
+export async function createNanoTask(payload: NanoPayload) {
+    return KieClient.getStrategy('nano').createTask(payload);
+}
+
+/**
  * Uploads a file to Kie.ai temp storage (Base64)
  */
 export const uploadFileBase64 = KieClient.uploadFileBase64;
@@ -27,6 +34,6 @@ export const uploadFileBase64 = KieClient.uploadFileBase64;
 /**
  * Checks the status of a task using the appropriate strategy
  */
-export async function checkKieTaskStatus(taskId: string, type: 'flux' | 'veo') {
+export async function checkKieTaskStatus(taskId: string, type: 'flux' | 'veo' | 'nano') {
     return KieClient.getStrategy(type).checkStatus(taskId);
 }

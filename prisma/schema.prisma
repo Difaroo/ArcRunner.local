@@ -17,6 +17,7 @@ model Series {
   name          String       // "Series Title"
   totalEpisodes Int?         @default(1)
   status        String?      // "Development", "Production"
+  defaultModel  String?      // "flux", "veo-3", "nano-banana-pro"
   
   // Relations
   episodes      Episode[]

@@ -507,6 +507,7 @@ export function ClipRow({
                             url={clip.resultUrl}
                             originalUrl={clip.resultUrl}
                             model={clip.model}
+                            title={clip.title || clip.scene || 'Clip'}
                             // onPlay={onPlay} // Removed
                             className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
                         />

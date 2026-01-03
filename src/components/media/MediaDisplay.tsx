@@ -6,6 +6,7 @@ interface MediaDisplayProps {
     url: string // The source to display (thumbnail or direct)
     originalUrl?: string // The actual media source (if different from url, e.g. video source)
     model?: string // To help detection
+    title?: string // Override title for preview modal (filename)
     onPlay?: (url: string) => void // Legacy/Override
     isThumbnail?: boolean // If true, force image rendering for the preview
     contentType?: 'video' | 'image' | 'auto' // Explicit type override
@@ -16,6 +17,7 @@ export function MediaDisplay({
     url,
     originalUrl,
     model,
+    title, // Destructure title
     onPlay,
     isThumbnail,
     contentType = 'auto',
@@ -131,7 +133,7 @@ export function MediaDisplay({
                 url={effectiveOriginalUrl}
                 urls={allUrls}
                 type={type}
-                title={model || 'Media Preview'}
+                title={title || model || 'Media Preview'}
             />
         </>
     )

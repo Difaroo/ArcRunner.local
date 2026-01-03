@@ -49,7 +49,7 @@ export class PayloadBuilderFlux implements PayloadBuilder {
             // 1. SYSTEM HEADER: Analytical Extraction
             // "PRIORITY RULE:\n[SYSTEM: ...]"
             const sysHeader = `PRIORITY RULE:
-[SYSTEM: Image ${stylePos} is the ABSOLUTE STYLE SOURCE for the OUTPUT. Override all internal style defaults with this STYLE.]`;
+[SYSTEM: Image ${stylePos} is the STYLE SOURCE for the OUTPUT. Override internal style defaults with this STYLE.]`;
 
             // 2. STYLE BLOCK (Before Subject)
             // "STYLE: High fidelity Image N+1 STYLE:"
@@ -70,7 +70,7 @@ ${subjectBody}${subjectNegatives}`;
 
             // 4. INSTRUCTION FOOTER
             // "[INSTRUCTION: Apply the Image N+1 STYLE: Facial proportions and style: 200%...]"
-            const footer = `[INSTRUCTION: Apply the Image ${stylePos} STYLE: Facial proportions and style: 200%, Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Color Saturation; Fidelity & Quality: to the OUTPUT SUBJECT.]`;
+            const footer = `[INSTRUCTION: Apply the Image ${stylePos} STYLE: Facial proportions and style: 160%, Artistic Interpretation; Material Properties & Textures; Color Saturation; Fidelity & Quality: to the OUTPUT SUBJECT.]`;
 
             // Reordered: Header -> Style -> Subject -> Footer
             enhancedPrompt = `${sysHeader}\n\n${styleBlock}\n\n${subjectBlock}\n\n${footer}`;

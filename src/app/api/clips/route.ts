@@ -38,6 +38,7 @@ export interface Series {
     totalEpisodes: string;
     currentEpisodes: string;
     status: string;
+    defaultModel: string;
 }
 
 export async function GET() {
@@ -61,7 +62,8 @@ export async function GET() {
             title: s.name,
             totalEpisodes: s.totalEpisodes?.toString() || '0',
             currentEpisodes: '0',
-            status: s.status || ''
+            status: s.status || '',
+            defaultModel: s.defaultModel || 'veo-fast'
         }));
 
         // 3. Transform Episodes

@@ -1,4 +1,4 @@
-import { FluxPayload, VeoPayload, AppStatus } from './kie-types';
+import { FluxPayload, VeoPayload, NanoPayload, AppStatus } from './kie-types';
 
 const KIE_API_KEY = process.env.KIE_API_KEY;
 const KIE_BASE_URL = 'https://api.kie.ai/api/v1';
@@ -47,6 +47,7 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
         console.log(`[KieFetch] Response [${res.status}]:`, JSON.stringify(data, null, 2));
 
         if (!res.ok) {
+            console.error(`[KieFetch] RAW ERROR:`, JSON.stringify(data, null, 2));
             throw new Error(data.error?.message || data.msg || JSON.stringify(data) || `Failed to call Kie.ai ${endpoint}`);
         }
         return data;
@@ -65,12 +66,12 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
 export interface KieStrategy {
     createTask(payload: any): Promise<{ taskId: string, rawData: any }>;
     checkStatus(taskId: string): Promise<StatusResult>;
-    getType(): 'flux' | 'veo';
+    getType(): 'flux' | 'veo' | 'nano';
 }
 
 // --- FLUX STRATEGY ---
 export class FluxStrategy implements KieStrategy {
-    getType(): 'flux' | 'veo' { return 'flux'; }
+    getType(): 'flux' | 'veo' | 'nano' { return 'flux'; }
 
     async createTask(payload: FluxPayload): Promise<{ taskId: string, rawData: any }> {
         const res = await kieFetch<any>('/jobs/createTask', { method: 'POST', body: payload });
@@ -120,7 +121,7 @@ export class FluxStrategy implements KieStrategy {
 
 // --- VEO STRATEGY ---
 export class VeoStrategy implements KieStrategy {
-    getType(): 'flux' | 'veo' { return 'veo'; }
+    getType(): 'flux' | 'veo' | 'nano' { return 'veo'; }
 
     async createTask(payload: VeoPayload): Promise<{ taskId: string, rawData: any }> {
         const res = await kieFetch<any>('/veo/generate', { method: 'POST', body: payload });
@@ -197,10 +198,62 @@ export class VeoStrategy implements KieStrategy {
     }
 }
 
+// --- NANO STRATEGY ---
+export class NanoStrategy implements KieStrategy {
+    getType(): 'flux' | 'veo' | 'nano' { return 'nano'; }
+
+    async createTask(payload: NanoPayload): Promise<{ taskId: string, rawData: any }> {
+        // Nano uses same endpoint as Flux
+        const res = await kieFetch<any>('/jobs/createTask', { method: 'POST', body: payload });
+        const taskId = res.data?.taskId || res.taskId || res.jobId || res.task_id || '';
+        return { taskId, rawData: res };
+    }
+
+    async checkStatus(taskId: string): Promise<StatusResult> {
+        // Nano uses same recordInfo endpoint and structure as Flux (based on specs)
+        const res = await kieFetch<{ state: string, resultJson?: string }>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
+        console.log(`[NanoStrategy] Status Response for ${taskId}:`, JSON.stringify(res, null, 2));
+        const state = (res.data?.state || '').toLowerCase();
+        let status: AppStatus = 'Generating';
+        let resultUrl = '';
+        let errorMsg = '';
+
+        const activeStates = ['queued', 'queuing', 'waiting', 'generating', 'processing', 'created', 'starting'];
+        if (activeStates.includes(state)) {
+            status = 'Generating';
+        } else if (['success', 'succeeded', 'completed', 'done'].includes(state)) {
+            status = 'Done';
+            if (res.data?.resultJson) {
+                try {
+                    const results = JSON.parse(res.data.resultJson);
+                    resultUrl = results.images?.[0]?.url || results.resultUrls?.[0] || results.url || '';
+                } catch (e) {
+                    status = 'Error';
+                    errorMsg = 'JSON_PARSE_ERR';
+                }
+            } else {
+                status = 'Error';
+                errorMsg = 'NO_RESULT_JSON';
+            }
+        } else {
+            status = 'Error';
+            errorMsg = state || 'Unknown Error';
+        }
+
+        if (status === 'Done' && !resultUrl) {
+            status = 'Error';
+            errorMsg = 'MISSING_URL';
+        }
+
+        return { status, resultUrl, errorMsg };
+    }
+}
+
 // --- FACTORY ---
 export const KieClient = {
-    getStrategy(type: 'flux' | 'veo'): KieStrategy {
+    getStrategy(type: 'flux' | 'veo' | 'nano'): KieStrategy {
         if (type === 'flux') return new FluxStrategy();
+        if (type === 'nano') return new NanoStrategy();
         return new VeoStrategy();
     },
 

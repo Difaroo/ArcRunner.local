@@ -19,119 +19,130 @@ export async function POST(req: Request) {
 
         let updateCount = 0;
 
-        // Parallel Processing with Concurrency Limit (Batch Size 5)
-        const BATCH_SIZE = 5;
-        for (let i = 0; i < targets.length; i += BATCH_SIZE) {
-            const chunk = targets.slice(i, i + BATCH_SIZE);
+        // Sequential Processing to avoid Rate Limits (Batch Size 1 essentially)
+        // We iterate through all targets sequentially.
+        for (const item of targets) {
+            const taskId = item.taskId;
+            if (!taskId) continue;
 
-            await Promise.all(chunk.map(async (item: any) => {
-                const taskId = item.taskId;
-                if (!taskId) return;
+            const idInt = parseInt(item.id);
+            if (isNaN(idInt)) continue;
 
-                const idInt = parseInt(item.id);
-                if (isNaN(idInt)) return;
+            const isLibrary = item.type === 'LIBRARY';
 
-                const isLibrary = item.type === 'LIBRARY';
-                let apiType: 'flux' | 'veo' = isLibrary ? 'flux' : 'veo';
+            // Strategy: Nano/Flux are image based. Veo is video.
+            // Default clips to veo (legacy) but fallback to flux/nano if not found.
+            let apiType: 'flux' | 'veo' | 'nano' = isLibrary ? 'flux' : 'veo';
 
-                let status = 'Generating';
-                let resultUrl = '';
-                let errorMsg = '';
+            let status = 'Generating';
+            let resultUrl = '';
+            let errorMsg = '';
 
-                try {
-                    const check = await checkKieTaskStatus(taskId, apiType);
-                    status = check.status;
-                    resultUrl = check.resultUrl;
-                    errorMsg = check.errorMsg;
+            try {
+                // Primary Status Check
+                const check = await checkKieTaskStatus(taskId, apiType);
+                status = check.status;
+                resultUrl = check.resultUrl;
+                errorMsg = check.errorMsg;
 
-                    // Mixed Model Fallback
-                    if (status === 'Error' && errorMsg && (errorMsg.includes('not found') || errorMsg.includes('404'))) {
-                        const altType = apiType === 'flux' ? 'veo' : 'flux';
-                        const checkAlt = await checkKieTaskStatus(taskId, altType);
-                        if (checkAlt.status !== 'Error' || !checkAlt.errorMsg.includes('not found')) {
-                            status = checkAlt.status;
-                            resultUrl = checkAlt.resultUrl;
-                            errorMsg = checkAlt.errorMsg;
-                        }
+                // Fallback Check (Cross-Type Resilience)
+                // If we checked 'veo' but it was actually a 'nano' (image) task, it might error or return not found
+                if (status === 'Error' && errorMsg && (errorMsg.includes('not found') || errorMsg.includes('404'))) {
+                    console.log(`[Poll] ${taskId} not found via ${apiType}, trying alternate...`);
+                    const altType = apiType === 'flux' ? 'veo' : 'flux';
+                    const checkAlt = await checkKieTaskStatus(taskId, altType);
+                    if (checkAlt.status !== 'Error' || !checkAlt.errorMsg.includes('not found')) {
+                        status = checkAlt.status;
+                        resultUrl = checkAlt.resultUrl;
+                        errorMsg = checkAlt.errorMsg;
                     }
-
-                    if (status === 'Generating') return;
-
-                    if (status === 'Error') {
-                        resultUrl = errorMsg || 'Processing Error';
-                    }
-
-                    // Prepare Updates
-                    if (status === 'Done' || status === 'Error') {
-
-                        const finalResult = status === 'Done' ? (resultUrl || '') : (resultUrl || 'Error');
-                        const finalStatus = status === 'Done' ? 'Done' : 'Error';
-
-                        if (isLibrary) {
-                            // Persistence Enabled (User Request)
-                            let newRefUrl = finalResult;
-
-                            // Attempt Persistence
-                            if (status === 'Done' && finalResult && finalResult.startsWith('http')) {
-                                try {
-                                    const { localPath } = await persistLibraryImage(finalResult, idInt.toString());
-                                    newRefUrl = localPath;
-                                } catch (e) {
-                                    console.error(`Persistence failed for Item ${idInt}, falling back to remote:`, e);
-                                }
-                            }
-
-                            // Prepend URL Logic
-                            // Fetch current state to prepend
-                            const currentItem = await db.studioItem.findUnique({ where: { id: idInt } });
-                            const existingUrl = currentItem?.refImageUrl || '';
-                            const cleanExisting = existingUrl.replace(/^,|,$/g, '').trim();
-
-                            // Create CSV string
-                            const updatedUrlCsv = cleanExisting ? `${newRefUrl},${cleanExisting}` : newRefUrl;
-
-                            console.log(`[PollLibrary] Updating Item ${idInt}: Status=${finalStatus}`, {
-                                newRefUrl
-                            });
-
-                            await db.studioItem.update({
-                                where: { id: idInt },
-                                data: {
-                                    status: finalStatus,
-                                    refImageUrl: finalStatus === 'Done' ? updatedUrlCsv : existingUrl,
-                                    taskId: finalStatus === 'Done' ? '' : undefined
-                                }
-                            });
-                            updateCount++;
-                        } else {
-                            let thumbnailPath = undefined;
-                            if (status === 'Done' && finalResult) {
-                                try {
-                                    // Generate thumbnail before update to keep it atomic if possible, 
-                                    // or update separately. Here we do it sequentially to ensure db record is complete.
-                                    const path = await generateThumbnail(finalResult, idInt.toString());
-                                    if (path) thumbnailPath = path;
-                                } catch (e) {
-                                    console.error(`Thumbnail gen failed for ${taskId}:`, e);
-                                }
-                            }
-
-                            await db.clip.update({
-                                where: { id: idInt },
-                                data: {
-                                    status: finalStatus,
-                                    resultUrl: finalResult,
-                                    ...(thumbnailPath ? { thumbnailPath } : {})
-                                }
-                            });
-                            updateCount++;
-                        }
-                    }
-
-                } catch (err: any) {
-                    console.warn(`Poll loop error for ${taskId}:`, err);
                 }
-            }));
+
+                if (status === 'Generating') continue;
+
+                console.log(`[Poll] Item ${idInt} [${taskId}] -> ${status}`);
+
+                if (status === 'Error') {
+                    resultUrl = errorMsg || 'Processing Error';
+                }
+
+                // Prepare Updates
+                const finalStatus = status === 'Done' ? 'Done' : 'Error';
+                const finalResult = status === 'Done' ? (resultUrl || '') : (resultUrl || 'Error');
+
+                if (isLibrary) {
+                    // --- LIBRARY UPDATE ---
+
+                    // Fetch Metadata for naming
+                    const currentItem = await db.studioItem.findUnique({
+                        where: { id: idInt },
+                        include: { series: true }
+                    });
+
+                    let newRefUrl = finalResult;
+
+                    // Persistence Logic
+                    if (status === 'Done' && finalResult && finalResult.startsWith('http')) {
+                        try {
+                            const seriesName = currentItem?.series?.name || 'UnknownSeries';
+                            const epNum = currentItem?.episode || '0';
+                            const assetName = currentItem?.name || 'Asset';
+                            const existingRefs = currentItem?.refImageUrl ? currentItem.refImageUrl.split(',').length : 0;
+                            const version = existingRefs + 1;
+                            const customName = `${seriesName}.${epNum} ${assetName} ${version}`;
+
+                            const { localPath } = await persistLibraryImage(finalResult, idInt.toString(), customName);
+                            newRefUrl = localPath;
+                        } catch (e) {
+                            console.error(`Persistence failed for Item ${idInt}:`, e);
+                        }
+                    }
+
+                    const existingUrl = currentItem?.refImageUrl || '';
+                    const cleanExisting = existingUrl.replace(/^,|,$/g, '').trim();
+                    const updatedUrlCsv = cleanExisting ? `${newRefUrl},${cleanExisting}` : newRefUrl;
+
+                    console.log(`[PollLibrary] Updating Item ${idInt}: Status=${finalStatus}`, { newRefUrl });
+
+                    await db.studioItem.update({
+                        where: { id: idInt },
+                        data: {
+                            status: finalStatus,
+                            refImageUrl: finalStatus === 'Done' ? updatedUrlCsv : existingUrl,
+                            taskId: finalStatus === 'Done' ? '' : undefined
+                        }
+                    });
+                    updateCount++;
+
+                } else {
+                    // --- CLIP UPDATE ---
+                    let thumbnailPath = undefined;
+                    if (status === 'Done' && finalResult) {
+                        try {
+                            const path = await generateThumbnail(finalResult, idInt.toString());
+                            if (path) thumbnailPath = path;
+                        } catch (e) {
+                            console.error(`Thumbnail gen failed for ${taskId}:`, e);
+                        }
+                    }
+
+                    await db.clip.update({
+                        where: { id: idInt },
+                        data: {
+                            status: finalStatus,
+                            resultUrl: finalResult,
+                            ...(thumbnailPath ? { thumbnailPath } : {})
+                        }
+                    });
+                    updateCount++;
+                }
+
+            } catch (err) {
+                console.error(`[Poll] Error processing ${taskId}:`, err);
+            }
+
+            // Artificial Delay to prevent API Rate Limits (5 requests per second?)
+            await new Promise(r => setTimeout(r, 200));
         }
 
         return NextResponse.json({

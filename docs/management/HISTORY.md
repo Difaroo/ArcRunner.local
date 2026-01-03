@@ -297,3 +297,20 @@ Major refinement of the Flux generation payload to strictly control style transf
 - **Backend**: Updated `generate-library` route and `PayloadBuilderFlux` to support detailed negative prompts and strictly formatted templates.
 - **Version Bump**: 0.13.0 -> 0.14.0.
 
+## 2026-01-03: v0.14.1 - Stability & Downloads
+
+### Context
+Addressed critical regressions in Studio generation and Download functionality discovered during end-user testing. The previous "Proxy Download" approach was failing for local files on specific OS configurations.
+
+### Changes
+- **Downloads Refactor**: 
+    - Implemented a "Hybrid" download strategy:
+        - **Local Files**: Uses direct `<a>` tags with `download` attribute for instant, native saving.
+        - **Remote Files**: Uses the Proxy route for cross-origin targets.
+    - **Fix**: Resolved "No File" error when downloading generated assets.
+    - **Fix**: Parsed CSV URLs correctly.
+- **Studio Reactivity**:
+    - **Model Selection**: Implemented "Just-in-Time" resolution for Studio generation. Bypassed React state lag to ensure the Generation Dialog always uses the accurate Series Default Model.
+    - **Uploads**: New images are now prepended (not appended) to the list for immediate visibility.
+- **Version Bump**: 0.14.0 -> 0.14.1.
+

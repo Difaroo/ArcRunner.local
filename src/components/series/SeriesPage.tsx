@@ -1,14 +1,12 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { PageHeader } from "@/components/PageHeader"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Clip, Series } from "@/app/api/clips/route"
-import { Loader2, Check, X } from "lucide-react"
+import { Check, X } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 
 interface SeriesPageProps {
@@ -22,6 +20,8 @@ interface SeriesPageProps {
     libraryItems: any[]
     videoPromptTemplate: string
     imagePromptTemplate: string
+    onUpdateSeries?: (id: string, updates: Partial<Series>) => void
+    onRefresh?: (silent?: boolean) => void
 }
 
 export function SeriesPage({
@@ -34,16 +34,25 @@ export function SeriesPage({
     episodes,
     libraryItems,
     videoPromptTemplate,
-    imagePromptTemplate
+    imagePromptTemplate,
+    onRefresh,
+    onUpdateSeries
 }: SeriesPageProps) {
     const router = useRouter()
     const [activeTab, setActiveTab] = useState<'video' | 'image'>('video')
+
+    useEffect(() => {
+        console.log("SeriesPage Mounted")
+    }, [])
 
     // Derived States
     const [videoPrompt, setVideoPrompt] = useState("")
     const [imagePrompt, setImagePrompt] = useState("")
 
     const [overallStyle, setOverallStyle] = useState("") // Editable field
+    // Optimistic Model State
+
+
     const [copyMessage, setCopyMessage] = useState<string | null>(null)
     const [editingEpisodeId, setEditingEpisodeId] = useState<string | null>(null)
 
@@ -301,7 +310,6 @@ export function SeriesPage({
                         {/* Content Area */}
                         <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
 
-                            {/* Overall Style Field */}
                             <div className="flex flex-col gap-2 shrink-0">
                                 <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Overall Series Style / Instructions</label>
                                 <Input
@@ -310,6 +318,27 @@ export function SeriesPage({
                                     placeholder="e.g. Steampunk vibe, dark atmosphere..."
                                     className="bg-stone-900/50 border-stone-800 text-stone-300 text-xs h-9"
                                 />
+                            </div>
+
+                            <div className="flex flex-col gap-2 shrink-0">
+                                <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Default Series Model</label>
+                                <select
+                                    key={currentSeriesId ? `${currentSeriesId}-model` : 'default-model'} // FORCE RESET on Series Change
+                                    defaultValue={currentSeries?.defaultModel || 'veo-3'} // Only read on mount/key-change
+                                    onChange={(e) => {
+                                        const newModel = e.target.value
+                                        if (currentSeriesId && onUpdateSeries) {
+                                            onUpdateSeries(currentSeriesId, { defaultModel: newModel })
+                                        }
+                                    }}
+                                    className="bg-stone-900/50 border border-stone-800 text-stone-300 text-xs h-9 rounded px-2 outline-none focus:border-stone-600"
+                                >
+                                    <option value="veo-3">Veo 3 (Video)</option>
+                                    <option value="veo-fast">Veo Fast (Video)</option>
+                                    <option value="flux-pro">Flux Pro (Image)</option>
+                                    <option value="flux-flex">Flux Flex (Image)</option>
+                                    <option value="nano-banana-pro">Nano Banana Pro (New)</option>
+                                </select>
                             </div>
 
                             {activeTab === 'video' && (

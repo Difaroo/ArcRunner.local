@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { createFluxTask, createVeoTask, FluxPayload, VeoPayload, uploadFileBase64 } from '@/lib/kie';
+import { createFluxTask, createVeoTask, createNanoTask, FluxPayload, VeoPayload, NanoPayload, uploadFileBase64 } from '@/lib/kie';
 import { resolveClipImages } from '@/lib/shared-resolvers';
 import { getLibraryItems } from '@/lib/library';
 import fs from 'fs';
@@ -107,7 +107,14 @@ export class GenerateManager {
 
         const model = rawModel;
 
-        const isVideo = model.startsWith('veo');
+        const getStrategyType = (m: string): 'flux' | 'veo' | 'nano' => {
+            if (m.startsWith('veo')) return 'veo';
+            if (m.startsWith('flux')) return 'flux';
+            if (m.includes('nano') || m.includes('banana')) return 'nano';
+            return m.includes('video') ? 'veo' : 'flux';
+        };
+        const apiType = getStrategyType(model);
+        const isVideo = apiType === 'veo';
 
         // Update DB status to 'Generating' (Skip if Dry Run)
         if (!input.dryRun) {
@@ -116,6 +123,71 @@ export class GenerateManager {
 
         try {
             let result;
+
+            // --- RESOLVE DESCRIPTIONS & NEGATIVES (NEW) ---
+            console.log('[GenerateManager] Resolving Data. Library Count:', libraryItems.length);
+            console.log('[GenerateManager] Library Names:', libraryItems.map(i => `${i.name} (${i.type})`));
+            console.log('[GenerateManager] Clip Inputs:', {
+                style: input.clip.style,
+                char: input.clip.character,
+                loc: input.clip.location,
+                cam: input.clip.camera
+            });
+
+            const findItem = (name: string, type: string) => {
+                if (!name) return undefined;
+                const found = libraryItems.find(i => i.name?.trim().toLowerCase() === name?.trim().toLowerCase() && i.type === type);
+                if (!found) console.warn(`[GenerateManager] Failed to find '${name}' of type '${type}'`);
+                else console.log(`[GenerateManager] Found '${name}':`, found.description?.substring(0, 20));
+                return found;
+            }
+
+            // -- Style --
+            const styleName = input.clip.style || "";
+            const styleItem = findItem(styleName, 'LIB_STYLE');
+            input.styleName = styleName;
+            input.styleDescription = styleItem?.description || styleName;
+            input.styleNegatives = styleItem?.negatives || "";
+
+            // -- Character / Subject --
+            const charNames = input.clip.character ? input.clip.character.split(',') : [];
+            const charItems = charNames.map((n: string) => findItem(n.trim(), 'LIB_CHARACTER')).filter((i: any) => i);
+
+            const locName = input.clip.location || "";
+            const locItem = findItem(locName, 'LIB_LOCATION');
+
+            const camName = input.clip.camera || "";
+            const camItem = findItem(camName, 'LIB_CAMERA');
+
+            // Construct Composite Subject Description
+            const parts = [];
+            if (charItems.length > 0) parts.push(charItems.map((i: any) => i.description || i.name).join(' and '));
+            else if (input.clip.character) parts.push(input.clip.character);
+
+            if (input.clip.action) parts.push(input.clip.action);
+
+            if (locItem?.description) parts.push(`at ${locItem.description}`);
+            else if (locName) parts.push(`at ${locName}`);
+
+            if (camItem?.description) parts.push(`${camItem.description} shot.`);
+            else if (camName) parts.push(`${camName} shot.`);
+
+            input.subjectDescription = parts.join(' ');
+
+            // Collect Negatives
+            const subjNegs = [
+                ...charItems.map((i: any) => i.negatives),
+                locItem?.negatives,
+                camItem?.negatives
+            ].filter(Boolean).join('. ');
+            input.subjectNegatives = subjNegs;
+
+            console.log('[GenerateManager] Resolved Descriptors:', {
+                style: input.styleDescription,
+                styleNegs: input.styleNegatives,
+                subject: input.subjectDescription,
+                subjectNegs: input.subjectNegatives
+            });
 
             // --- UNIFIED BUILDER PATTERN ---
             // Works for both Veo (Video) and Flux (Image)
@@ -179,9 +251,12 @@ export class GenerateManager {
                 return { taskId: 'DRY-RUN', debugPayload: payload };
             }
 
-            if (isVideo) {
+            if (apiType === 'veo') {
                 console.log(`[GenerateManager] Sending to Kie (Veo)...`, JSON.stringify(payload, null, 2));
                 result = await createVeoTask(payload as VeoPayload);
+            } else if (apiType === 'nano') {
+                console.log(`[GenerateManager] Sending to Kie (Nano)...`, JSON.stringify(payload, null, 2));
+                result = await createNanoTask(payload as NanoPayload);
             } else {
                 console.log(`[GenerateManager] Sending to Kie (Flux)...`, JSON.stringify(payload, null, 2));
                 result = await createFluxTask(payload as FluxPayload);

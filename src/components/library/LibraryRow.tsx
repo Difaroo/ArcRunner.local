@@ -328,6 +328,7 @@ export function LibraryRow({
                                 <MediaDisplay
                                     url={item.thumbnailPath || item.refImageUrl}
                                     originalUrl={item.refImageUrl}
+                                    title={item.name}
                                     isThumbnail={!!item.thumbnailPath}
                                     // onPlay={onPlay || (() => { })} // Removed
                                     className="w-full h-full"
