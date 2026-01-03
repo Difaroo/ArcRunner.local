@@ -56,6 +56,8 @@ interface ClipRowProps {
     }
     onDelete: (id: string) => void
     onDuplicate: (id: string) => void
+    onResolveImage?: (name: string) => string | undefined
+    seriesTitle: string
 }
 
 export function ClipRow({
@@ -71,7 +73,9 @@ export function ClipRow({
     saving,
     uniqueValues,
     onDelete,
-    onDuplicate
+    onDuplicate,
+    onResolveImage,
+    seriesTitle
 }: ClipRowProps) {
     const [editValues, setEditValues] = useState<Partial<Clip>>({})
     const [downloadCount, setDownloadCount] = useState(0)
@@ -123,34 +127,22 @@ export function ClipRow({
     }
 
     // --- CLICK OUTSIDE TO CANCEL ---
-    const rowRef = setNodeRef as unknown as React.RefObject<HTMLTableRowElement>;
-    // IMPORTANT: dnd-kit uses function ref, but we might need object ref for useClickOutside.
-    // Actually, setNodeRef handles dnd.
-    // For click outside, we can create a separate ref and merge, or just use a wrapper div ref inside the row?
-    // Or try to use a new useRef and combine it?
-    // Simpler: Use a separate useRef for the row DOM element.
-    const domRef = React.useRef<HTMLTableRowElement>(null);
-    const setRef = (element: HTMLTableRowElement) => {
-        setNodeRef(element);
-        // @ts-ignore
-        domRef.current = element;
-    };
+    // User requested removal of Click Outside logic in favor of shortcuts (Cmd+.)
+    // to prevent accidental closing when interacting with complex menus.
+    // Explicit 'onCancel' or 'Cmd+.' should be used.
 
-    useClickOutside(domRef as React.RefObject<HTMLElement>, () => {
-        if (isEditing) {
-            // Check if dialogs are open? If Alert Dialog is open, we shouldn't cancel underneath.
-            // But Alert Dialog is in a Portal, so click outside logic might trigger if clicking on Dialog overlay?
-            // Usually Portals are outside the ref.
-            // If deleting, we are in a dialog. We must NOT cancel edit while Deleting Dialog is open.
-            if (showDeleteDialog) return;
+    // We retain setNodeRef for dnd-kit but remove the custom domRef logic.
+    // --- CLICK OUTSIDE TO CANCEL ---
+    // User requested removal of Click Outside logic in favor of shortcuts (Cmd+.)
+    // to prevent accidental closing when interacting with complex menus.
+    // Explicit 'onCancel' or 'Cmd+.' should be used.
 
-            // If changes made?
-            // User requested: "if user clicks outside the editting row, it cancels automatically".
-            // We can just call onCancelEdit() which might trigger discard logic if implemented, or just force cancel.
-            // Current implementation of onCancelEdit checks nothing.
-            onCancelEdit();
-        }
-    }, isEditing);
+    // We retain setNodeRef for dnd-kit from top of function.
+
+    // We can just use setNodeRef directly on the TableRow now. 
+
+    // We can just use setNodeRef directly on the TableRow now.
+
 
     // --- DELETE LOGIC ---
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -186,7 +178,7 @@ export function ClipRow({
 
     const handleDownload = async () => {
         if (clip.resultUrl) {
-            const filename = getClipFilename(clip);
+            const filename = getClipFilename(clip, seriesTitle);
             const success = await downloadFile(clip.resultUrl, filename);
 
             if (success) {
@@ -248,7 +240,7 @@ export function ClipRow({
 
     return (
         <TableRow
-            ref={setRef}
+            ref={setNodeRef}
             style={style}
             className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''} ${isDragging ? 'opacity-50 bg-stone-800' : ''}`}
         >
@@ -289,26 +281,70 @@ export function ClipRow({
             <TableCell className={`align-top w-[170px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
                     {isEditing ? (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-full min-h-[32px] w-full justify-start text-xs text-left whitespace-normal">
-                                    {editValues.character || "Select..."}
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
-                                {uniqueValues.characters.map((char) => (
-                                    <DropdownMenuCheckboxItem
-                                        key={char}
-                                        checked={(editValues.character || "").split(',').map(c => c.trim()).includes(char)}
-                                        onCheckedChange={() => toggleCharacter(char)}
-                                        onSelect={(e) => e.preventDefault()}
-                                        className="focus:bg-stone-800 focus:text-white"
-                                    >
-                                        {char}
-                                    </DropdownMenuCheckboxItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="w-full">
+                            <div className="relative w-full flex items-center gap-1">
+                                <Input
+                                    value={editValues.character || ''}
+                                    onChange={(e) => handleChange('character', e.target.value)}
+                                    className="h-full min-h-[32px] w-full text-xs"
+                                    placeholder="Characters..."
+                                />
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                            <span className="material-symbols-outlined !text-sm">expand_more</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
+                                        {uniqueValues.characters.map((char) => (
+                                            <DropdownMenuCheckboxItem
+                                                key={char}
+                                                checked={(editValues.character || "").split(',').map(c => c.trim()).includes(char)}
+                                                onCheckedChange={() => toggleCharacter(char)}
+                                                onSelect={(e) => e.preventDefault()}
+                                                className="focus:bg-stone-800 focus:text-white"
+                                            >
+                                                {char}
+                                            </DropdownMenuCheckboxItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                            {/* Edit Mode Preview */}
+                            {isEditing && onResolveImage ? (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {(editValues.character || "").split(',').map(c => c.trim()).filter(Boolean).map((char, i) => {
+                                        const url = onResolveImage(char);
+                                        if (!url) return null;
+                                        return (
+                                            <img
+                                                key={`${char}-${i}`}
+                                                src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                                alt={char}
+                                                className="w-[32px] h-[32px] object-cover rounded border border-white/10 shadow-sm opacity-50"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                title={char}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                /* Fallback to existing static Preview if no resolver */
+                                clip.characterImageUrls && clip.characterImageUrls.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1 opacity-50">
+                                        {clip.characterImageUrls.map((url, i) => (
+                                            <img
+                                                key={i}
+                                                src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                                alt="Char Prev"
+                                                className="w-[32px] h-[32px] object-cover rounded border border-white/10 shadow-sm"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        ))}
+                                    </div>
+                                )
+                            )}
+                        </div>
                     ) : (
                         <div className="flex flex-col gap-2">
                             {clip.character
@@ -322,7 +358,7 @@ export function ClipRow({
                                     {clip.characterImageUrls.map((url, i) => (
                                         <img
                                             key={i}
-                                            src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                            src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                             alt="Char Ref"
                                             className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm"
                                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -373,7 +409,7 @@ export function ClipRow({
                                     {clip.locationImageUrls.map((url, i) => (
                                         <img
                                             key={i}
-                                            src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                            src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                             alt="Loc Ref"
                                             className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm"
                                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -459,7 +495,7 @@ export function ClipRow({
                                 {urls.slice(0, 3).map((url, i) => (
                                     <img
                                         key={i}
-                                        src={url.startsWith('/api/') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                        src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                         alt={`Ref ${i + 1}`}
                                         className="w-[24px] h-[24px] object-cover rounded border border-stone-600 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                                         onError={(e) => {
@@ -507,7 +543,7 @@ export function ClipRow({
                             url={clip.resultUrl}
                             originalUrl={clip.resultUrl}
                             model={clip.model}
-                            title={clip.title || clip.scene || 'Clip'}
+                            title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
                             // onPlay={onPlay} // Removed
                             className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
                         />
@@ -564,7 +600,7 @@ export function ClipRow({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </TableRow>
+        </TableRow >
     )
 }
 

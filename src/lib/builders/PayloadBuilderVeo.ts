@@ -11,18 +11,75 @@ export class PayloadBuilderVeo implements PayloadBuilder {
     build(context: GenerationContext): VeoPayload {
         const { input, publicImageUrls } = context;
 
-        // --- COPIED LOGIC FROM GenerateManager (Lines 100-143) ---
-        // Preservation of "Golden Master Working State"
+        // --- DEFENSIVE: Resolve Resources ---
+        // Ensure strictly valid URLs (http/data). Filter out internal placeholders if any.
+        const validImageUrls = (publicImageUrls || []).filter(url =>
+            url && !url.startsWith('TASK:') && (url.startsWith('http') || url.startsWith('data:'))
+        );
 
-        const imageUrls = publicImageUrls;
+        // --- STEP 1: Resolve Descriptions (Fail-Safe Defaults) ---
+        // Prioritize computed descriptions from Manager, fallback to raw Clip data
+        const styleDesc = input.styleDescription || input.styleName || input.clip.style || "Cinematic";
+        const styleNegs = input.styleNegatives || "";
 
-        // Note: prompt building was outside the block, assuming it's passed or built before
-        // Duplicating the prompt build helper logic or assuming it's in input.
-        // In original code: const finalPrompt = input.clip.prompt || this.buildPrompt(input.clip, model);
-        // We will assume input.prompt is populated by the Manager.
+        // Construct Subject Description if not pre-computed
+        const subjectDesc = input.subjectDescription ||
+            `${input.clip.character || ""} ${input.clip.action || ""} at ${input.clip.location || ""}. ${input.clip.camera || ""} shot.`;
+        const subjectNegs = input.subjectNegatives || "";
 
-        const finalPrompt = input.prompt || `Cinematic shot. ${input.clip.action || ''} ${input.clip.dialog ? `Character says: "${input.clip.dialog}"` : ''}. ${input.clip.style || ''}. ${input.clip.camera || ''}. High quality.`;
+        // --- STEP 2: Logic - Dynamic Numbering (Nano Parity) ---
+        // Calculate which image index defines the Style vs Content
+        const styleIdx = input.styleImageIndex;
+        let stylePos = "N+1";
+        let contentRange = "1-N";
 
+        if (styleIdx !== undefined && styleIdx >= 0) {
+            // Explicit index provided
+            const n = styleIdx;
+            stylePos = `Image ${n + 1}`;
+            contentRange = n > 0 ? (n === 1 ? "Image 1" : `Images 1-${n}`) : "None";
+        } else if (validImageUrls.length > 1) {
+            // Auto-detect: If >1 image, assume last one (or 2nd) is style? 
+            // Matching Nano logic: Assume Input[Last] is style for now.
+            stylePos = `Image ${validImageUrls.length}`;
+            contentRange = validImageUrls.length > 1 ? `Images 1-${validImageUrls.length - 1}` : "Image 1";
+        }
+
+        // Strength Calculation (1-10 -> 10-100%)
+        const strengthPct = Math.round((input.styleStrength || 5) * 10);
+
+        // --- STEP 3: Prompt Construction (Rich Template) ---
+        // Using "Hardcoded Pro" template from Nano for consistency
+        const lines = [
+            `[SYSTEM: PRIORITY RULE:`,
+            `${stylePos} defines the STYLE for the OUTPUT.`,
+            `IGNORE the subject of ${stylePos}.`,
+            `]`,
+            ``,
+            `STYLE: High fidelity ${stylePos} STYLE:`,
+            ``,
+            `[${styleDesc}]`,
+            `[${styleNegs}]`,
+            ``,
+            `OUTPUT SUBJECT:`,
+            `SUBJECT IMAGES [SUBJECT STUDIO ASSET REF IMAGES ${contentRange}]`,
+            `[${subjectDesc}]`,
+            `[${subjectNegs}]`,
+            ``,
+            `[INSTRUCTION: Preserve the identity and purpose of the OUTPUT SUBJECT. Apply the ${stylePos} STYLE: Facial style: ${strengthPct}%, Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality: to the OUTPUT SUBJECT.]`
+        ];
+
+        let finalPrompt = lines.join('\n');
+
+        // Fallback: If description components were empty/invalid, revert to basic prompt?
+        // Actually, the template handles empty values gracefully via defaults above.
+        // Safety check: specific length limit? Veo might have one.
+        if (finalPrompt.length > 5000) {
+            console.warn('[PayloadBuilderVeo] Prompt too long, truncating to 5000 chars.');
+            finalPrompt = finalPrompt.substring(0, 4997) + '...';
+        }
+
+        // --- STEP 4: Payload Assembly ---
         const payload: VeoPayload = {
             model: 'veo3_fast', // Strict match user requirement
             prompt: finalPrompt,
@@ -32,13 +89,15 @@ export class PayloadBuilderVeo implements PayloadBuilder {
             enableFallback: true
         };
 
-        if (imageUrls.length > 0) {
-            payload.imageUrls = imageUrls; // Array!
+        // Attach Images (Defensive Check)
+        if (validImageUrls.length > 0) {
+            payload.imageUrls = validImageUrls;
             payload.generationType = 'REFERENCE_2_VIDEO';
-            // console.log([GenerateManager] Image-to-Video detected. Using veo3_fast.`); // Log removed for purity, handled by Manager?
         } else {
-            payload.generationType = 'TEXT_2_VIDEO'; // Optional fallback
+            payload.generationType = 'TEXT_2_VIDEO';
         }
+
+        // console.log('[PayloadBuilderVeo] Built Payload with Nano Logic.', { images: validImageUrls.length, promptLen: finalPrompt.length });
 
         return payload;
     }

@@ -49,9 +49,43 @@ export class GenerateManager {
     async startTask(input: GenerateTaskInput): Promise<{ taskId?: string, resultUrl?: string, debugPayload?: any }> {
         console.log(`[GenerateManager] >>> Starting Task <<<`);
         console.log(`[GenerateManager] Input: Clip=${input.clipId}, Series=${input.seriesId}, Prompt='${input.prompt || input.clip.prompt?.substring(0, 50)}...'`);
-        console.log(`[GenerateManager] Full Input Payload:`, JSON.stringify(input, null, 2));
+        // console.log(`[GenerateManager] Full Input Payload:`, JSON.stringify(input, null, 2));
 
-        // 1. Resolve Library References (Server-Side)
+        // 1. Select Strategy (Model Resolution) - Moved UP to determine Image Mode
+        // DESIGN RULE: Clip.model is LEGACY. 
+        // Source of Truth is the Episode (Menu/Toolbar) or the explicit input from that menu.
+        let effectiveModel = input.model;
+        console.log(`[GenerateManager Debug] Input Model: '${input.model}'`);
+
+        if (!effectiveModel && input.clip.episodeId) {
+            try {
+                const ep = await db.episode.findUnique({
+                    where: { id: input.clip.episodeId },
+                    select: { model: true }
+                });
+                if (ep?.model) {
+                    effectiveModel = ep.model;
+                }
+            } catch (err) {
+                console.warn('[GenerateManager] Failed to fetch episode model:', err);
+            }
+        }
+
+        let rawModel = effectiveModel || 'veo';
+        if (rawModel === 'flux' || rawModel === 'flux-pro') rawModel = 'flux-2/flex-image-to-image';
+        if (rawModel.startsWith('veo')) rawModel = 'veo3_fast';
+
+        const model = rawModel;
+
+        const getStrategyType = (m: string): 'flux' | 'veo' | 'nano' => {
+            if (m.startsWith('veo')) return 'veo';
+            if (m.startsWith('flux')) return 'flux';
+            if (m.includes('nano') || m.includes('banana')) return 'nano';
+            return m.includes('video') ? 'veo' : 'flux';
+        };
+        const apiType = getStrategyType(model);
+
+        // 2. Resolve Library References (Server-Side)
         const libraryItems = await db.studioItem.findMany({
             where: { seriesId: input.seriesId }
         });
@@ -65,55 +99,11 @@ export class GenerateManager {
 
         const findLib = (name: string) => seriesLib[name.toLowerCase()];
 
-        // Resolve!
-        const { fullRefs, characterImageUrls, locationImageUrls } = resolveClipImages(input.clip, findLib);
-        console.log(`[GenerateManager] Resolved References:`, { fullRefs, charCount: characterImageUrls.length, locCount: locationImageUrls.length });
+        // Resolve! Nano/Veo get ALL images, others (Flux legacy?) get SINGLE
+        const resolveMode = (apiType === 'nano' || apiType === 'veo') ? 'all' : 'single';
+        const { fullRefs, characterImageUrls, locationImageUrls } = resolveClipImages(input.clip, findLib, resolveMode);
+        console.log(`[GenerateManager] Resolved References (${resolveMode}):`, { fullRefs, charCount: characterImageUrls.length });
 
-        // 2. Select Strategy & Execute
-
-        // --- RESOLVE MODEL HIERARCHY ---
-        // DESIGN RULE: Clip.model is LEGACY. 
-        // Source of Truth is the Episode (Menu/Toolbar) or the explicit input from that menu.
-
-        let effectiveModel = input.model; // 1. From UI Toolbar (ideal)
-        console.log(`[GenerateManager Debug] Input Model: '${input.model}'`);
-
-        if (!effectiveModel && input.clip.episodeId) {
-            // 2. From DB Episode (Backstop)
-            try {
-                const ep = await db.episode.findUnique({
-                    where: { id: input.clip.episodeId },
-                    select: { model: true }
-                });
-                if (ep?.model) {
-                    console.log(`[GenerateManager] Using Episode Model: '${ep.model}'`);
-                    effectiveModel = ep.model;
-                }
-            } catch (err) {
-                console.warn('[GenerateManager] Failed to fetch episode model:', err);
-            }
-        }
-
-        // Final Fallback & Normalization
-        let rawModel = effectiveModel || 'veo'; // Downgrade default to 'veo' (veo-2 might be invalid)
-
-        // NORMALIZE LEGACY MODELS
-        if (rawModel === 'flux' || rawModel === 'flux-pro') rawModel = 'flux-2/flex-image-to-image';
-
-        // RESTORE LEGACY VEO ID
-        // 'veo-2' and 'veo' and 'veo-fast' all failed (422). 
-        // The old code forced 'veo3_fast', which reportedly worked.
-        if (rawModel.startsWith('veo')) rawModel = 'veo3_fast';
-
-        const model = rawModel;
-
-        const getStrategyType = (m: string): 'flux' | 'veo' | 'nano' => {
-            if (m.startsWith('veo')) return 'veo';
-            if (m.startsWith('flux')) return 'flux';
-            if (m.includes('nano') || m.includes('banana')) return 'nano';
-            return m.includes('video') ? 'veo' : 'flux';
-        };
-        const apiType = getStrategyType(model);
         const isVideo = apiType === 'veo';
 
         // Update DB status to 'Generating' (Skip if Dry Run)
@@ -125,20 +115,17 @@ export class GenerateManager {
             let result;
 
             // --- RESOLVE DESCRIPTIONS & NEGATIVES (NEW) ---
-            console.log('[GenerateManager] Resolving Data. Library Count:', libraryItems.length);
-            console.log('[GenerateManager] Library Names:', libraryItems.map(i => `${i.name} (${i.type})`));
-            console.log('[GenerateManager] Clip Inputs:', {
-                style: input.clip.style,
-                char: input.clip.character,
-                loc: input.clip.location,
-                cam: input.clip.camera
-            });
+            // console.log('[GenerateManager] Resolving Data. Library Count:', libraryItems.length);
+            // console.log('[GenerateManager] Library Names:', libraryItems.map(i => `${i.name} (${i.type})`));
 
             const findItem = (name: string, type: string) => {
                 if (!name) return undefined;
                 const found = libraryItems.find(i => i.name?.trim().toLowerCase() === name?.trim().toLowerCase() && i.type === type);
-                if (!found) console.warn(`[GenerateManager] Failed to find '${name}' of type '${type}'`);
-                else console.log(`[GenerateManager] Found '${name}':`, found.description?.substring(0, 20));
+                if (!found) {
+                    // console.warn(`[GenerateManager] Failed to find '${name}' of type '${type}'`);
+                } else {
+                    // console.log(`[GenerateManager] Found '${name}':`, found.description?.substring(0, 20));
+                }
                 return found;
             }
 
@@ -291,14 +278,23 @@ export class GenerateManager {
         } catch (error: any) {
             console.error(`[GenerateManager] Fatal Error:`, error);
 
+            // Enhanced Error Reporting
+            if (error.response) {
+                console.error('[GenerateManager] API Error Response Status:', error.response.status);
+                console.error('[GenerateManager] API Error Data:', JSON.stringify(error.response.data, null, 2));
+            } else if (error.cause) {
+                console.error('[GenerateManager] Error Cause:', error.cause);
+            }
+
             // Robust Error Parsing
             let statusMsg = 'Error';
-            const msg = error.message || String(error);
+            const msg = (error.message || String(error)).toLowerCase();
 
             if (msg.includes('500')) statusMsg = 'Error 500';
             else if (msg.includes('400')) statusMsg = 'Error 400';
-            else if (msg.includes('Upload Failed')) statusMsg = 'Upload Err';
-            else if (msg.includes('File Not Found')) statusMsg = 'File 404';
+            else if (msg.includes('422')) statusMsg = 'Error 422'; // Validation
+            else if (msg.includes('upload failed')) statusMsg = 'Upload Err';
+            else if (msg.includes('file not found')) statusMsg = 'File 404';
             else if (msg.includes('fetch')) statusMsg = 'Net Err';
 
             // Ensure we update status even if it fails
@@ -343,7 +339,7 @@ export class GenerateManager {
      * Resolves local URLs (starting with /api/) to public URLs by uploading to Kie.
      */
     private async ensurePublicUrl(url: string): Promise<string> {
-        if (url.startsWith('http')) return url;
+        if (url.startsWith('http')) return encodeURI(url);
 
         // Detect Local Path
         let filePath = '';
@@ -353,24 +349,29 @@ export class GenerateManager {
         } else if (url.startsWith('/api/images/')) {
             const filename = url.replace('/api/images/', '');
             filePath = path.join(process.cwd(), 'storage/media/uploads', filename);
+        } else if (url.startsWith('/media/library/')) {
+            // Fix: Map /media/library to public/media/library
+            const filename = url.replace('/media/library/', '');
+            filePath = path.join(process.cwd(), 'public/media/library', filename);
         }
 
         if (filePath && fs.existsSync(filePath)) {
             try {
-                console.log(`[GenerateManager] Uploading local file to Kie: ${filePath}`);
+                // console.log(`[GenerateManager] Uploading local file to Kie: ${filePath}`);
                 const fileBuffer = await fs.promises.readFile(filePath);
                 const base64 = fileBuffer.toString('base64');
                 const filename = path.basename(filePath);
 
                 const uploadRes = await uploadFileBase64(base64, filename);
-                console.log(`[GenerateManager Debug] Upload Res:`, JSON.stringify(uploadRes));
+                // console.log(`[GenerateManager Debug] Upload Res:`, JSON.stringify(uploadRes));
 
                 // Handle diverse response shapes (Flat, Nested URL, Nested DownloadUrl)
                 const publicUrl = uploadRes.data?.url || uploadRes.url || (uploadRes.data as any)?.downloadUrl;
 
                 if (publicUrl) {
-                    console.log(`[GenerateManager] Uploaded! Public URL: ${publicUrl}`);
-                    return publicUrl;
+                    // console.log(`[GenerateManager] Uploaded! Public URL: ${publicUrl}`);
+                    // Ensure URL is safely encoded (fixes issues with spaces in filenames)
+                    return encodeURI(publicUrl);
                 }
 
                 throw new Error('Upload response missing URL/downloadUrl'); // Fail loudly!
@@ -378,7 +379,8 @@ export class GenerateManager {
                 console.error(`[GenerateManager] Failed to upload local file ${filePath}:`, err);
                 throw new Error(`Upload Failed: ${path.basename(filePath)}`);
             }
-        } else if (url.startsWith('/api')) {
+        } else if (url.startsWith('/') && !url.startsWith('http')) {
+            // Catch-all for other local paths to warn/error
             console.warn(`[GenerateManager] Local file not found for URL: ${url}`);
             throw new Error(`File Not Found: ${path.basename(url)}`);
         }

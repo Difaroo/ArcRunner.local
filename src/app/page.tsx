@@ -353,29 +353,45 @@ export default function Home() {
         }),
       });
 
+      const data = await res.json();
       if (!res.ok) throw new Error('Failed to save');
 
-      // Update local state with Optimistic Library Lookup
-      // We want to show the new thumbnails instantly without waiting for a refresh.
-      // But we MUST NOT save these derived URLs to the 'explicitRefUrls' or sends them to backend.
-      setClips(prev => prev.map(c => {
-        if (c.id !== clipId) return c;
+      // Update local state
+      // Prefer server-returned clip which has authoritative image resolution
+      if (data.success && data.clip) {
+        setClips(prev => prev.map(c => c.id === clipId ? { ...c, ...data.clip } : c));
+      } else {
+        // Fallback: Optimistic update with robust trimming
+        setClips(prev => prev.map(c => {
+          if (c.id !== clipId) return c;
 
-        const merged = { ...c, ...updates };
+          const merged = { ...c, ...updates };
 
-        // Re-calculate Derived Ref Image URLs for display using SHARED RESOLVER
-        // 1. Setup Lookup
-        const seriesLib = libraryItems.filter(i => i.series === currentSeriesId);
-        const findUrl = (name: string) => {
-          const item = seriesLib.find(i => i.name.toLowerCase() === name.toLowerCase());
-          return item?.refImageUrl;
-        }
+          // Re-calculate Derived Ref Image URLs for display using SHARED RESOLVER
+          // 1. Setup
+          const findUrl = (name: string) => {
+            // Resolver for Live Previews
+            // Robust: Trim and Lowercase
+            const cleanName = name.trim().toLowerCase();
+            // Find item independent of source casing
+            const item = allSeriesAssets.find(i => i.name.trim().toLowerCase() === cleanName);
+            if (item?.refImageUrl) {
+              // Fix: Handle multi-url strings (take first)
+              return item.refImageUrl.split(',')[0].trim();
+            }
+            return undefined;
+          };
+          const { fullRefs, explicitRefs, characterImageUrls, locationImageUrls } = resolveClipImages(merged, findUrl);
 
-        // 2. Resolve
-        const { fullRefs, explicitRefs } = resolveClipImages(merged, findUrl);
-
-        return { ...merged, refImageUrls: fullRefs, explicitRefUrls: explicitRefs };
-      }));
+          return {
+            ...merged,
+            refImageUrls: fullRefs,
+            explicitRefUrls: explicitRefs,
+            characterImageUrls,
+            locationImageUrls
+          };
+        }));
+      }
 
       setEditingId(null);
       setEditValues({});
@@ -532,7 +548,37 @@ export default function Home() {
 
   // Note: activeClips might be empty if the episode exists in titles but has no clips yet
   const rawActiveClips = episodes[currentEpisode - 1] || [];
-  const activeClips = rawActiveClips.filter(c => !deletedClipIds.has(c.id));
+
+  // --- REACTIVITY FIX: Live Resolve Images ---
+  // Re-calculate image URLs using the LATEST libraryItems.
+  // This ensures that if a Library Asset is updated (e.g. image changed),
+  // the Clip thumbnails update immediately without a refresh.
+  const seriesLibraryMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    allSeriesAssets.forEach(item => {
+      // Create lookup map for resolver: key=name.toLowerCase(), value=refImageUrl
+      // Handle the case where name might be missing
+      if (item.name) map[item.name.toLowerCase()] = item.refImageUrl || '';
+    });
+    return map;
+  }, [allSeriesAssets]);
+
+  const findLibUrl = (name: string) => seriesLibraryMap[name.toLowerCase()];
+
+  const activeClips = useMemo(() => {
+    return rawActiveClips
+      .filter(c => !deletedClipIds.has(c.id))
+      .map(clip => {
+        // Resolve images on the fly!
+        const { characterImageUrls, locationImageUrls } = resolveClipImages(clip, findLibUrl, 'single');
+        return {
+          ...clip,
+          characterImageUrls,
+          locationImageUrls
+        };
+      });
+  }, [rawActiveClips, deletedClipIds, seriesLibraryMap]);
+
   const currentEpKey = sortedEpKeys[currentEpisode - 1] || '1';
   const currentEpTitle = seriesEpisodeTitles[currentEpKey] ? `: ${seriesEpisodeTitles[currentEpKey]}` : '';
 
@@ -554,16 +600,16 @@ export default function Home() {
     // Hierarchy: Episode Override > Series Default > Global Default
     const targetModel = currentEpObj?.model || currentSeries?.defaultModel || 'veo-fast';
 
-    console.log('[ModelSelect] Calc:', {
-      epModel: currentEpObj?.model,
-      seriesDefault: currentSeries?.defaultModel,
-      target: targetModel,
-      currentSelected: selectedModel
-    });
+    // console.log('[ModelSelect] Calc:', {
+    //   epModel: currentEpObj?.model,
+    //   seriesDefault: currentSeries?.defaultModel,
+    //   target: targetModel,
+    //   currentSelected: selectedModel
+    // });
 
     // Only update if different to avoid loops (though strict equality check handles it)
     if (targetModel !== selectedModel) {
-      console.log('[ModelSelect] UPDATING to', targetModel);
+      // console.log('[ModelSelect] UPDATING to', targetModel);
       setSelectedModel(targetModel);
     }
   }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey, seriesList, loading]); // Added seriesList dependency
@@ -603,12 +649,12 @@ export default function Home() {
     const toGen = activeClips.filter(c => selectedIds.has(c.id));
     if (toGen.length === 0) return;
 
-    // Show Confirmation Dialog
+    // Show Confirmation Dialog (Restored)
     setShowClipConfirm(true);
   };
 
   const executeClipGeneration = async () => {
-    setShowClipConfirm(false);
+    setShowClipConfirm(false); // Close Dialog
     const toGen = activeClips.filter(c => selectedIds.has(c.id));
 
     // Non-blocking notification
@@ -705,7 +751,9 @@ export default function Home() {
 
   // --- Studio Generation Confirmation ---
   const [showStudioConfirm, setShowStudioConfirm] = useState(false);
+  // --- Clip Generation Confirmation (Restored) ---
   const [showClipConfirm, setShowClipConfirm] = useState(false);
+  // showClipConfirm removed (handled by ActionToolbar)
 
   const handleOpenStudioConfirm = () => {
     if (selectedLibraryIds.size === 0) return;
@@ -1244,7 +1292,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.14.1</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.14.2</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1791,6 +1839,7 @@ export default function Home() {
                 uniqueValues={uniqueValues}
                 onDelete={handleDeleteClip}
                 onDuplicate={handleDuplicateClip}
+                seriesTitle={seriesList.find(s => s.id === currentSeriesId)?.title || 'Series'}
               />
             )}
           </div>
@@ -1884,7 +1933,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      {/* Clip (Episode) Generation Confirm Dialog */}
+      {/* --- RESTORED: Clip Generation Confirmation Dialog --- */}
       <Dialog open={showClipConfirm} onOpenChange={setShowClipConfirm}>
         <DialogContent
           className="sm:max-w-[400px] bg-stone-900 border-stone-800 text-stone-100 p-6"
@@ -1909,25 +1958,30 @@ export default function Home() {
               <span className="text-stone-500">Style</span>
               <span className="text-right font-medium truncate">{currentStyle || 'None'}</span>
 
-              <span className="text-stone-500">Strength</span>
-              <span className="text-right font-medium">{currentGuidance}</span>
-
-              <span className="text-stone-500">Seed</span>
-              <span className="text-right font-medium font-mono text-xs pt-0.5">{currentSeed !== null ? currentSeed : 'Random'}</span>
-
               <span className="text-stone-500">Model</span>
-              <span className="text-right font-medium truncate">{selectedModel}</span>
+              <span className="text-right font-medium truncate">
+                {selectedModel || seriesList.find(s => s.id === currentSeriesId)?.defaultModel || 'veo3_fast'}
+              </span>
             </div>
+            {/* Warning if many clips */}
+            {selectedIds.size > 5 && (
+              <div className="text-xs text-yellow-500/80 flex items-center gap-1 mt-2">
+                <span className="material-symbols-outlined !text-sm">warning</span>
+                Batch generation may take some time.
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowClipConfirm(false)}>Cancel</Button>
             <Button onClick={executeClipGeneration}>
-              <span className="material-symbols-outlined !text-lg mr-2">movie_filter</span>
-              Generate Clips
+              <span className="material-symbols-outlined !text-lg mr-2">movie_creation</span>
+              Generate
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+
     </div>
   );
 }

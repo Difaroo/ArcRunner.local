@@ -98,11 +98,21 @@ export async function GET() {
         }));
 
         // Helper for Studio Lookups
-        const libraryImages: Record<string, Record<string, string>> = {};
+        const libraryImages: Record<string, Record<string, string>> = {}; // SeriesID -> Name -> URL
+        const globalLibrary: Record<string, string> = {}; // Name -> URL (Last one wins, fallback)
+
         libraryItems.forEach(item => {
             if (item.name && item.refImageUrl) {
+                const cleanName = item.name.trim().toLowerCase();
+
+                // 1. Scoped Map
                 if (!libraryImages[item.series]) libraryImages[item.series] = {};
-                libraryImages[item.series][item.name.toLowerCase()] = item.refImageUrl;
+                libraryImages[item.series][cleanName] = item.refImageUrl;
+
+                // 2. Global Fallback Map
+                // We populate this so if a clip references a character from ANOTHER series, we can still find it.
+                // Ideally, names should be unique or we prefer the current series one (handled in lookup order).
+                globalLibrary[cleanName] = item.refImageUrl;
             }
         });
 
@@ -113,7 +123,9 @@ export async function GET() {
             const seriesLib = libraryImages[seriesId] || {};
 
             const findLib = (name: string) => {
-                return seriesLib[name.toLowerCase()];
+                const key = name.toLowerCase();
+                // Priority: Current Series > Global Fallback
+                return seriesLib[key] || globalLibrary[key];
             };
 
             const { fullRefs, explicitRefs, characterImageUrls, locationImageUrls } = resolveClipImages(clip, findLib);
@@ -301,6 +313,64 @@ export async function PUT(req: Request) {
                         console.log(`Thumbnail updated for clip ${intId}`);
                     }
                 });
+        }
+
+        // Fix: Return enriched clip with image URLs so UI updates immediately
+        // We need the Episode/Series context to resolve library images
+        const clipWithContext = await db.clip.findUnique({
+            where: { id: intId },
+            include: { episode: true }
+        });
+
+        if (clipWithContext) {
+            const seriesId = clipWithContext.episode.seriesId;
+
+            // Fetch Library for this series to resolve images
+            const libraryItems = await db.studioItem.findMany({
+                where: { seriesId: seriesId }
+            });
+
+            const libraryImages: Record<string, string> = {};
+            libraryItems.forEach(item => {
+                if (item.name && item.refImageUrl) {
+                    // Apply SAFE trim logic here too
+                    libraryImages[item.name.trim().toLowerCase()] = item.refImageUrl;
+                }
+            });
+
+            const findLib = (name: string) => libraryImages[name.toLowerCase()];
+
+            // Safely resolve using the helper
+            // valid clipWithContext matches the shape expected by resolveClipImages partial
+            // We construct a specific object to pass in to match the interface if needed, 
+            // but resolveClipImages takes { character, location, refImageUrls, explicitRefUrls }
+
+            // Map DB fields to Resolver Interface
+            const resolverInput = {
+                character: updatedClip.character,
+                location: updatedClip.location,
+                refImageUrls: updatedClip.refImageUrls, // This is technically the explicit list from DB
+                explicitRefUrls: updatedClip.refImageUrls // We treat DB column as explicit
+            };
+
+            const { fullRefs, characterImageUrls, locationImageUrls } = resolveClipImages(resolverInput, findLib);
+
+            // Return the fully enriched object
+            // We mix updatedClip properties with computed ones
+            const finalClip = {
+                ...updatedClip,
+                // Ensure ID is string for frontend consistency if needed (Prisma returns Int, but mapped in GET to string)
+                // Frontend likely expects string if it came from GET
+                id: updatedClip.id.toString(),
+                episode: updatedClip.episodeId, // or clipWithContext.episode.number.toString(), but UI uses flattened structure?
+                // Let's match GET structure as close as possible without re-serializing everything if not needed.
+                // Actually, simpler: Just add the missing arrays. The frontend likely merges this into existing state.
+                characterImageUrls,
+                locationImageUrls,
+                refImageUrls: fullRefs
+            };
+
+            return NextResponse.json({ success: true, clip: finalClip });
         }
 
         return NextResponse.json({ success: true, clip: updatedClip });

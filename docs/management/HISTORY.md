@@ -314,3 +314,16 @@ Addressed critical regressions in Studio generation and Download functionality d
     - **Uploads**: New images are now prepended (not appended) to the list for immediate visibility.
 - **Version Bump**: 0.14.0 -> 0.14.1.
 
+## 2026-01-03: v0.14.2 - Veo Logic & Persistence
+
+### Context
+Fixed a critical logic bug where Veo generations were silently clamped to a single reference image, breaking multi-image style transfer. Also implemented the requested Nano-style prompt logic for Veo, restored the preferred Confirmation Dialog, and standardized download filenames.
+
+### Changes
+- **Veo Multi-Image Fix**: Updated `GenerateManager` to allow `all` images for Veo task types, enabling "Style Reference" workflows.
+- **Veo Prompt Logic**: Ported `Nano` builder logic (Dynamic Numbering, Style/Subject blocks, Negatives) to `PayloadBuilderVeo`.
+- **Dialog Restoration**: Restored the `page.tsx` controlled Confirmation Dialog for clip generation.
+- **Download Filenames**: Enforced `[SERIES].[EP] [NAME] [VERSION]` format for all clip downloads.
+- **Robustness**: Added automatic URL encoding in `GenerateManager` to handle filenames with spaces.
+- **Version Bump**: 0.14.1 -> 0.14.2.
+

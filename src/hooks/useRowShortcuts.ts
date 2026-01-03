@@ -41,8 +41,8 @@ export function useRowShortcuts({
                 return;
             }
 
-            // Cancel: Escape
-            if (e.key === 'Escape') {
+            // Cancel: Escape or Cmd+. (Period)
+            if (e.key === 'Escape' || ((e.metaKey || e.ctrlKey) && e.key === '.')) {
                 e.preventDefault();
                 onCancel?.();
                 return;

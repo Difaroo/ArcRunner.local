@@ -39,6 +39,8 @@ interface ClipTableProps {
         styles: string[]
         cameras: string[]
     }
+    onResolveImage?: (name: string) => string | undefined
+    seriesTitle: string
 }
 
 export function ClipTable({
@@ -55,8 +57,16 @@ export function ClipTable({
     onPlay,
     onDelete,
     onDuplicate,
-    uniqueValues
+    uniqueValues,
+    onResolveImage,
+    seriesTitle
 }: ClipTableProps) {
+    // ... (skip down to SortableContext)
+    // I need to use replace_file_content targeted chunks.
+    // This single block is safer for the Props interface.
+    // But I also need to update the <ClipRow> call further down.
+    // I will split this into two tool calls or use multi_replace.
+    // I'll assume sequential for safety.
     const allSelected = clips.length > 0 && selectedIds.size === clips.length
 
     const [orderedClips, setOrderedClips] = useState(clips)
@@ -147,6 +157,8 @@ export function ClipTable({
                                     onDuplicate={onDuplicate}
                                     saving={saving}
                                     uniqueValues={uniqueValues}
+                                    onResolveImage={onResolveImage}
+                                    seriesTitle={seriesTitle}
                                 />
                             ))}
                         </SortableContext>

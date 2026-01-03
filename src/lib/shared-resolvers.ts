@@ -28,11 +28,13 @@ export interface ResolverResult {
  * 3. Location Library Images (looked up by name)
  * 
  * @param clip The clip object containing character/location names and explicit URLs.
- * @param findLibraryUrl A callback to look up a library image URL by exact name (case-insensitive usually handled by caller or here).
+ * @param findLibraryUrl A callback to look up a library image URL by exact name.
+ * @param mode 'single' (default - take first image per asset) or 'all' (take all images per asset)
  */
 export function resolveClipImages(
     clip: ClipReferenceSource,
-    findLibraryUrl: (name: string) => string | undefined
+    findLibraryUrl: (name: string) => string | undefined,
+    mode: 'single' | 'all' = 'single'
 ): ResolverResult {
     // 1. Parse Explicit URLs
     // We prefer 'explicitRefUrls' if it exists (Client editing state), 
@@ -68,6 +70,18 @@ export function resolveClipImages(
         }
     };
 
+    // Helper to extract correct URLs based on mode
+    const processLibraryRef = (str: string, targetArray: string[]) => {
+        const rawUrls = str.split(',').map(u => u.trim()).filter(Boolean);
+        if (rawUrls.length === 0) return;
+
+        if (mode === 'single') {
+            addUrl(rawUrls[0], targetArray);
+        } else {
+            rawUrls.forEach(u => addUrl(u, targetArray));
+        }
+    };
+
     // 2. Character Lookup
     if (clip.character) {
         // Split by comma, trim
@@ -75,8 +89,10 @@ export function resolveClipImages(
         names.forEach(name => {
             const cleanName = name.trim();
             if (cleanName) {
-                const url = findLibraryUrl(cleanName);
-                if (url) addUrl(url, characterImageUrls);
+                const urlOrUrls = findLibraryUrl(cleanName);
+                if (urlOrUrls) {
+                    processLibraryRef(urlOrUrls, characterImageUrls);
+                }
             }
         });
     }
@@ -86,8 +102,10 @@ export function resolveClipImages(
         // usually single location, but treat safe
         const cleanName = clip.location.trim();
         if (cleanName) {
-            const url = findLibraryUrl(cleanName);
-            if (url) addUrl(url, locationImageUrls);
+            const urlOrUrls = findLibraryUrl(cleanName);
+            if (urlOrUrls) {
+                processLibraryRef(urlOrUrls, locationImageUrls);
+            }
         }
     }
 

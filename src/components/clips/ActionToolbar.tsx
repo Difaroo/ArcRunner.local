@@ -255,7 +255,7 @@ export function ActionToolbar({
                             <TooltipTrigger asChild>
                                 <Button
                                     size="icon"
-                                    onClick={() => setShowBatchDialog(true)}
+                                    onClick={onGenerateSelected}
                                     disabled={selectedCount === 0}
                                     className="h-8 w-8 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] transition-shadow"
                                     variant="default" // Using default (likely orange primary)
@@ -318,6 +318,8 @@ export function ActionToolbar({
 
             </div>
 
+            {/* Internal Batch Dialog REMOVED to restore Page-level control */}
+            {/* 
             <BatchGenerationDialog
                 open={showBatchDialog}
                 onOpenChange={setShowBatchDialog}
@@ -326,7 +328,8 @@ export function ActionToolbar({
                 model={selectedModel}
                 ratio={aspectRatio}
                 style={currentStyle}
-            />
+            /> 
+            */}
         </>
     )
 }

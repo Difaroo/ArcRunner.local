@@ -25,6 +25,7 @@ Implement critical UI fixes (Shortcuts, Downloads) and verify core Rendering flo
         - [x] Verify Studio Flux generation.
         - [x] Verify Clips Flux/Video generation.
     - [x] **Ref Save**: Can we save a Render as a Reference in Clips?
+    - [x] **Veo**: Fixed Multi-Image clamping & Ported Nano Prompt Logic (v0.14.2).
 
 ## Pending Review
 - [x] Review `docs/management/specs/Architecture_Refactor_Report.md` for upcoming "Big Refactor".

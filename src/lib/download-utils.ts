@@ -5,9 +5,12 @@ import { Clip } from '@/app/api/clips/route';
  * Generates the standard filename for a clip.
  * Format: "{Scene} - {Title} - v{Version}"
  */
-export function getClipFilename(clip: Clip): string {
+export function getClipFilename(clip: Clip, seriesTitle: string = 'Series'): string {
     const safeTitle = (clip.title || 'Untitled').replace(/[^a-z0-9 ]/gi, '').trim();
-    const scene = (clip.scene || '0').trim();
+    const ep = (clip.episode || '0').trim();
+    // Use formatted scene (1.01) or just Title? User asked for [CLIP NAME].
+    // Format: [SERIES].[EPISODE] [CLIP NAME] [VERSION]
+    // Example: ArcRunner.05 Explosion v1
 
     // Calculate Version from Status
     let ver = 1;
@@ -21,10 +24,10 @@ export function getClipFilename(clip: Clip): string {
         }
     }
 
-    let filename = `${scene} ${safeTitle}`;
-    if (ver > 1) {
-        filename += ` ${ver.toString().padStart(2, '0')}`;
-    }
+    const versionStr = `v${ver}`;
+
+    // Construct formatting
+    let filename = `${seriesTitle}.${ep.padStart(2, '0')} ${safeTitle} ${versionStr}`;
 
     // Determine extension
     const ext = clip.resultUrl?.split('.').pop()?.split('?')[0] || 'mp4';
