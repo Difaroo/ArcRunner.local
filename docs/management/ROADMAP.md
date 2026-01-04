@@ -30,3 +30,8 @@
 - [ ] **Camera Menu**: Driven by all available shot types.
 - [ ] **Motion Control**: Stacked fields for pan/tilt/zoom.
 - [ ] **Mega Prompt Refactor**: Integrate Camera/Motion into the prompt generation logic.
+
+## 🦅 Release Naming Convention: "Mythic Birds"
+Major architectural milestones shall be named after Mythic Birds/Creatures to signify their transformative nature.
+- **v0.15.0**: **Phoenix** (The Great Refactor / Rebirth)
+- **Next Candidates**: Griffin, Thunderbird, Roc, Simurgh.
