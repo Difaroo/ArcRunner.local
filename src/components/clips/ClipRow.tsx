@@ -5,7 +5,7 @@ import { TableCell, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Clip } from "@/app/api/clips/route"
+import { Clip } from "@/types"
 import { useState, useEffect } from "react"
 import {
     DropdownMenu,

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Clip } from '@/app/api/clips/route';
-import { LibraryItem } from '@/lib/library';
+import { Clip, LibraryItem } from '@/types';
 
 interface UsePollingProps {
     clips: Clip[];

@@ -1,7 +1,7 @@
 import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ClipRow } from "./ClipRow"
-import { Clip } from "@/app/api/clips/route"
+import { Clip } from '@/types';
 import { useState, useEffect } from "react"
 import {
     DndContext,

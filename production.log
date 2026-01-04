@@ -1,10 +1,8 @@
 
-> arcrunner-local@0.8.0 start
+> arcrunner-local@0.14.2 start
 > next start -p 3001
 
   ▲ Next.js 13.5.6
   - Local:        http://localhost:3001
 
- ✓ Ready in 147ms
-API /api/clips called (DB Mode)
-API /api/clips called (DB Mode)
+ ✓ Ready in 131ms

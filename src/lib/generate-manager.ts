@@ -7,6 +7,9 @@ import path from 'path';
 import { BuilderFactory } from '@/lib/builders/BuilderFactory';
 
 // Input payload for a generation task
+import { Clip } from '@/types';
+
+// Input payload for a generation task
 export interface GenerateTaskInput {
     clipId: string; // DB ID string
     seriesId: string;
@@ -14,11 +17,10 @@ export interface GenerateTaskInput {
     aspectRatio?: string;
 
     // Provided overrides
-    prompt?: string; // If we build prompt here, or pass it in? 
-    // Usually prompt is built from clip fields.
+    prompt?: string;
 
-    // Or we accept the full Clip object?
-    clip: any; // Using 'any' for now to match flexible API usage, strictly typed in implementation
+    // Strongly typed Clip (Partial to allow flexibility)
+    clip: Partial<Clip> & { episodeId?: string }; // Ensure episodeId availability if needed
 
     // Diagnosis
     dryRun?: boolean;
@@ -48,8 +50,10 @@ export class GenerateManager {
      */
     async startTask(input: GenerateTaskInput): Promise<{ taskId?: string, resultUrl?: string, debugPayload?: any }> {
         console.log(`[GenerateManager] >>> Starting Task <<<`);
-        console.log(`[GenerateManager] Input: Clip=${input.clipId}, Series=${input.seriesId}, Prompt='${input.prompt || input.clip.prompt?.substring(0, 50)}...'`);
-        // console.log(`[GenerateManager] Full Input Payload:`, JSON.stringify(input, null, 2));
+        console.log(`[GenerateManager] Input: Clip=${input.clipId}, Series=${input.seriesId}, Prompt='${input.prompt || input.clip.action?.substring(0, 50)}...'`);
+
+        // Defensive: Check critical inputs
+        if (!input.clip) throw new Error('[GenerateManager] Critical: Input clip is missing.');
 
         // 1. Select Strategy (Model Resolution) - Moved UP to determine Image Mode
         // DESIGN RULE: Clip.model is LEGACY. 
@@ -101,7 +105,7 @@ export class GenerateManager {
 
         // Resolve! Nano/Veo get ALL images, others (Flux legacy?) get SINGLE
         const resolveMode = (apiType === 'nano' || apiType === 'veo') ? 'all' : 'single';
-        const { fullRefs, characterImageUrls, locationImageUrls } = resolveClipImages(input.clip, findLib, resolveMode);
+        const { fullRefs, characterImageUrls, locationImageUrls } = resolveClipImages(input.clip as any, findLib, resolveMode); // cast as any for resolver compatibility if needed
         console.log(`[GenerateManager] Resolved References (${resolveMode}):`, { fullRefs, charCount: characterImageUrls.length });
 
         const isVideo = apiType === 'veo';
@@ -137,7 +141,8 @@ export class GenerateManager {
             input.styleNegatives = styleItem?.negatives || "";
 
             // -- Character / Subject --
-            const charNames = input.clip.character ? input.clip.character.split(',') : [];
+            // Robust split: Handle undefined/null gracefully
+            const charNames = input.clip.character?.split(',') || [];
             const charItems = charNames.map((n: string) => findItem(n.trim(), 'LIB_CHARACTER')).filter((i: any) => i);
 
             const locName = input.clip.location || "";
@@ -206,13 +211,6 @@ export class GenerateManager {
             if (!isVideo && publicImageUrls.length === 0) {
                 console.log('[GenerateManager] No input images found for Flux. Injecting dummy placeholder for T2I.');
                 try {
-                    const dummyPath = '/api/media/defaults/empty.png';
-                    // We need to resolve this local path to a public URL via upload
-                    // ensurePublicUrl handles /api/ paths nicely?
-                    // Wait, ensurePublicUrl handles /api/media/uploads/ or /api/images/
-                    // I need to make sure ensurePublicUrl can handle this path or just manually do it.
-
-                    // Let's modify ensurePublicUrl logic slightly or just duplicate the logic here for safety
                     const filePath = path.join(process.cwd(), 'storage/media/defaults/empty.png');
                     if (fs.existsSync(filePath)) {
                         const fileBuffer = await fs.promises.readFile(filePath);
@@ -222,12 +220,17 @@ export class GenerateManager {
                         if (publicUrl) {
                             publicImageUrls.push(publicUrl);
                             console.log('[GenerateManager] Dummy injected:', publicUrl);
+                        } else {
+                            throw new Error('Upload succeeded but no URL returned for dummy.');
                         }
                     } else {
                         console.error('[GenerateManager] CRITICAL: Dummy image missing at', filePath);
+                        throw new Error('Dummy placeholder missing from filesystem.');
                     }
                 } catch (e) {
                     console.error('[GenerateManager] Failed to inject dummy image:', e);
+                    // CRITICAL FIX: Flux fails without image URL. Fail the task.
+                    throw new Error(`Flux T2I requires a placeholder image, but injection failed: ${(e as Error).message}`);
                 }
             }
 

@@ -6,20 +6,8 @@ import { db } from './db';
 // We should run convertDriveUrl just in case.
 import { convertDriveUrl } from '@/lib/utils';
 
-export interface LibraryItem {
-    id: string; // Row index or unique ID
-    type: string;
-    name: string;
-    description: string;
-    refImageUrl: string;
-    thumbnailPath?: string;
-    negatives: string;
-    notes: string;
-    episode: string;
-    series: string;
-    status?: string;
-    taskId?: string;
-}
+import { LibraryItem } from '@/types';
+
 
 /**
  * Fetches all items from the LIBRARY DB table.

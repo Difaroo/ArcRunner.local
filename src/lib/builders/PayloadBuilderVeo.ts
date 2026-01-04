@@ -19,55 +19,90 @@ export class PayloadBuilderVeo implements PayloadBuilder {
 
         // --- STEP 1: Resolve Descriptions (Fail-Safe Defaults) ---
         // Prioritize computed descriptions from Manager, fallback to raw Clip data
-        const styleDesc = input.styleDescription || input.styleName || input.clip.style || "Cinematic";
+        // --- STEP 1: Resolve Descriptions ---
+        // Prioritize computed descriptions from Manager. 
+        // NOTE: Remove "Cinematic" default to support No-Style mode per user request.
+        const styleDesc = input.styleDescription || input.styleName || input.clip.style;
         const styleNegs = input.styleNegatives || "";
+        const hasStyle = !!styleDesc && styleDesc.trim().length > 0; // Check effective style existence
 
         // Construct Subject Description if not pre-computed
         const subjectDesc = input.subjectDescription ||
-            `${input.clip.character || ""} ${input.clip.action || ""} at ${input.clip.location || ""}. ${input.clip.camera || ""} shot.`;
+            `${input.clip.character || ""} ${input.clip.action || ""} at ${input.clip.location || ""}. ${input.clip.camera || ""} shot.${input.clip.dialog ? `\nDIALOGUE: ${input.clip.dialog}` : ""}`;
         const subjectNegs = input.subjectNegatives || "";
 
-        // --- STEP 2: Logic - Dynamic Numbering (Nano Parity) ---
-        // Calculate which image index defines the Style vs Content
-        const styleIdx = input.styleImageIndex;
-        let stylePos = "N+1";
-        let contentRange = "1-N";
+        // --- STEP 2: Logic - Dynamic Numbering ---
+        const totalImages = validImageUrls.length;
+        let stylePos = "N+1"; // Default invalid if not used
+        let contentRange = "Images 1-N";
+        let subjectLabel = "SUBJECT IMAGES";
 
-        if (styleIdx !== undefined && styleIdx >= 0) {
-            // Explicit index provided
-            const n = styleIdx;
-            stylePos = `Image ${n + 1}`;
-            contentRange = n > 0 ? (n === 1 ? "Image 1" : `Images 1-${n}`) : "None";
-        } else if (validImageUrls.length > 1) {
-            // Auto-detect: If >1 image, assume last one (or 2nd) is style? 
-            // Matching Nano logic: Assume Input[Last] is style for now.
-            stylePos = `Image ${validImageUrls.length}`;
-            contentRange = validImageUrls.length > 1 ? `Images 1-${validImageUrls.length - 1}` : "Image 1";
+        if (hasStyle && totalImages > 1) {
+            // Standard Style Reference Logic
+            const styleIdx = input.styleImageIndex;
+
+            // Calculate Range End
+            const endIdx = (styleIdx !== undefined && styleIdx >= 0) ? styleIdx : totalImages - 1;
+
+            if (endIdx === 0) {
+                contentRange = "None"; // Should not happen often if total > 1
+                subjectLabel = "SUBJECT IMAGES";
+            } else if (endIdx === 1) {
+                contentRange = "Image 1";
+                subjectLabel = "SUBJECT IMAGE 1:";
+            } else {
+                contentRange = `Images 1-${endIdx}`;
+                subjectLabel = `SUBJECT IMAGES 1-${endIdx}`; // "SUBJECT IMAGES 1, 2" format requested? 
+                // User asked: "SUBJECT IMAGES 1, 2". Range is "1-2".
+                // Let's stick to "Images 1-X" format for the variable, but the Label prefix depends.
+                // User: "should say 'SUBJECT IMAGE 1:' OR ... 'SUBJECT IMAGES 1, 2'"
+                // Let's format the label line explicitly below.
+            }
+
+            stylePos = `Image ${totalImages}`; // Default last
+            if (styleIdx !== undefined && styleIdx >= 0) {
+                stylePos = `Image ${styleIdx + 1}`;
+            }
+
+        } else {
+            // No Style / All Subject
+            if (totalImages === 1) {
+                contentRange = "Image 1";
+                subjectLabel = "SUBJECT IMAGE 1:";
+            } else {
+                contentRange = `Images 1-${totalImages}`;
+                subjectLabel = `SUBJECT IMAGES 1-${totalImages}`; // Or comma separated? Range is safer for variable length.
+            }
         }
 
-        // Strength Calculation (1-10 -> 10-100%)
-        const strengthPct = Math.round((input.styleStrength || 5) * 10);
+        const strengthPct = Math.round((input.styleStrength || 5) * 30); // Boost to 150% (5 * 30)
 
         // --- STEP 3: Prompt Construction (Rich Template) ---
-        // Using "Hardcoded Pro" template from Nano for consistency
-        const lines = [
-            `[SYSTEM: PRIORITY RULE:`,
-            `${stylePos} defines the STYLE for the OUTPUT.`,
-            `IGNORE the subject of ${stylePos}.`,
-            `]`,
-            ``,
-            `STYLE: High fidelity ${stylePos} STYLE:`,
-            ``,
-            `[${styleDesc}]`,
-            `[${styleNegs}]`,
-            ``,
-            `OUTPUT SUBJECT:`,
-            `SUBJECT IMAGES [SUBJECT STUDIO ASSET REF IMAGES ${contentRange}]`,
-            `[${subjectDesc}]`,
-            `[${subjectNegs}]`,
-            ``,
-            `[INSTRUCTION: Preserve the identity and purpose of the OUTPUT SUBJECT. Apply the ${stylePos} STYLE: Facial style: ${strengthPct}%, Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality: to the OUTPUT SUBJECT.]`
-        ];
+        const lines = [];
+
+        if (hasStyle) {
+            lines.push(
+                `[SYSTEM: PRIORITY RULE:`,
+                `${stylePos} defines the STYLE for the OUTPUT.`,
+                `IGNORE the subject of ${stylePos}.`,
+                `]`,
+                ``,
+                `STYLE: High fidelity ${stylePos} STYLE:`,
+                ``,
+                `[${styleDesc} ${styleNegs}]`, // Merged Negatives
+                ``
+            );
+        }
+
+        if (hasStyle) {
+            lines.push(
+                `[INSTRUCTION: Preserve the identity and purpose of the OUTPUT SUBJECT. Apply the ${stylePos} STYLE: Facial style: 150%, Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality: to the OUTPUT SUBJECT.]`
+            );
+        } else {
+            lines.push(
+                `[INSTRUCTION: Preserve the identity and purpose of the OUTPUT SUBJECT. Render with high fidelity and adherence to prompt description.]`
+            );
+        }
 
         let finalPrompt = lines.join('\n');
 
@@ -84,7 +119,7 @@ export class PayloadBuilderVeo implements PayloadBuilder {
             model: 'veo3_fast', // Strict match user requirement
             prompt: finalPrompt,
             aspectRatio: input.aspectRatio || '16:9',
-            durationType: input.clip.duration || '5',
+            durationType: (input.clip as any).duration || '5',
             enableTranslation: true,
             enableFallback: true
         };

@@ -97,7 +97,7 @@ export async function POST(req: Request) {
 
         // 2. Prepare Payload via Builder Factory
         // Combine Item Ref + Style Ref
-        const rawUrls = [];
+        const rawUrls: string[] = [];
         if (item.refImageUrl && !item.refImageUrl.startsWith('TASK:')) {
             // Handle comma-separated input if user uploaded multiple
             item.refImageUrl.split(',').forEach((u: string) => rawUrls.push(u.trim()));

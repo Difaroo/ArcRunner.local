@@ -8,8 +8,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { BatchGenerationDialog } from "./BatchGenerationDialog"
 import { useState } from "react"
-import { ListOrdered, Download, Clapperboard, Image as ImageIcon, Loader2 } from "lucide-react"
-import { Clip } from "@/app/api/clips/route"
+import { ListOrdered, Download, Clapperboard, Image as ImageIcon, Loader2, X } from "lucide-react"
+import { Clip } from "@/types"
 
 interface ActionToolbarProps {
     currentEpKey: string
@@ -205,38 +205,57 @@ export function ActionToolbar({
                 </DropdownMenu>
 
                 {/* Style Selection */}
-                <DropdownMenu>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2">
-                                        <span className="text-zinc-500 mr-2 font-semibold">STYLE</span>
-                                        <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
-                                        <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Select a visual style for the episode</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
-                        {availableStyles.map((style) => (
-                            <DropdownMenuItem
-                                key={style}
-                                onClick={() => onStyleChange(style)}
-                                className="focus:bg-stone-800 focus:text-white cursor-pointer"
+                <div className="flex items-center h-8 ml-2 border border-zinc-700 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors">
+                    <DropdownMenu>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-full px-3 text-xs hover:bg-transparent text-inherit border-0 shrink-0"
+                                        >
+                                            <span className="text-zinc-500 mr-2 font-semibold">STYLE</span>
+                                            <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
+                                            <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Select a visual style for the episode</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
+                            {availableStyles.map((style) => (
+                                <DropdownMenuItem
+                                    key={style}
+                                    onClick={() => onStyleChange(style)}
+                                    className="focus:bg-stone-800 focus:text-white cursor-pointer"
+                                >
+                                    {style}
+                                </DropdownMenuItem>
+                            ))}
+                            {availableStyles.length === 0 && (
+                                <div className="p-2 text-xs text-stone-500">No styles found in Studio</div>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {currentStyle && (
+                        <div className="flex items-center h-full pr-1 -ml-1">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-zinc-500 hover:text-red-400 hover:bg-zinc-700/50 rounded-sm"
+                                onClick={() => onStyleChange('')}
                             >
-                                {style}
-                            </DropdownMenuItem>
-                        ))}
-                        {availableStyles.length === 0 && (
-                            <div className="p-2 text-xs text-stone-500">No styles found in Studio</div>
-                        )}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </div>
+                    )}
+                </div>
 
 
                 <div className="h-4 w-px bg-zinc-700"></div>
@@ -245,8 +264,9 @@ export function ActionToolbar({
                 <div className="flex items-center gap-2">
 
                     {/* Selected Count */}
+                    {/* Selected Count */}
                     <span className={`text-xs font-medium uppercase transition-colors mr-1 ${selectedCount > 0 ? "text-primary" : "text-zinc-600"}`}>
-                        {selectedCount} SELECTED
+                        <span className="mr-1.5">{selectedCount}</span>SELECTED
                     </span>
 
                     {/* Generate Button opens Dialog */}

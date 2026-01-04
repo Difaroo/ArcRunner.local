@@ -33,7 +33,7 @@ import { EditableCell } from "@/components/ui/EditableCell";
 import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea";
 import { MediaDisplay } from "@/components/media/MediaDisplay";
 import { RowActions } from "@/components/ui/RowActions";
-import { LibraryItem } from '@/lib/library';
+import { LibraryItem } from '@/types';
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { useRowShortcuts } from "@/hooks/useRowShortcuts";
 

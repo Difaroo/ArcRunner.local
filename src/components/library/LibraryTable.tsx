@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { LibraryRow } from "./LibraryRow";
 
-import { LibraryItem } from '@/lib/library';
+import { LibraryItem } from '@/types';
 import { downloadFile } from '@/lib/download-utils';
 
 interface LibraryTableProps {

@@ -1,60 +1,62 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Check, X } from "lucide-react"
+
+import { useStore } from "@/store/useStore"
+import { Clip, Series } from "@/types"
+import { DEFAULT_VIDEO_PROMPT, DEFAULT_IMAGE_PROMPT } from "@/lib/defaults"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Clip, Series } from "@/types"
-import { Check, X } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-
-interface SeriesPageProps {
-    seriesList: Series[]
-    currentSeriesId: string
-    onSeriesChange: (id: string) => void
-
-    onNavigateToEpisode: (seriesId: string, episodeId: string) => void
-    clips: Clip[]
-    episodes: { id: string, title: string }[]
-    libraryItems: any[]
-    videoPromptTemplate: string
-    imagePromptTemplate: string
-    onUpdateSeries?: (id: string, updates: Partial<Series>) => void
-    onRefresh?: (silent?: boolean) => void
+interface SeriesViewProps {
+    onNavigateToEpisode: (seriesId: string, episodeId: string) => void;
 }
 
-export function SeriesPage({
-    seriesList,
-    currentSeriesId,
-
-    onSeriesChange,
-    onNavigateToEpisode,
-    clips,
-    episodes,
-    libraryItems,
-    videoPromptTemplate,
-    imagePromptTemplate,
-    onRefresh,
-    onUpdateSeries
-}: SeriesPageProps) {
+export function SeriesView({ onNavigateToEpisode }: SeriesViewProps) {
     const router = useRouter()
-    const [activeTab, setActiveTab] = useState<'video' | 'image'>('video')
 
+    // Store Access
+    const {
+        seriesList,
+        currentSeriesId,
+        clips,
+        allEpisodes,
+        libraryItems,
+        setSeriesList,
+        refreshData
+    } = useStore()
+
+    // Derived Data
+    const currentSeries = seriesList.find(s => s.id === currentSeriesId)
+    const seriesClips = clips.filter(c => c.series === currentSeriesId)
+    // Filter episodes for this series
+    const seriesEpisodes = allEpisodes.filter(e => e.series === currentSeriesId)
+
+    // Local State
+    const [activeTab, setActiveTab] = useState<'video' | 'image'>('video')
+    const [videoPromptTemplate, setVideoPromptTemplate] = useState("")
+    const [imagePromptTemplate, setImagePromptTemplate] = useState("")
+
+    // Load Templates
     useEffect(() => {
-        console.log("SeriesPage Mounted")
+        const savedVideo = localStorage.getItem("videoPromptTemplate")
+        const savedImage = localStorage.getItem("imagePromptTemplate")
+        setVideoPromptTemplate(savedVideo || DEFAULT_VIDEO_PROMPT)
+        setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
     }, [])
 
-    // Derived States
     const [videoPrompt, setVideoPrompt] = useState("")
     const [imagePrompt, setImagePrompt] = useState("")
-
-    const [overallStyle, setOverallStyle] = useState("") // Editable field
-    // Optimistic Model State
-
-
+    const [overallStyle, setOverallStyle] = useState("")
     const [copyMessage, setCopyMessage] = useState<string | null>(null)
     const [editingEpisodeId, setEditingEpisodeId] = useState<string | null>(null)
+
+
+    // --- Handlers ---
 
     const handleUpdateEpisode = async (episodeId: string, newNumber: string, newTitle: string) => {
         try {
@@ -76,7 +78,7 @@ export function SeriesPage({
                 const data = await res.json()
                 if (!res.ok) throw new Error(data.error || 'Failed to update')
 
-                router.refresh()
+                refreshData(true) // Silent refresh
                 setEditingEpisodeId(null)
             } else {
                 setEditingEpisodeId(null)
@@ -84,17 +86,33 @@ export function SeriesPage({
         } catch (error) {
             console.error(error)
             alert('Failed to update episode.')
-        } finally {
-            // setEditingEpisodeId(null) // Done in reload or above
         }
     }
 
-    const currentSeries = seriesList.find(s => s.id === currentSeriesId)
+    const handleUpdateSeries = async (id: string, updates: Partial<Series>) => {
+        // Optimistic Update
+        setSeriesList(seriesList.map(s => s.id === id ? { ...s, ...updates } : s));
 
-    // Calculate progress stats from clips
+        try {
+            // API Call
+            const payload = { seriesId: id, ...updates };
+            const res = await fetch('/api/update_series', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error("Update failed");
+        } catch (e) {
+            console.error("Series update failed", e);
+            refreshData(); // Revert/Refresh on error
+        }
+    };
+
+    // --- Calculations ---
+
     const progressMap = new Map<string, { count: number, savedCount: number, readyCount: number }>()
 
-    clips.forEach(clip => {
+    seriesClips.forEach(clip => {
         const ep = clip.episode || '1'
         if (!progressMap.has(ep)) {
             progressMap.set(ep, { count: 0, savedCount: 0, readyCount: 0 })
@@ -133,8 +151,6 @@ export function SeriesPage({
     }, [videoPromptTemplate, imagePromptTemplate, currentSeries, overallStyle, libraryItems, currentSeriesId])
 
 
-
-
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text)
         setCopyMessage("Copied!")
@@ -142,7 +158,7 @@ export function SeriesPage({
     }
 
     // Sort episodes
-    const sortedEpisodes = [...episodes].sort((a, b) => {
+    const sortedEpisodes = [...seriesEpisodes].sort((a, b) => {
         const numA = parseInt(a.id.replace(/\D/g, '')) || 0;
         const numB = parseInt(b.id.replace(/\D/g, '')) || 0;
         return numA - numB;
@@ -150,12 +166,9 @@ export function SeriesPage({
 
     return (
         <div className="flex flex-col h-full">
-
-
             <div className="flex-1 flex overflow-hidden">
                 {/* LH Column: Episode Table */}
                 <div className="w-1/2 border-r border-white/5 flex flex-col bg-stone-900/30">
-
                     <div className="flex-1 overflow-auto p-4">
                         <Table>
                             <TableHeader>
@@ -169,11 +182,8 @@ export function SeriesPage({
                                 {sortedEpisodes.map(ep => {
                                     const data = progressMap.get(ep.id) || { count: 0, savedCount: 0, readyCount: 0 }
                                     const totalGenerated = data.savedCount + data.readyCount
-
-                                    // Progress bar percentages (relative to TOTAL clips)
                                     const generatedProgress = data.count > 0 ? Math.round((totalGenerated / data.count) * 100) : 0
                                     const savedProgress = data.count > 0 ? Math.round((data.savedCount / data.count) * 100) : 0
-
                                     const isEditing = editingEpisodeId === ep.id
 
                                     return (
@@ -227,10 +237,7 @@ export function SeriesPage({
                                             <TableCell onClick={(e) => isEditing && e.stopPropagation()}>
                                                 {isEditing ? (
                                                     <div className="flex items-center justify-end gap-2 pr-2">
-                                                        <Button
-                                                            size="icon"
-                                                            variant="outline-success"
-                                                            className="h-8 w-8"
+                                                        <Button size="icon" variant="outline-success" className="h-8 w-8"
                                                             onClick={() => {
                                                                 const numInput = document.getElementById(`ep-num-${ep.id}`) as HTMLInputElement
                                                                 const titleInput = document.getElementById(`ep-title-${ep.id}`) as HTMLInputElement
@@ -239,12 +246,7 @@ export function SeriesPage({
                                                         >
                                                             <Check className="h-4 w-4" />
                                                         </Button>
-                                                        <Button
-                                                            size="icon"
-                                                            variant="outline-destructive"
-                                                            className="h-8 w-8"
-                                                            onClick={() => setEditingEpisodeId(null)}
-                                                        >
+                                                        <Button size="icon" variant="outline-destructive" className="h-8 w-8" onClick={() => setEditingEpisodeId(null)}>
                                                             <X className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -255,16 +257,8 @@ export function SeriesPage({
                                                             <span>{savedProgress}%</span>
                                                         </div>
                                                         <div className="h-1.5 w-full bg-black rounded-full overflow-hidden relative">
-                                                            {/* Red Bar (Generated) */}
-                                                            <div
-                                                                className="absolute top-0 left-0 h-full bg-destructive opacity-70 rounded-full transition-all duration-500"
-                                                                style={{ width: `${generatedProgress}%` }}
-                                                            />
-                                                            {/* Orange Bar (Saved) */}
-                                                            <div
-                                                                className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-500"
-                                                                style={{ width: `${savedProgress}%` }}
-                                                            />
+                                                            <div className="absolute top-0 left-0 h-full bg-destructive opacity-70 rounded-full transition-all duration-500" style={{ width: `${generatedProgress}%` }} />
+                                                            <div className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${savedProgress}%` }} />
                                                         </div>
                                                     </div>
                                                 )}
@@ -287,29 +281,17 @@ export function SeriesPage({
                 {/* RH Column: Prompts */}
                 <div className="flex-1 flex flex-col h-full border-l border-white/5">
                     <div className="flex flex-col h-full">
-                        {/* Header Bar - Inline with Episodes Header */}
+                        {/* Header Bar */}
                         <div className="flex items-center justify-between px-4 border-b border-white/5 h-[53px] shrink-0 bg-stone-900/30 relative">
                             <h3 className="text-sm font-semibold text-stone-300">Episode Prompt</h3>
-
                             <div className="flex h-full bg-transparent p-0 gap-6 -mb-[1px]">
-                                <button
-                                    onClick={() => setActiveTab('video')}
-                                    className={`nav-tab h-full rounded-none ${activeTab === 'video' ? 'active' : ''}`}
-                                >
-                                    Video
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('image')}
-                                    className={`nav-tab h-full rounded-none ${activeTab === 'image' ? 'active' : ''}`}
-                                >
-                                    Image
-                                </button>
+                                <button onClick={() => setActiveTab('video')} className={`nav-tab h-full rounded-none ${activeTab === 'video' ? 'active' : ''}`}>Video</button>
+                                <button onClick={() => setActiveTab('image')} className={`nav-tab h-full rounded-none ${activeTab === 'image' ? 'active' : ''}`}>Image</button>
                             </div>
                         </div>
 
                         {/* Content Area */}
                         <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
-
                             <div className="flex flex-col gap-2 shrink-0">
                                 <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Overall Series Style / Instructions</label>
                                 <Input
@@ -323,13 +305,11 @@ export function SeriesPage({
                             <div className="flex flex-col gap-2 shrink-0">
                                 <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Default Series Model</label>
                                 <select
-                                    key={currentSeriesId ? `${currentSeriesId}-model` : 'default-model'} // FORCE RESET on Series Change
-                                    defaultValue={currentSeries?.defaultModel || 'veo-3'} // Only read on mount/key-change
+                                    key={currentSeriesId ? `${currentSeriesId}-model` : 'default-model'}
+                                    defaultValue={currentSeries?.defaultModel || 'veo-3'}
                                     onChange={(e) => {
                                         const newModel = e.target.value
-                                        if (currentSeriesId && onUpdateSeries) {
-                                            onUpdateSeries(currentSeriesId, { defaultModel: newModel })
-                                        }
+                                        if (currentSeriesId) handleUpdateSeries(currentSeriesId, { defaultModel: newModel })
                                     }}
                                     className="bg-stone-900/50 border border-stone-800 text-stone-300 text-xs h-9 rounded px-2 outline-none focus:border-stone-600"
                                 >
@@ -348,27 +328,15 @@ export function SeriesPage({
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="outline-primary"
-                                                        size="sm"
-                                                        onClick={() => copyToClipboard(videoPrompt)}
-                                                        className="h-6 text-[10px]"
-                                                    >
-                                                        <span className="material-symbols-outlined !text-xs mr-1">content_copy</span>
-                                                        Copy
+                                                    <Button variant="outline-primary" size="sm" onClick={() => copyToClipboard(videoPrompt)} className="h-6 text-[10px]">
+                                                        <span className="material-symbols-outlined !text-xs mr-1">content_copy</span> Copy
                                                     </Button>
                                                 </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Copy Video Prompt</p>
-                                                </TooltipContent>
+                                                <TooltipContent><p>Copy Video Prompt</p></TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
                                     </div>
-                                    <Textarea
-                                        value={videoPrompt}
-                                        readOnly
-                                        className="flex-1 font-mono text-xs bg-stone-900/30 border-stone-800 text-stone-400 resize-none p-4 leading-relaxed h-full"
-                                    />
+                                    <Textarea value={videoPrompt} readOnly className="flex-1 font-mono text-xs bg-stone-900/30 border-stone-800 text-stone-400 resize-none p-4 leading-relaxed h-full" />
                                 </div>
                             )}
 
@@ -379,36 +347,21 @@ export function SeriesPage({
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="outline-primary"
-                                                        size="sm"
-                                                        onClick={() => copyToClipboard(imagePrompt)}
-                                                        className="h-6 text-[10px]"
-                                                    >
-                                                        <span className="material-symbols-outlined !text-xs mr-1">content_copy</span>
-                                                        Copy
+                                                    <Button variant="outline-primary" size="sm" onClick={() => copyToClipboard(imagePrompt)} className="h-6 text-[10px]">
+                                                        <span className="material-symbols-outlined !text-xs mr-1">content_copy</span> Copy
                                                     </Button>
                                                 </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Copy Image Prompt</p>
-                                                </TooltipContent>
+                                                <TooltipContent><p>Copy Image Prompt</p></TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
                                     </div>
-                                    <Textarea
-                                        value={imagePrompt}
-                                        readOnly
-                                        className="flex-1 font-mono text-xs bg-stone-900/30 border-stone-800 text-stone-400 resize-none p-4 leading-relaxed h-full"
-                                    />
+                                    <Textarea value={imagePrompt} readOnly className="flex-1 font-mono text-xs bg-stone-900/30 border-stone-800 text-stone-400 resize-none p-4 leading-relaxed h-full" />
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
-
-
-
         </div>
     )
 }

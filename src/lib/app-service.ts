@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { convertDriveUrl } from '@/lib/utils';
-import { getLibraryItems, LibraryItem } from '@/lib/library';
+import { getLibraryItems } from '@/lib/library';
+import { LibraryItem } from '@/types';
 import { processRefUrls } from '@/lib/image-processing';
 
 export const AppService = {

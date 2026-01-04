@@ -1,5 +1,5 @@
 
-import { Clip } from '@/app/api/clips/route';
+import { Clip } from '@/types';
 
 /**
  * Generates the standard filename for a clip.

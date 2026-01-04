@@ -1,31 +1,39 @@
-# Sprint v0.14.0: Hardening & Refactor
+# Sprint v0.15.0: The Big Architecture Refactor
 
 ## Goal
-Implement critical UI fixes (Shortcuts, Downloads) and verify core Rendering flows (Style/Flux) before major architectural refactor.
+Execute the "Grok/Antigravity" refactor plan. Deconstruct the `page.tsx` monolith into modular Views, centralize the Type system, and adopt proper State Management (Zustand) to improve maintainability and performance.
+
+## Specs
+- **Reference**: `docs/management/specs/Architecture_Refactor_Report.md`
 
 ## Active Tasks
-- [ ] **Core Features**
-    - [x] **Shortcut Keys**: Implemented `useRowShortcuts`. (Verified).
-    - [x] **Downloads**: Architecture normalized.
 
-- [ ] **Payload Optimization (Priority)**
-    - [x] **Prompt Engineering**: Reword System Prompt to prioritize "Style Reference Image" over weighted text. (Refined System Prompt + Negatives).
-    - [x] **Cleanup**: Remove `randomSeed` and numeric weights (e.g. `:1.3`). (Hardcoded values used).
-    - [x] **Testing**: Verify new prompt structure via Unit Test. (User verified).
-    - [x] **Persistence**: Implement custom filename format `[SERIES].[EPISODE] [NAME] [VERSION]` for downloads. (Implemented).
-    - [x] **Nano Integration**:
-        - [x] **Planning**: Gather specs for "Nano Banana" model.
-        - [x] **Specs**: Define PayloadBuilder and Strategy pattern.
-        - [x] **Implementation**: Payload Builder with dynamic numbering & Pro Template. (Verified).
-        - [x] **Debugging**: Fix Batch Polling (Sequential) & Model Persistence.
+### 🏗️ Architecture & Core
+- [ ] **Centralize Types**: 
+    - [ ] Create `src/types/index.ts`.
+    - [ ] Move `Clip`, `Series`, `Episode`, `StudioItem` interfaces.
+    - [ ] Remove circular dependencies from API routes (`api/clips/route.ts`, etc.).
+- [ ] **State Management**:
+    - [ ] Install `zustand`.
+    - [ ] Migrate `useAppStore` hook to a singleton Zustand store.
+    - [ ] Remove excessive prop drilling (connect components directly to store).
 
-- [ ] **Testing & Verification**
-    - [x] **Renders**:
-        - [x] Verify `Style` in Studio affects reference image generation.
-        - [x] Verify Studio Flux generation.
-        - [x] Verify Clips Flux/Video generation.
-    - [x] **Ref Save**: Can we save a Render as a Reference in Clips?
-    - [x] **Veo**: Fixed Multi-Image clamping & Ported Nano Prompt Logic (v0.14.2).
+### 🧩 Component Refactor (De-Monolith)
+- [ ] **Service Layer**:
+    - [ ] Create `src/services/api.ts` to centralize `fetch` calls.
+- [ ] **View Extraction**:
+    - [ ] Extract `SeriesView` to `src/components/views/SeriesView.tsx`.
+    - [ ] Extract `ClipsView` to `src/components/views/ClipsView.tsx`.
+    - [ ] Extract `StudioView` to `src/components/views/StudioView.tsx`.
+- [ ] **Main Page**:
+    - [ ] Simplify `page.tsx` to a router/view-switcher.
 
-## Pending Review
-- [x] Review `docs/management/specs/Architecture_Refactor_Report.md` for upcoming "Big Refactor".
+### 🧹 Cleanup
+- [ ] **Fix**: `npm run build` (Validate strict strictness).
+- [ ] **Performance**: Verify re-render reduction (editing a clip should not re-render Series list).
+
+## Verification
+- [ ] **Regression Testing**:
+    - [ ] Verify Series creation/editing still works.
+    - [ ] Verify Clip generation flows.
+    - [ ] Verify Studio item management.

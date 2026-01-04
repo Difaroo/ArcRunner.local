@@ -1,5 +1,5 @@
 
-import { Clip } from "@/app/api/clips/route"
+import { Clip } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Eye, EyeOff } from "lucide-react"
 import { MediaDisplay } from "@/components/media/MediaDisplay"
