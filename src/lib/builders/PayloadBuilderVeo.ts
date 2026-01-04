@@ -97,7 +97,10 @@ export class PayloadBuilderVeo implements PayloadBuilder {
             payload.generationType = 'TEXT_2_VIDEO';
         }
 
-        // console.log('[PayloadBuilderVeo] Built Payload with Nano Logic.', { images: validImageUrls.length, promptLen: finalPrompt.length });
+        // Safety: ensure duration is valid string '5' or '10'?
+        if (payload.durationType !== '5' && payload.durationType !== '10') {
+            payload.durationType = '5';
+        }
 
         return payload;
     }

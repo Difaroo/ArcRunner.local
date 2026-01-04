@@ -1,0 +1,106 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - heading "ArcRunner" [level=1] [ref=e5]
+        - generic [ref=e6]: v0.14.2
+        - navigation [ref=e8]:
+          - button "Series" [ref=e9] [cursor=pointer]
+          - button "Script" [ref=e10] [cursor=pointer]
+          - button "Studio" [ref=e11] [cursor=pointer]
+          - button "Episode" [active] [ref=e12] [cursor=pointer]
+          - button "Storyboard" [ref=e13] [cursor=pointer]
+          - button "Settings" [ref=e14] [cursor=pointer]
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - generic [ref=e17]: Status
+          - generic [ref=e19]: Connected
+        - button "refresh" [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]: refresh
+    - navigation [ref=e24]:
+      - button "Ep 1" [ref=e25] [cursor=pointer]
+    - generic [ref=e26]:
+      - heading "Test Series / Ep 1" [level=2] [ref=e27]:
+        - generic [ref=e28]:
+          - generic [ref=e29]: Test Series
+          - generic [ref=e30]: /
+          - generic [ref=e31]: Ep 1
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - generic [ref=e34]: Ep 1
+          - generic [ref=e35]: 1 Clips
+        - button [ref=e36] [cursor=pointer]:
+          - img [ref=e37]
+        - button "MODEL Veo Fast expand_more" [ref=e41] [cursor=pointer]:
+          - generic [ref=e42]: MODEL
+          - text: Veo Fast
+          - generic [ref=e43]: expand_more
+        - button "VIEW 16:9 expand_more" [ref=e44] [cursor=pointer]:
+          - generic [ref=e45]: VIEW
+          - text: 16:9
+          - generic [ref=e46]: expand_more
+        - button "STYLE Select... expand_more" [ref=e47] [cursor=pointer]:
+          - generic [ref=e48]: STYLE
+          - generic [ref=e49]: Select...
+          - generic [ref=e50]: expand_more
+        - generic [ref=e52]:
+          - generic [ref=e53]: 0 SELECTED
+          - button "movie_creation" [disabled]:
+            - generic: movie_creation
+          - button [disabled]:
+            - img
+          - button "add" [ref=e55] [cursor=pointer]:
+            - generic [ref=e56]: add
+    - main [ref=e57]:
+      - generic [ref=e59]:
+        - table [ref=e61]:
+          - rowgroup [ref=e62]:
+            - row "SCN TITLE CHARACTER LOCATION CAMERA ACTION DIALOG REF IMAGES RESULT STATUS" [ref=e63]:
+              - columnheader [ref=e64]
+              - columnheader [ref=e65]:
+                - checkbox [ref=e66] [cursor=pointer]
+              - columnheader "SCN" [ref=e67]
+              - columnheader "TITLE" [ref=e68]
+              - columnheader "CHARACTER" [ref=e69]
+              - columnheader "LOCATION" [ref=e70]
+              - columnheader "CAMERA" [ref=e71]
+              - columnheader "ACTION" [ref=e72]
+              - columnheader "DIALOG" [ref=e73]
+              - columnheader "REF IMAGES" [ref=e74]
+              - columnheader "RESULT" [ref=e75]
+              - columnheader "STATUS" [ref=e76]
+          - rowgroup [ref=e77]:
+            - row "drag_indicator + Hero Cliff + A hero stands on a cliff. + add auto_awesome" [ref=e78]:
+              - button "drag_indicator" [ref=e79]:
+                - generic [ref=e81]: drag_indicator
+              - cell [ref=e82]:
+                - checkbox [ref=e83] [cursor=pointer]
+              - cell [ref=e84]
+              - cell "+" [ref=e85]:
+                - generic "Click to edit" [ref=e86] [cursor=pointer]: +
+              - cell "Hero" [ref=e87]:
+                - generic "Click to edit" [ref=e88] [cursor=pointer]:
+                  - generic [ref=e90]: Hero
+              - cell "Cliff" [ref=e91]:
+                - generic "Click to edit" [ref=e92] [cursor=pointer]:
+                  - generic [ref=e94]: Cliff
+              - cell "+" [ref=e95]:
+                - generic "Click to edit" [ref=e97] [cursor=pointer]:
+                  - generic [ref=e98]: +
+              - cell "A hero stands on a cliff." [ref=e99]:
+                - generic "Click to edit" [ref=e100] [cursor=pointer]: A hero stands on a cliff.
+              - cell "+" [ref=e101]:
+                - generic "Click to edit" [ref=e102] [cursor=pointer]: +
+              - cell "add" [ref=e103]:
+                - button "add" [ref=e105] [cursor=pointer]:
+                  - generic [ref=e106]: add
+              - cell [ref=e107]
+              - cell "auto_awesome" [ref=e108]:
+                - button "auto_awesome" [ref=e111] [cursor=pointer]:
+                  - generic [ref=e112]: auto_awesome
+        - status [ref=e113]
+  - alert [ref=e114]
+```

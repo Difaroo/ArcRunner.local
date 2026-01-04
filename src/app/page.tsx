@@ -1,13 +1,14 @@
 'use client';
 
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader2, Sun, Moon, Pencil, Check, X } from "lucide-react";
-import { Clip, Series } from './api/clips/route';
+import { Clip, Series, Episode } from '@/types'; // Added Episode type import to fix linter error if it wasn't there
 import { resolveClipImages } from '@/lib/shared-resolvers';
 import { downloadFile, getClipFilename } from '@/lib/download-utils';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+// Removed inline Dialog imports as they are moved to components
 import {
   Tooltip,
   TooltipContent,
@@ -30,9 +31,16 @@ import { ScriptView } from "@/components/ingest/ScriptView"
 import { LibraryTable } from "@/components/library/LibraryTable"
 import { StoryboardView } from "@/components/storyboard/StoryboardView"
 
+// Modular Components
+import { VideoPlayerOverlay } from "@/components/player/VideoPlayerOverlay";
+import { AddSeriesDialog } from "@/components/dialogs/series/AddSeriesDialog";
+import { NewEpisodeDialog } from "@/components/dialogs/episodes/NewEpisodeDialog";
+import { StudioConfirmDialog } from "@/components/dialogs/generation/StudioConfirmDialog";
+import { ClipConfirmDialog } from "@/components/dialogs/generation/ClipConfirmDialog";
+
 
 import { LibraryItem } from '@/lib/library';
-import { useAppStore } from '@/hooks/useAppStore';
+import { useDataStore } from '@/hooks/useDataStore';
 import { useSharedSelection } from '@/hooks/useSharedSelection';
 import { useMediaArchiver } from "@/hooks/useMediaArchiver";
 
@@ -47,11 +55,21 @@ export default function Home() {
     deletedLibraryIds, markLibraryItemDeleted,
     deletedClipIds, markClipDeleted,
     loading, error,
-    refreshData
-  } = useAppStore();
+    refreshData,
+    currentEpisode, setCurrentEpisode,
+    playingVideoUrl, setPlayingVideoUrl
+  } = useDataStore(s => s);
 
-  const [currentEpisode, setCurrentEpisode] = useState(1);
-  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+  // Initial Data Fetch (The Bridge Activation)
+  const hasFetched = useRef(false);
+  useEffect(() => {
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      refreshData();
+    }
+  }, [refreshData]);
+
+
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Clip>>({});
@@ -201,86 +219,68 @@ export default function Home() {
   const [newEpNumber, setNewEpNumber] = useState("");
   const [isCreatingEpisode, setIsCreatingEpisode] = useState(false);
 
-  const handleCreateEpisode = async () => {
-    if (!newEpTitle.trim() || !newEpNumber.trim() || !currentSeriesId) return;
-    setIsCreatingEpisode(true);
+  // handleCreateEpisode logic passed to dialog
 
-    try {
-      const res = await fetch('/api/episodes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          seriesId: currentSeriesId,
-          title: newEpTitle,
-          number: newEpNumber
-        })
-      });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+  // Modular Dialog Handler
+  const handleCreateNewEpisode = async (title: string, number: string) => {
+    if (!currentSeriesId) return;
 
-      // Success: Optimistic update or refresh
-      // We need to refresh 'allEpisodes' to see it in the list
-      // Or append to 'allEpisodes' local state
-      const newEpisode = {
-        id: data.episode.id, // UUID
-        series: currentSeriesId,
-        title: data.episode.title,
-        // We need to map other fields if 'allEpisodes' uses them?
-        // "allEpisodes" is derived from API?
-        // Check useAppStore definition. It usually fetches from /api/clips which returns episodes.
-        // But if we just created it, it won't have clips.
-        // We should append it to 'allEpisodes' local cache if possible, or trigger refreshData.
-      };
+    // API Call
+    const res = await fetch('/api/episodes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seriesId: currentSeriesId,
+        title: title,
+        number: number
+      })
+    });
 
-      // Refreshing is safest to get correct structure
-      refreshData();
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
 
-      setShowNewEpisodeDialog(false);
-      setNewEpTitle("");
-      setNewEpNumber("");
+    // Optimistic Update
+    const newEpisode: Episode = {
+      series: currentSeriesId,
+      id: data.episode.number.toString(),
+      uuid: data.episode.id,
+      title: data.episode.title,
+      model: '',
+      style: '',
+      guidance: 5,
+      aspectRatio: '16:9',
+      seed: null
+    };
 
-    } catch (e: any) {
-      alert("Failed to create episode: " + e.message);
-    } finally {
-      setIsCreatingEpisode(false);
-    }
+    setAllEpisodes(prev => [...prev, newEpisode]);
+    setShowNewEpisodeDialog(false);
   };
 
-  const handleAddSeries = async () => {
-    if (!newSeriesTitle.trim()) return;
-    setIsAddingSeries(true);
-    setAddSeriesError(null);
+  // handleAddSeries logic simplified for dialog prop
+  const handleAddNewSeries = async (title: string) => {
+    const res = await fetch('/api/series', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: title })
+    });
+    const data = await res.json();
 
-    try {
-      const res = await fetch('/api/series', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newSeriesTitle })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        const newSeries: Series = {
-          id: data.id,
-          title: data.title,
-          totalEpisodes: '0',
-          currentEpisodes: '0',
-          status: 'Active',
-          defaultModel: 'veo-fast'
-        };
-        // Optimistic Update
-        setSeriesList(prev => [...prev, newSeries]);
-        setCurrentSeriesId(data.id);
-        setShowAddSeriesDialog(false);
-        setNewSeriesTitle("");
-      } else {
-        throw new Error(data.error || 'Failed to add series');
-      }
-    } catch (e: any) {
-      setAddSeriesError(e.message || "Failed to add series");
-    } finally {
-      setIsAddingSeries(false);
+    if (data.success) {
+      const newSeries: Series = {
+        id: data.id,
+        title: data.title,
+        totalEpisodes: '0',
+        currentEpisodes: '0',
+        status: 'Active',
+        defaultModel: 'veo-fast'
+      };
+      // Optimistic Update
+      setSeriesList(prev => [...prev, newSeries]);
+      setCurrentSeriesId(data.id);
+      setShowAddSeriesDialog(false);
+    } else {
+      throw new Error(data.error || 'Failed to add series');
     }
   };
 
@@ -332,7 +332,7 @@ export default function Home() {
 
 
 
-  const hasFetched = useRef(false);
+
 
   // --- Editing Logic ---
   const startEditing = (clip: Clip) => {
@@ -431,11 +431,7 @@ export default function Home() {
 
       // Propagate changes to Clis (Re-resolve images)
       if (updates.refImageUrl || updates.name) {
-        // DEBUG: START TRACE - Log immediately
-        fetch('/api/log_beacon', {
-          method: 'POST',
-          body: JSON.stringify({ type: 'Reactivity START', updates })
-        }).catch(e => console.error(e));
+
 
         setClips(prevClips => prevClips.map(clip => {
           // Helper to lookup in NEW library list
@@ -446,29 +442,8 @@ export default function Home() {
 
           const { fullRefs } = resolveClipImages(clip, findUrl);
 
-          // DEBUG: Trace specific matches via Beacon
-          // FIX: updates.name might be missing, use the Actual Item Name
-          const updatedItem = newLibraryItems.find(i => i.id === index);
-          const nameToCheck = updatedItem?.name.toLowerCase() || '';
+          // Optimization: Only log if we found a match? No, relying on visual verification is enough.
 
-          const charMatch = clip.character?.toLowerCase().includes(nameToCheck);
-          const locMatch = clip.location?.toLowerCase().includes(nameToCheck);
-
-          // Always log if we found a match, OR if nameToCheck is suspiciously empty
-          if ((charMatch || locMatch) && nameToCheck.length > 0) {
-            fetch('/api/log_beacon', {
-              method: 'POST',
-              body: JSON.stringify({
-                type: 'Reactivity Check',
-                clipId: clip.id,
-                char: clip.character,
-                loc: clip.location,
-                matchName: nameToCheck,
-                newRefs: fullRefs,
-                foundUrl: findUrl(nameToCheck)
-              })
-            }).catch(e => console.error(e));
-          }
 
           return { ...clip, refImageUrls: fullRefs };
         }));
@@ -1211,82 +1186,16 @@ export default function Home() {
   return (
     <div className="flex h-screen w-full flex-col bg-background font-display text-foreground">
       {/* Custom Video Player Modal */}
-      {playingVideoUrl && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => { setPlayingVideoUrl(null); setPlaylist([]); }}>
-          <div className="relative w-[90vw] max-w-5xl aspect-video bg-black border border-zinc-800 shadow-2xl rounded-lg overflow-hidden group/player" onClick={e => e.stopPropagation()}>
-            {/* Top Right Controls */}
-            {/* Top Right Controls */}
-            {/* Top Right Controls */}
-            <div className="absolute top-4 right-4 z-50 flex gap-2">
-              <button
-                onClick={() => { setPlayingVideoUrl(null); setPlaylist([]); }}
-                className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            {/* Bottom Controls Overlay (Visible on Hover) */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 z-40 flex justify-between items-end pointer-events-none">
-              <div className="pointer-events-auto">
-                {/* Playlist Counter */}
-                {playlist.length > 0 && (
-                  <div className="bg-black/50 text-white text-xs px-2 py-1 rounded inline-block mb-2">
-                    Playing {currentPlayIndex + 1} of {playlist.length}
-                  </div>
-                )}
-              </div>
-
-              <div className="pointer-events-auto">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await archiveMedia(playingVideoUrl);
-                        }}
-                        disabled={isArchiving}
-                      >
-                        {isArchiving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <span className="material-symbols-outlined !text-sm mr-2">save</span>}
-                        {isArchiving ? "Saving..." : "Save Reference Image"}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Download to local storage and set as permanent reference</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-
-            {(() => {
-              // Determine media type
-              const playingClip = clips.find(c => c.resultUrl === playingVideoUrl) || { model: '' };
-              const isImage = playingClip.model?.includes('flux') || playingVideoUrl?.match(/\.(jpeg|jpg|png|webp)$/i);
-
-              return isImage ? (
-                <img
-                  src={playingVideoUrl!}
-                  className="w-full h-full object-contain"
-                  alt="Generated Content"
-                />
-              ) : (
-                <video
-                  src={playingVideoUrl!}
-                  controls
-                  autoPlay
-                  className="w-full h-full object-contain"
-                  onEnded={handleVideoEnded}
-                />
-              );
-            })()}
-          </div>
-        </div>
-      )}
+      {/* Custom Video Player Modal */}
+      <VideoPlayerOverlay
+        url={playingVideoUrl}
+        onClose={() => { setPlayingVideoUrl(null); setPlaylist([]); }}
+        playlist={playlist}
+        initialIndex={currentPlayIndex}
+        clips={clips}
+        archiveMedia={archiveMedia}
+        isArchiving={isArchiving}
+      />
 
       {/* Header */}
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
@@ -1489,46 +1398,12 @@ export default function Home() {
       {/* ... (rest of code) ... */}
 
       {/* Add Series Dialog (Global) */}
-      <Dialog open={showAddSeriesDialog} onOpenChange={setShowAddSeriesDialog}>
-        <DialogContent className="sm:max-w-[425px] border-stone-800 bg-stone-900 text-white p-6 grid gap-4">
-          <DialogHeader>
-            <DialogTitle>Add New Series</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              value={newSeriesTitle}
-              onChange={(e) => setNewSeriesTitle(e.target.value)}
-              placeholder="Series Title"
-              disabled={isAddingSeries}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddSeries();
-              }}
-            />
-            {addSeriesError && (
-              <p className="text-xs text-destructive flex items-center gap-2">
-                <span className="material-symbols-outlined !text-sm">error</span>
-                {addSeriesError}
-              </p>
-            )}
-          </div>
-          <DialogFooter className="mt-2">
-            <Button
-              onClick={() => setShowAddSeriesDialog(false)}
-              variant="ghost"
-              disabled={isAddingSeries}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddSeries}
-              disabled={!newSeriesTitle.trim() || isAddingSeries}
-            >
-              {isAddingSeries && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isAddingSeries ? 'Adding...' : 'Add Series'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Add Series Dialog (Global) */}
+      <AddSeriesDialog
+        open={showAddSeriesDialog}
+        onOpenChange={setShowAddSeriesDialog}
+        onAddSeries={handleAddNewSeries}
+      />
       {
         (currentView === 'clips' || currentView === 'library' || currentView === 'script' || currentView === 'series' || currentView === 'settings' || currentView === 'storyboard') && (
           <PageHeader
@@ -1845,144 +1720,40 @@ export default function Home() {
           </div>
         )}
       </main>
-      <Dialog open={showNewEpisodeDialog} onOpenChange={setShowNewEpisodeDialog}>
-        <DialogContent className="sm:max-w-[425px] bg-stone-900 border-stone-800 text-stone-100 p-6">
-          <DialogHeader>
-            <DialogTitle>New Episode</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label htmlFor="ep-number" className="text-sm font-medium">Episode Number</label>
-              <Input
-                id="ep-number"
-                value={newEpNumber}
-                onChange={(e) => setNewEpNumber(e.target.value)}
-                placeholder="e.g. 1"
-                className="bg-stone-950 border-stone-800"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreateEpisode();
-                }}
-              />
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="ep-title" className="text-sm font-medium">Title</label>
-              <Input
-                id="ep-title"
-                value={newEpTitle}
-                onChange={(e) => setNewEpTitle(e.target.value)}
-                placeholder="Episode Title"
-                className="bg-stone-950 border-stone-800"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreateEpisode();
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowNewEpisodeDialog(false)}>Cancel</Button>
-            <Button onClick={handleCreateEpisode} disabled={isCreatingEpisode}>
-              {isCreatingEpisode ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={showStudioConfirm} onOpenChange={setShowStudioConfirm}>
-        <DialogContent
-          className="sm:max-w-[400px] bg-stone-900 border-stone-800 text-stone-100 p-6"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              executeStudioGeneration();
-            }
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Confirm Generation</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <p className="text-sm text-stone-400 mb-4">
-              Generating <span className="text-white font-semibold mx-1">{selectedLibraryIds.size}</span> {selectedLibraryIds.size === 1 ? "image" : "images"} with settings:
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-sm bg-black/20 p-3 rounded-md border border-white/5">
-              <span className="text-stone-500">View</span>
-              <span className="text-right font-medium">{currentAspectRatio}</span>
 
-              <span className="text-stone-500">Style</span>
-              <span className="text-right font-medium truncate">{currentStyle || 'None'}</span>
+      {/* Modular Dialogs */}
+      <NewEpisodeDialog
+        open={showNewEpisodeDialog}
+        onOpenChange={setShowNewEpisodeDialog}
+        onCreateEpisode={handleCreateNewEpisode}
+      />
 
-              <span className="text-stone-500">Strength</span>
-              <span className="text-right font-medium">{currentGuidance}</span>
+      <StudioConfirmDialog
+        open={showStudioConfirm}
+        onOpenChange={setShowStudioConfirm}
+        count={selectedLibraryIds.size}
+        onConfirm={executeStudioGeneration}
+        model={selectedModel}
+        style={currentStyle}
+        aspectRatio={currentAspectRatio}
+        guidance={currentGuidance}
+        seed={currentSeed}
+      />
 
-              <span className="text-stone-500">Seed</span>
-              <span className="text-right font-medium font-mono text-xs pt-0.5">{currentSeed !== null ? currentSeed : 'Random'}</span>
-
-              <span className="text-stone-500">Model</span>
-              <span className="text-right font-medium truncate">
-                {seriesList.find(s => s.id === currentSeriesId)?.defaultModel || 'flux-pro'}
-              </span>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowStudioConfirm(false)}>Cancel</Button>
-            <Button onClick={executeStudioGeneration}>
-              <span className="material-symbols-outlined !text-lg mr-2">auto_awesome</span>
-              Generate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* --- RESTORED: Clip Generation Confirmation Dialog --- */}
-      <Dialog open={showClipConfirm} onOpenChange={setShowClipConfirm}>
-        <DialogContent
-          className="sm:max-w-[400px] bg-stone-900 border-stone-800 text-stone-100 p-6"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              executeClipGeneration();
-            }
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Confirm Clip Generation</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <p className="text-sm text-stone-400 mb-4">
-              Generating <span className="text-white font-semibold mx-1">{selectedIds.size}</span> {selectedIds.size === 1 ? "clip" : "clips"} with settings:
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-sm bg-black/20 p-3 rounded-md border border-white/5">
-              <span className="text-stone-500">View</span>
-              <span className="text-right font-medium">{currentAspectRatio}</span>
-
-              <span className="text-stone-500">Style</span>
-              <span className="text-right font-medium truncate">{currentStyle || 'None'}</span>
-
-              <span className="text-stone-500">Model</span>
-              <span className="text-right font-medium truncate">
-                {selectedModel || seriesList.find(s => s.id === currentSeriesId)?.defaultModel || 'veo3_fast'}
-              </span>
-            </div>
-            {/* Warning if many clips */}
-            {selectedIds.size > 5 && (
-              <div className="text-xs text-yellow-500/80 flex items-center gap-1 mt-2">
-                <span className="material-symbols-outlined !text-sm">warning</span>
-                Batch generation may take some time.
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowClipConfirm(false)}>Cancel</Button>
-            <Button onClick={executeClipGeneration}>
-              <span className="material-symbols-outlined !text-lg mr-2">movie_creation</span>
-              Generate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ClipConfirmDialog
+        open={showClipConfirm}
+        onOpenChange={setShowClipConfirm}
+        count={activeClips.filter(c => selectedIds.has(c.id)).length}
+        onConfirm={executeClipGeneration}
+        model={selectedModel}
+        style={currentStyle}
+        aspectRatio={currentAspectRatio}
+      />
 
 
-    </div>
+
+
+    </div >
   );
 }
 

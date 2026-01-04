@@ -94,7 +94,7 @@ export class PayloadBuilderNano implements PayloadBuilder {
         const payload: NanoPayload = {
             model: model,
             input: {
-                prompt: finalPrompt,
+                prompt: finalPrompt || "Cinematic shot",
                 image_input: validImageUrls.length > 0 ? validImageUrls : undefined,
                 aspect_ratio: input.aspectRatio || "16:9",
                 resolution: "1K",

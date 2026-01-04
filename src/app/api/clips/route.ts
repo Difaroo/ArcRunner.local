@@ -5,41 +5,9 @@ import { convertDriveUrl } from '@/lib/utils';
 import { resolveClipImages } from '@/lib/shared-resolvers';
 import { generateThumbnail } from '@/lib/thumbnail-generator';
 
-// Types (Keep for compatibility if needed, though mostly inferred now)
-export interface Clip {
-    id: string;
-    scene: string;
-    title: string;
-    character: string;
-    location: string;
-    style: string;
-    camera: string;
-    action: string;
-    dialog: string;
-    refImageUrls: string;
-    explicitRefUrls: string;
-    characterImageUrls?: string[];
-    locationImageUrls?: string[];
-    status: string;
-    resultUrl?: string;
-    taskId?: string;
-    seed?: string;
-    episode?: string;
-    series?: string;
-    sortOrder?: number;
-    model?: string;
-    isHiddenInStoryboard?: boolean;
-    thumbnailPath?: string;
-}
+import { Clip, Series } from '@/types';
 
-export interface Series {
-    id: string;
-    title: string;
-    totalEpisodes: string;
-    currentEpisodes: string;
-    status: string;
-    defaultModel: string;
-}
+
 
 export async function GET() {
     try {
@@ -119,6 +87,11 @@ export async function GET() {
 
         // 5. Transform Clips
         const clips = dbClips.map(clip => {
+            // Defensive Coding: Skip clips with broken relations
+            if (!clip.episode) {
+                console.warn(`Orphan clip found (ID: ${clip.id}). Skipping.`);
+                return null;
+            }
             const seriesId = clip.episode.seriesId;
             const seriesLib = libraryImages[seriesId] || {};
 
@@ -157,7 +130,7 @@ export async function GET() {
                 isHiddenInStoryboard: clip.isHiddenInStoryboard || false,
                 thumbnailPath: clip.thumbnailPath || ''
             };
-        });
+        }).filter((c): c is NonNullable<typeof c> => c !== null); // Remove orphans
 
         // Update Series Episode Counts
         series.forEach(s => {

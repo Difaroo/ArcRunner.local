@@ -83,16 +83,16 @@ ${subjectBody}${subjectNegatives}`;
         const payload: FluxPayload = {
             model: model,
             input: {
-                prompt: enhancedPrompt,
+                prompt: enhancedPrompt || "Cinematic shot", // Fallback for empty prompt
                 // prompt_strength removed per user request
                 aspect_ratio: input.aspectRatio || "16:9",
                 resolution: "1K",
                 // Corrected Params per BFL Docs
                 safety_tolerance: 5, // 5 = Most permissive
-                guidance: Number(guidanceScale.toFixed(1)), // 1.5 - 10.0
+                guidance: Number(guidanceScale.toFixed(1)) || 2.5, // 1.5 - 10.0, default safety
                 num_inference_steps: 50, // High quality
                 // Removed random_seed as requested. Only pass seed if explicitly provided.
-                ...(input.seed ? { seed: Number(input.seed) } : {}),
+                ...(input.seed !== undefined && input.seed !== null ? { seed: Number(input.seed) } : {}),
                 ...(validImageUrls.length > 0 ? { input_urls: validImageUrls } : {})
             },
             // Removed root level seed fallback to avoid ambiguity

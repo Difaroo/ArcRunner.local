@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Clip } from '@/app/api/clips/route';
-import { LibraryItem } from '@/lib/library';
+import { Clip, LibraryItem } from '@/types';
 
 interface UsePollingProps {
     clips: Clip[];
@@ -108,11 +107,16 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
             if (targets.length > 0) {
                 console.log(`[Polling] Checking ${targets.length} active tasks:`, targets.map(t => ({ id: t.id, task: t.taskId })));
                 try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
+
                     const res = await fetch('/api/poll', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ targets }),
+                        signal: controller.signal
                     });
+                    clearTimeout(timeoutId);
 
                     const data = await res.json();
 
@@ -120,8 +124,12 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                         console.log(`[Polling] Updated ${data.updated} items. Silent Refreshing...`);
                         if (isMounted) await refreshData(true);
                     }
-                } catch (err) {
-                    console.error('[Polling] Error:', err);
+                } catch (err: any) {
+                    if (err.name === 'AbortError') {
+                        console.warn('[Polling] Request timed out');
+                    } else {
+                        console.error('[Polling] Error:', err);
+                    }
                 }
             }
 

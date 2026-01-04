@@ -16,7 +16,10 @@ test.describe('ArcRunner Light Touch Smoke Test', () => {
     });
 
     test('2. Ingest Interaction', async ({ page }) => {
+        // Clear local storage to prevent "Saved" state from hiding placeholder
         await page.goto('/');
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
 
         // Navigate to Script View using the Header Button
         await page.getByRole('button', { name: 'Script' }).click();

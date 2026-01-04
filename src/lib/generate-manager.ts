@@ -5,6 +5,7 @@ import { getLibraryItems } from '@/lib/library';
 import fs from 'fs';
 import path from 'path';
 import { BuilderFactory } from '@/lib/builders/BuilderFactory';
+import { Clip } from '@prisma/client';
 
 // Input payload for a generation task
 export interface GenerateTaskInput {
@@ -18,7 +19,7 @@ export interface GenerateTaskInput {
     // Usually prompt is built from clip fields.
 
     // Or we accept the full Clip object?
-    clip: any; // Using 'any' for now to match flexible API usage, strictly typed in implementation
+    clip: Clip & { prompt?: string, duration?: string }; // Extended for legacy/UI fields
 
     // Diagnosis
     dryRun?: boolean;
@@ -231,7 +232,13 @@ export class GenerateManager {
                 }
             }
 
-            const payload = builder.build({ input, publicImageUrls });
+            let payload;
+            try {
+                payload = builder.build({ input, publicImageUrls });
+            } catch (builderError: any) {
+                console.error('[GenerateManager] Builder Failed:', builderError);
+                throw new Error(`Builder Error: ${builderError.message}`);
+            }
 
             if (input.dryRun) {
                 // @ts-ignore

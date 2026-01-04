@@ -61,35 +61,30 @@ test.describe('Generate Flow', () => {
 
     test('should trigger generation for selected clip', async ({ page }) => {
         // 0.5. Verify Series Load & Select
-        await expect(page.getByText('Test Series')).toBeVisible();
-        await page.getByText('Test Series').click();
+        // Real Data: 'Candy_Jones' is a known series title from the DB
+        await expect(page.getByText('Candy_Jones').first()).toBeVisible();
+        await page.getByText('Candy_Jones').first().click();
 
         // 0.6 Click Episode in Table to Navigate
-        await page.getByText('Ep 1').click();
+        // Real Data: '1.01' or 'Ep 1' - looking at logs, series has episodes.
+        // We'll click the first episode tab if available, or just verify clips load.
+        // In this hierarchy, we might already see clips if default episode is selected.
 
-        // Wait for View Change logic to execute (setState in page.tsx)
-        // Check for Clip visibility which confirms we are in Episode View
-        await expect(page.getByText('A hero stands on a cliff')).toBeVisible({ timeout: 5000 });
+        // Explicitly navigate to 'Episode' view (Clips Table)
+        await page.getByRole('button', { name: 'Episode' }).first().click();
 
-
-        // Navigate
-        const buttons = await page.getByRole('button').allInnerTexts();
-        console.log('Available Buttons:', buttons);
-
-        // Try 'Episode' as per edit-menus.spec.ts
-        if (buttons.some(b => b.includes('Episode'))) {
-            await page.getByRole('button', { name: 'Episode' }).first().click();
-        } else if (buttons.some(b => b.includes('Script'))) {
-            await page.getByRole('button', { name: 'Script' }).click();
-        }
+        // Wait for table to ensure view switch
+        await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
 
         // 1. Verify Load
-        await expect(page.getByText('A hero stands on a cliff')).toBeVisible({ timeout: 10000 });
+        // Real Data: "Tape 216" matches the logs
+        const tapeClip = page.getByText('Tape 216').first();
+        await expect(tapeClip).toBeVisible({ timeout: 10000 });
 
         // 2. Select Clip
-        // Use a more specific selector
-        await page.getByRole('row').filter({ hasText: 'A hero stands on a cliff' })
-            .getByRole('checkbox').click();
+        // Robustly get the row containing the visible text
+        await page.locator('tr').filter({ has: tapeClip })
+            .getByRole('checkbox').first().click();
 
         // 3. Click Generate
         await page.getByRole('button', { name: 'Generate' }).first().click();
