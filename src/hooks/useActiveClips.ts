@@ -60,6 +60,13 @@ export function useActiveClips() {
 
     }, [clips, currentSeriesId, currentEpKey, deletedClipIds, seriesLibraryMap]);
 
+    const uniqueValues = useMemo(() => ({
+        characters: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_CHARACTER').map(i => i.name))).sort(),
+        locations: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_LOCATION').map(i => i.name))).sort(),
+        styles: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_STYLE').map(i => i.name))).sort(),
+        cameras: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_CAMERA').map(i => i.name))).sort(),
+    }), [allSeriesAssets]);
+
     const sortedEpKeys = seriesEpisodes.map(e => e.id);
 
     return {
@@ -67,11 +74,6 @@ export function useActiveClips() {
         currentEpKey,
         sortedEpKeys,
         allSeriesAssets,
-        uniqueValues: {
-            characters: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_CHARACTER').map(i => i.name))).sort(),
-            locations: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_LOCATION').map(i => i.name))).sort(),
-            styles: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_STYLE').map(i => i.name))).sort(),
-            cameras: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_CAMERA').map(i => i.name))).sort(),
-        }
+        uniqueValues
     };
 }

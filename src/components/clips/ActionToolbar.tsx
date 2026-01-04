@@ -278,7 +278,8 @@ export function ActionToolbar({
                                     onClick={onGenerateSelected}
                                     disabled={selectedCount === 0}
                                     className="h-8 w-8 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] transition-shadow"
-                                    variant="default" // Using default (likely orange primary)
+                                    variant="default"
+                                    aria-label="Generate"
                                 >
                                     {isImageModel ? (
                                         <span className="material-symbols-outlined !text-lg">image</span>

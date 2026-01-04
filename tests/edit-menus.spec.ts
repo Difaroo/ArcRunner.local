@@ -5,7 +5,7 @@ test.describe('Episode Clips Edit Menus', () => {
 
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
-        await page.getByRole('button', { name: 'Episode' }).click();
+        await page.getByRole('button', { name: 'Clips' }).click();
         await expect(page.locator('table')).toBeVisible();
         // Wait for data load
         await expect(page.getByText('Candy Jones', { exact: false }).first()).toBeVisible();

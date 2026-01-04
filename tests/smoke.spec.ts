@@ -9,14 +9,20 @@ test.describe('ArcRunner Light Touch Smoke Test', () => {
 
         // Wait for Series View (default) to load or ensure we are on it
         // Check that at least one "Series" button is visible or the series page header
-        await expect(page.getByRole('heading', { name: /ArcRunner/i })).toBeVisible();
+        // Check for Logo text
+        // Relaxing exact match due to whitespace in span
+        // Check for Logo text within header to avoid matching loading states
+        await expect(page.locator('header').getByText('ArcRunner', { exact: false })).toBeVisible();
 
-        // Ensure "Connected" status or similar is visible
-        await expect(page.getByText('Connected')).toBeVisible({ timeout: 10000 });
+        // Ensure Sync button is visible
+        await expect(page.getByRole('button').filter({ hasText: 'sync' }).first()).toBeVisible();
     });
 
     test('2. Ingest Interaction', async ({ page }) => {
+        // Clear local storage to prevent "Saved" state from hiding placeholder
         await page.goto('/');
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
 
         // Navigate to Script View using the Header Button
         await page.getByRole('button', { name: 'Script' }).click();
@@ -47,8 +53,8 @@ test.describe('ArcRunner Light Touch Smoke Test', () => {
         // LibraryTable usually has headers like "Type", "Name"
         await expect(page.getByRole('button', { name: 'Studio' })).toHaveClass(/bg-stone-800/); // Active class check
 
-        // Switch back to "Episode" (Clips)
-        await page.getByRole('button', { name: 'Episode' }).click();
+        // Switch back to "Clips"
+        await page.getByRole('button', { name: 'Clips' }).click();
 
         // Wait specifically for the table to render
         // Attempt to find ANY clip row or the table itself

@@ -22,9 +22,17 @@ test.describe('ArcRunner UI Regression', () => {
     });
 
     test('Ingest Page loads', async ({ page }) => {
-        await page.goto('/ingest');
-        await expect(page.getByRole('heading', { name: /Ingest JSON/i })).toBeVisible();
-        await expect(page.getByRole('button', { name: /Save/i }).first()).toBeVisible();
+        await page.goto('/');
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
+        await page.getByRole('button', { name: 'Script' }).click();
+
+        // Check that we are not in Error state
+        await expect(page.locator('text=Error:')).not.toBeVisible();
+
+        // Check for placeholder or known text in Script view
+        await expect(page.getByPlaceholder(/{ "clips": \[ ... \], "library": \[ ... \] }/)).toBeVisible();
+        await expect(page.getByRole('button', { name: /Load Studio & Episode Data/i })).toBeVisible();
     });
 
 });

@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 export function useSharedSelection(allItems: { id: string }[]) {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    const toggleSelect = (id: string) => {
-        const newSet = new Set(selectedIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedIds(newSet);
-    };
+    const toggleSelect = useCallback((id: string) => {
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) newSet.delete(id);
+            else newSet.add(id);
+            return newSet;
+        });
+    }, []);
 
     const toggleSelectAll = () => {
         if (selectedIds.size === allItems.length) {

@@ -60,7 +60,7 @@ interface ClipRowProps {
     seriesTitle: string
 }
 
-export function ClipRow({
+export const ClipRow = React.memo(function ClipRow({
     clip,
     isSelected,
     isEditing,
@@ -259,11 +259,7 @@ export function ClipRow({
                 {clip.scene}
             </TableCell>
 
-            {/* ... [Title/Char/Loc/Cam/Action/Dialog Cells Omitted for Brevity - Keeping same Logic] ... 
-                Actually, multi_replace_file_content would be better if I could target chunks.
-                But since I'm doing a full file replace to ensure imports are clean, I must include EVERYTHING.
-                I will copy the standard cells from the view.
-            */}
+            {/* ... [Title/Char/Loc/Cam/Action/Dialog Cells] ... */}
 
             <TableCell className={`align-top w-[160px] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="font-medium text-white block">
@@ -602,5 +598,5 @@ export function ClipRow({
             </AlertDialog>
         </TableRow >
     )
-}
+})
 

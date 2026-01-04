@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { PageHeader } from "@/components/PageHeader"
+
 
 interface ScriptViewProps {
     episodeId: string

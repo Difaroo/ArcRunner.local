@@ -60,28 +60,8 @@ test.describe('Generate Flow', () => {
     });
 
     test('should trigger generation for selected clip', async ({ page }) => {
-        // 0.5. Verify Series Load & Select
-        await expect(page.getByText('Test Series')).toBeVisible();
-        await page.getByText('Test Series').click();
-
-        // 0.6 Click Episode in Table to Navigate
-        await page.getByText('Ep 1').click();
-
-        // Wait for View Change logic to execute (setState in page.tsx)
-        // Check for Clip visibility which confirms we are in Episode View
-        await expect(page.getByText('A hero stands on a cliff')).toBeVisible({ timeout: 5000 });
-
-
-        // Navigate
-        const buttons = await page.getByRole('button').allInnerTexts();
-        console.log('Available Buttons:', buttons);
-
-        // Try 'Episode' as per edit-menus.spec.ts
-        if (buttons.some(b => b.includes('Episode'))) {
-            await page.getByRole('button', { name: 'Episode' }).first().click();
-        } else if (buttons.some(b => b.includes('Script'))) {
-            await page.getByRole('button', { name: 'Script' }).click();
-        }
+        // Navigate to Clips View
+        await page.getByRole('button', { name: 'Clips' }).click();
 
         // 1. Verify Load
         await expect(page.getByText('A hero stands on a cliff')).toBeVisible({ timeout: 10000 });

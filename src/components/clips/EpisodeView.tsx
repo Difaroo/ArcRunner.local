@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { useStore } from "@/store/useStore"
 import { Clip } from "@/types"
 import { downloadFile, getClipFilename } from "@/lib/download-utils"
@@ -49,17 +49,42 @@ export function EpisodeView() {
 
     // --- Selection & Editing State ---
     const { selectedIds, setSelectedIds, toggleSelect, toggleSelectAll } = useSharedSelection(activeClips);
+
+    // We keep editing/saving state local.
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [showClipConfirm, setShowClipConfirm] = useState(false);
     const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
+    // --- STABLE HANDLER REFS ---
+    // We use refs to access the latest state inside callbacks without re-creating functions.
+    const activeClipsRef = useRef(activeClips);
+    const selectedModelRef = useRef(selectedModel);
+    const currentStyleRef = useRef(currentStyle);
+    const currentAspectRatioRef = useRef(currentAspectRatio);
+    const allSeriesAssetsRef = useRef(allSeriesAssets);
+    const currentEpKeyRef = useRef(currentEpKey);
+    const currentSeriesIdRef = useRef(currentSeriesId);
+
+    useEffect(() => {
+        activeClipsRef.current = activeClips;
+        selectedModelRef.current = selectedModel;
+        currentStyleRef.current = currentStyle;
+        currentAspectRatioRef.current = currentAspectRatio;
+        allSeriesAssetsRef.current = allSeriesAssets;
+        currentEpKeyRef.current = currentEpKey;
+        currentSeriesIdRef.current = currentSeriesId;
+    });
+
     // --- Handlers ---
 
-    const updateEpisodeSetting = async (updates: Partial<any>) => {
+    const updateEpisodeSetting = useCallback(async (updates: Partial<any>) => {
+        const sId = currentSeriesIdRef.current;
+        const eId = currentEpKeyRef.current;
+
         // Optimistic
         setAllEpisodes(prev => prev.map(e =>
-            (e.series === currentSeriesId && e.id === currentEpKey) ? { ...e, ...updates } : e
+            (e.series === sId && e.id === eId) ? { ...e, ...updates } : e
         ));
 
         try {
@@ -67,17 +92,17 @@ export function EpisodeView() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    seriesId: currentSeriesId,
-                    episodeId: currentEpKey,
+                    seriesId: sId,
+                    episodeId: eId,
                     updates
                 })
             });
         } catch (e) {
             console.error(e);
         }
-    };
+    }, [setAllEpisodes]);
 
-    const handleSave = async (clipId: string, updates: Partial<Clip>) => {
+    const handleSave = useCallback(async (clipId: string, updates: Partial<Clip>) => {
         setSaving(true);
         try {
             const res = await fetch('/api/update_clip', {
@@ -94,11 +119,7 @@ export function EpisodeView() {
                 // Optimistic & Re-Resolve
                 setClips(prev => prev.map(c => {
                     if (c.id !== clipId) return c;
-                    const merged = { ...c, ...updates };
-                    // We re-resolve here even though render does it, to keep store clean?
-                    // Actually store contains raw strings. Render does resolution.
-                    // So we just update raw fields.
-                    return merged;
+                    return { ...c, ...updates };
                 }));
             }
             setEditingId(null);
@@ -108,15 +129,19 @@ export function EpisodeView() {
         } finally {
             setSaving(false);
         }
-    };
+    }, [setClips]); // Stable dependency
 
-    const handleGenerate = async (clip: Clip, index: number, styleOverride?: string) => {
+    const handleGenerate = useCallback(async (clip: Clip, index: number, styleOverride?: string) => {
+        const styleToUse = styleOverride !== undefined ? styleOverride : (currentStyleRef.current || clip.style);
+        const modelToUse = selectedModelRef.current || 'flux';
+        const aspectRatio = currentAspectRatioRef.current;
+        const library = allSeriesAssetsRef.current;
+
         try {
             // Optimistic Status
             setClips(prev => prev.map(c => c.id === clip.id ? { ...c, status: 'Generating', resultUrl: '', taskId: '' } : c));
 
-            const styleToUse = styleOverride !== undefined ? styleOverride : (currentStyle || clip.style);
-            const isVideo = selectedModel.startsWith('veo');
+            const isVideo = modelToUse.startsWith('veo');
             const endpoint = isVideo ? '/api/generate' : '/api/generate-image';
 
             const res = await fetch(endpoint, {
@@ -124,10 +149,10 @@ export function EpisodeView() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     clip: { ...clip, style: styleToUse },
-                    library: allSeriesAssets,
-                    model: selectedModel || 'flux',
-                    aspectRatio: currentAspectRatio,
-                    rowIndex: clip.id // Changed from parseInt(clip.id) for robustness if ID is string. API should handle it.
+                    library: library,
+                    model: modelToUse,
+                    aspectRatio: aspectRatio,
+                    rowIndex: clip.id
                 }),
             });
             const data = await res.json();
@@ -143,11 +168,10 @@ export function EpisodeView() {
             alert(`Generation failed: ${error.message}`);
             setClips(prev => prev.map(c => c.id === clip.id ? { ...c, status: 'Error' } : c));
         }
-    };
+    }, [setClips]);
 
-    const handleDuplicateClip = async (id: string) => {
-        // We need access to full clips list for duplication logic if we want strict sorting compliance?
-        // Actually activeClips is enough for visual sorting.
+    const handleDuplicateClip = useCallback(async (id: string) => {
+        const activeClips = activeClipsRef.current;
         const parentClip = activeClips.find(c => c.id === id);
         if (!parentClip) return;
 
@@ -169,7 +193,11 @@ export function EpisodeView() {
             resultUrl: '',
             taskId: '',
             refImageUrls: '',
+            explicitRefUrls: parentClip.explicitRefUrls // Keep refs?
         };
+        // Reset generated fields
+        newClip.characterImageUrls = [];
+        newClip.locationImageUrls = [];
 
         setClips((prev: Clip[]) => {
             return [...prev, newClip];
@@ -189,13 +217,17 @@ export function EpisodeView() {
             alert("Duplicate failed: " + e.message);
             setClips((prev: Clip[]) => prev.filter(c => c.id !== tempId));
         }
-    };
+    }, [setClips]);
 
-    // helper to find index for generate calls if needed
-    const getClipIndex = (id: string) => activeClips.findIndex(c => c.id === id);
+    // helper to find index - unlikely needed inside efficient handler
+    // const getClipIndex = (id: string) => activeClips.findIndex(c => c.id === id);
 
-    const handleAddClip = async () => {
-        if (!currentSeriesId) return;
+    const handleAddClip = useCallback(async () => {
+        const sId = currentSeriesIdRef.current;
+        const eKey = currentEpKeyRef.current;
+        const activeClips = activeClipsRef.current;
+
+        if (!sId) return;
 
         // Determine Scene/Order
         let newSortOrder = 10;
@@ -212,13 +244,13 @@ export function EpisodeView() {
             resultUrl: '',
             taskId: '',
             refImageUrls: '', explicitRefUrls: '',
-            episode: currentEpKey,
-            series: currentSeriesId,
+            episode: eKey,
+            series: sId,
             title: 'New Clip',
             character: '', location: '', action: '', camera: '', style: '', dialog: ''
         };
 
-        setClips(prev => [newClip, ...prev]); // Prepend? page.tsx prepended.
+        setClips(prev => [newClip, ...prev]); // Prepend? or Append? previous code prepended but sort order implied append.
 
         try {
             const res = await fetch('/api/clips', {
@@ -233,21 +265,25 @@ export function EpisodeView() {
             alert("Failed to add: " + e.message);
             setClips(prev => prev.filter(c => c.id !== tempId));
         }
-    };
+    }, [setClips]);
 
-    const executeBatchGeneration = async () => {
+    const executeBatchGeneration = useCallback(async () => {
         setShowClipConfirm(false);
+        const activeClips = activeClipsRef.current;
         const toGen = activeClips.filter(c => selectedIds.has(c.id));
         setCopyMessage(`Generating ${toGen.length} clips...`);
         setTimeout(() => setCopyMessage(null), 3000);
 
         for (const clip of toGen) {
-            const index = getClipIndex(clip.id); // Although unused in simplified handler
-            await handleGenerate(clip, index, currentStyle);
+            // We can reuse handleGenerate, but iterating might cause overlapping state updates if not careful?
+            // handleGenerate modifies state optimistically.
+            // It's safe.
+            await handleGenerate(clip, 0);
         }
-    };
+    }, [handleGenerate, selectedIds]);
 
-    const handleDownloadSelected = async () => {
+    const handleDownloadSelected = useCallback(async () => {
+        const activeClips = activeClipsRef.current;
         const toDownload = activeClips.filter(c => selectedIds.has(c.id) && c.resultUrl);
         if (toDownload.length === 0) return alert("No completed clips selected.");
         for (const clip of toDownload) {
@@ -257,8 +293,49 @@ export function EpisodeView() {
                 await new Promise(r => setTimeout(r, 500));
             }
         }
-    };
+    }, [selectedIds]);
 
+    const handleSetEditingId = useCallback((id: string | null) => {
+        setEditingId(id);
+    }, []); // Stable
+
+    const handleSelect = useCallback((id: string) => {
+        toggleSelect(id);
+    }, [toggleSelect]);
+    // Note: toggleSelect depends on useSharedSelection implementation. 
+    // If we fixed useSharedSelection to be stable, this is stable.
+
+    const handlePlay = useCallback((url: string) => {
+        if (url) {
+            setPlayingVideoUrl(url);
+            setPlaylist([url]);
+            setCurrentPlayIndex(0);
+        }
+    }, [setPlayingVideoUrl, setPlaylist, setCurrentPlayIndex]);
+
+    const handleEditStart = useCallback((clip: Clip) => {
+        setEditingId(clip.id);
+    }, []);
+
+    const handleCancelEdit = useCallback(() => {
+        setEditingId(null);
+    }, []);
+
+    const handleGenerateWrapper = useCallback((clip: Clip) => {
+        handleGenerate(clip, 0);
+    }, [handleGenerate]);
+
+    const handleResolveImage = useCallback((name: string) => {
+        const item = allSeriesAssetsRef.current.find(i => i.name.toLowerCase() === name.toLowerCase());
+        return item?.refImageUrl;
+    }, []);
+
+
+    const handleDelete = useCallback((id: string) => {
+        markClipDeleted(id);
+    }, [markClipDeleted]);
+
+    // Derived values for Duplicate / Delete wrappers if needed, but we pass directly.
 
     return (
         <div className="flex flex-col h-full">
@@ -308,24 +385,19 @@ export function EpisodeView() {
                         editingId={editingId}
                         saving={saving}
                         onSelectAll={toggleSelectAll}
-                        onSelect={toggleSelect}
+                        onSelect={handleSelect}
 
-                        onEdit={(clip) => setEditingId(clip.id)}
-                        onCancelEdit={() => setEditingId(null)}
+                        onEdit={handleEditStart}
+                        onCancelEdit={handleCancelEdit}
                         onSave={handleSave}
 
-                        onGenerate={(clip) => handleGenerate(clip, 0)} // Index unused in simplified handler
-                        onPlay={(url) => {
-                            if (url) {
-                                setPlayingVideoUrl(url);
-                                setPlaylist([url]);
-                                setCurrentPlayIndex(0);
-                            }
-                        }}
-                        onDelete={(id) => markClipDeleted(id)}
+                        onGenerate={handleGenerateWrapper}
+                        onPlay={handlePlay}
+                        onDelete={handleDelete}
                         onDuplicate={handleDuplicateClip}
                         uniqueValues={uniqueValues}
                         seriesTitle={currentSeries?.title || 'Series'}
+                        onResolveImage={handleResolveImage}
                     />
                 </div>
             </div>

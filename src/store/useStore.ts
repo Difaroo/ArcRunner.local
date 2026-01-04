@@ -32,6 +32,7 @@ interface AppState {
 
     // Media Player State
     // Media Player State
+    playingClipId: string | null;
     playingVideoUrl: string | null;
     playlist: string[];
     currentPlayIndex: number;
@@ -39,6 +40,7 @@ interface AppState {
     setCurrentEpisode: (episode: number) => void;
     navigateToEpisode: (seriesId: string, episodeId: string) => void;
     setPlayingVideoUrl: (url: string | null) => void;
+    setPlayingClip: (id: string | null, url: string | null) => void;
     setPlaylist: (urls: string[]) => void;
     setCurrentPlayIndex: (index: number) => void;
 }
@@ -122,10 +124,12 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     // Media Player Implementation
+    playingClipId: null,
     playingVideoUrl: null,
     playlist: [],
     currentPlayIndex: -1,
-    setPlayingVideoUrl: (url) => set({ playingVideoUrl: url }),
+    setPlayingVideoUrl: (url) => set({ playingVideoUrl: url, playingClipId: null }),
+    setPlayingClip: (id, url) => set({ playingClipId: id, playingVideoUrl: url }),
     setCurrentEpisode: (currentEpisode) => set({ currentEpisode }),
     setPlaylist: (playlist) => set({ playlist }),
     setCurrentPlayIndex: (currentPlayIndex) => set({ currentPlayIndex }),

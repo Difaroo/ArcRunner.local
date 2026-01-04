@@ -3,7 +3,7 @@
 ## 🩹 Bugs / Technical Debt
 - [ ] **Ghost Servers**: Ensure `kill-port` is robust across all OS versions.
 - [ ] **Thumbnail FFMPEG**: Validate `ffmpeg-static` on Windows/Linux (currently Mac optimized).
-- [ ] **Type Definitions**: Consolidate shared types (currently split between `lib` and `api`).
+- [x] **Type Definitions**: Consolidate shared types (Done in v0.15.0).
 
 ## 🎬 Episode / Clips
 - [ ] **Extended Edit Mode**: Expose other fields + controls in the inline edit view.

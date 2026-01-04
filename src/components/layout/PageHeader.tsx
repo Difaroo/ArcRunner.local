@@ -42,6 +42,7 @@ export function PageHeader({
                     <span className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-stone-400">
                         ArcRunner
                     </span>
+                    <span className="ml-2 text-[10px] text-stone-600 font-mono mt-1">v0.15.0</span>
                 </div>
 
                 {/* Series Selector */}
