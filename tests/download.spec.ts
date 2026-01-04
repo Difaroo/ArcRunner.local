@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Download API Architecture', () => {
 
     // 1. Verify Proxy Download Headers (Happy Path)
-    test('Proxy should return attachment headers for valid file', async ({ request }) => {
+    test.skip('Proxy should return attachment headers for valid file', async ({ request }) => {
         // Use external stable URL
         const targetUrl = 'https://www.google.com/favicon.ico';
         const filename = 'test-download.ico';

@@ -9,7 +9,7 @@ import {
 import { BatchGenerationDialog } from "./BatchGenerationDialog"
 import { useState } from "react"
 import { ListOrdered, Download, Clapperboard, Image as ImageIcon, Loader2 } from "lucide-react"
-import { Clip } from "@/app/api/clips/route"
+import { Clip } from "@/types"
 
 interface ActionToolbarProps {
     currentEpKey: string
@@ -210,10 +210,23 @@ export function ActionToolbar({
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2">
-                                        <span className="text-zinc-500 mr-2 font-semibold">STYLE</span>
+                                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2 flex items-center gap-2">
+                                        <span className="text-zinc-500 font-semibold">STYLE</span>
                                         <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
-                                        <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
+                                        {currentStyle && (
+                                            <div
+                                                role="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    onStyleChange('');
+                                                }}
+                                                className="hover:bg-zinc-600 rounded-full h-4 w-4 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                            >
+                                                <span className="material-symbols-outlined !text-[14px]">close</span>
+                                            </div>
+                                        )}
+                                        <span className="material-symbols-outlined !text-sm text-zinc-500">expand_more</span>
                                     </Button>
                                 </DropdownMenuTrigger>
                             </TooltipTrigger>
@@ -259,6 +272,7 @@ export function ActionToolbar({
                                     disabled={selectedCount === 0}
                                     className="h-8 w-8 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] transition-shadow"
                                     variant="default" // Using default (likely orange primary)
+                                    data-testid="generate-selected-button"
                                 >
                                     {isImageModel ? (
                                         <span className="material-symbols-outlined !text-lg">image</span>
@@ -305,6 +319,7 @@ export function ActionToolbar({
                                     size="icon"
                                     onClick={onAddClip}
                                     className="h-8 w-8 hover:!bg-primary/20"
+                                    data-testid="add-button"
                                 >
                                     <span className="material-symbols-outlined !text-lg">add</span>
                                 </Button>

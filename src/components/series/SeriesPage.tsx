@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Clip, Series } from "@/app/api/clips/route"
+import { Clip, Series } from "@/types"
 import { Check, X } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -312,12 +312,22 @@ export function SeriesPage({
 
                             <div className="flex flex-col gap-2 shrink-0">
                                 <label className="text-xs text-stone-500 uppercase tracking-wider font-light">Overall Series Style / Instructions</label>
-                                <Input
-                                    value={overallStyle}
-                                    onChange={(e) => setOverallStyle(e.target.value)}
-                                    placeholder="e.g. Steampunk vibe, dark atmosphere..."
-                                    className="bg-stone-900/50 border-stone-800 text-stone-300 text-xs h-9"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        value={overallStyle}
+                                        onChange={(e) => setOverallStyle(e.target.value)}
+                                        placeholder="e.g. Steampunk vibe, dark atmosphere..."
+                                        className="bg-stone-900/50 border-stone-800 text-stone-300 text-xs h-9 pr-8"
+                                    />
+                                    {overallStyle && (
+                                        <button
+                                            onClick={() => setOverallStyle("")}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="flex flex-col gap-2 shrink-0">

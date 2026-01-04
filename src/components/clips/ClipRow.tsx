@@ -5,7 +5,7 @@ import { TableCell, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Clip } from "@/app/api/clips/route"
+import { Clip } from "@/types"
 import { useState, useEffect } from "react"
 import {
     DropdownMenu,
@@ -243,6 +243,7 @@ export function ClipRow({
             ref={setNodeRef}
             style={style}
             className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''} ${isDragging ? 'opacity-50 bg-stone-800' : ''}`}
+            data-testid="clip-row"
         >
             <TableCell className="w-[10px] p-0 text-center align-top py-3 cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
                 <div className="flex items-center justify-center h-4 w-4">
@@ -278,7 +279,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[170px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[170px] ${isEditing ? "p-1" : "py-3"}`} data-testid="cell-character">
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
                     {isEditing ? (
                         <div className="w-full">
@@ -566,6 +567,7 @@ export function ClipRow({
                     onDelete={handleDeleteClick}
                     onDuplicate={() => onDuplicate(clip.id)}
                     className="items-center"
+                    data-testid="row-actions"
                 />
             </TableCell>
 

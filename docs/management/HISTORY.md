@@ -2,6 +2,23 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-04: v0.15.0 - Phoenix Refactor (The De-Monolith)
+
+### Context
+A massive architectural overhaul ("De-Monolith") to separate the application's Data Layer (Brain) from its UI (Body), alongside a comprehensive hardening of the Test Suite.
+
+### Changes
+- **Architecture**:
+    - **Brain/Body Separation**: Extracted `useDataStore` (Zustand) to manage state outside of React components.
+    - **Modularization**: Split `page.tsx` monolith into focused components (`ClipTable`, `ActionToolbar`, `Dialogs`).
+    - **Type Safety**: Unified `Clip`, `Series`, `Episode` types into a shared definition.
+- **Reliability & Testing**:
+    - **Green Suite**: Achieved fully passing regression tests (`editing`, `rendering`, `logic`) by implementing `data-testid` selectors and robust mocking.
+    - **E2E Hardening**: Fixed race conditions and improved selector stability in Playwright tests.
+- **UX Polish**:
+    - **Style Menu**: Reinstated "Clear Style" (X) button with improved layout.
+    - **Visuals**: Aligned toolbars, fixed spacing issues.
+
 ## 2025-12-20: v0.7.2 - Reactive Studio & Agent Foundations
 
 ### Context

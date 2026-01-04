@@ -17,6 +17,7 @@ interface RowActionsProps {
     onDuplicate?: () => void
     className?: string
     alignStatus?: 'left' | 'right' | 'center'
+    'data-testid'?: string
 }
 
 export function RowActions({
@@ -32,7 +33,8 @@ export function RowActions({
     onDelete,
     onDuplicate,
     className,
-    alignStatus = 'left'
+    alignStatus = 'left',
+    'data-testid': dataTestId
 }: RowActionsProps) {
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -50,7 +52,7 @@ export function RowActions({
     // EDIT MODE
     if (isEditing) {
         return (
-            <div className={`flex flex-col gap-1 ${className || 'items-center'}`}>
+            <div className={`flex flex-col gap-1 ${className || 'items-center'}`} data-testid={`${dataTestId}-edit`}>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -60,6 +62,7 @@ export function RowActions({
                                 onClick={(e) => { e.stopPropagation(); onEditSave(); }}
                                 disabled={isSaving}
                                 className="h-8 w-8"
+                                data-testid="save-button"
                             >
                                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">check</span>}
                             </Button>
@@ -113,7 +116,7 @@ export function RowActions({
     const isError = status?.startsWith('Error') || status === 'Upload Err' || status === 'File 404' || status === 'Net Err';
 
     return (
-        <div className={`flex flex-col gap-1 relative z-50 pointer-events-auto ${className || 'items-start'}`}>
+        <div className={`flex flex-col gap-1 relative z-50 pointer-events-auto ${className || 'items-start'}`} data-testid={dataTestId}>
             <div className={`flex flex-col gap-2 ${className || 'items-start'}`}>
 
                 {/* 1. DOWNLOAD BUTTON (If Done) */}
@@ -175,7 +178,7 @@ export function RowActions({
                     </span>
                 ) : null}
                 {isGenerating && <span className="text-primary/70 block">Gen...</span>}
-                {isError && <span className="text-destructive block">{status}</span>}
+                {isError && <span className="text-destructive font-bold block">{status}</span>}
             </div>
         </div>
     )

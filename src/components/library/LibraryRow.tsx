@@ -178,6 +178,7 @@ export function LibraryRow({
         <TableRow
             ref={rowRef}
             className={`group hover:bg-black transition-colors ${isEditing || isSelected ? 'bg-black' : ''}`}
+            data-testid="library-row"
         >
             <TableCell className="align-top py-3 px-2">
                 <Checkbox
@@ -201,7 +202,7 @@ export function LibraryRow({
             </TableCell>
 
             {/* Name */}
-            <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top ${isEditing ? "p-1" : "py-3"}`} data-testid="cell-name">
                 <EditableCell isEditing={isEditing} onStartEdit={startLocalEdit}>
                     {isEditing ? (
                         <Input
@@ -380,6 +381,7 @@ export function LibraryRow({
                     onDuplicate={() => onDuplicate && onDuplicate(item.id)}
                     className="items-end"
                     alignStatus="right"
+                    data-testid="row-actions"
                 />
             </TableCell>
 

@@ -1201,7 +1201,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.14.2</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.15.0 Phoenix</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1370,12 +1370,14 @@ export default function Home() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setShowAddSeriesDialog(true)}
-                      className="nav-tab py-3 text-primary hover:text-primary/80 transition-colors ml-2"
+                      className="ml-2 h-8 w-8 text-primary hover:text-primary/80 hover:bg-primary/10"
                     >
                       <span className="material-symbols-outlined !text-lg">add</span>
-                    </button>
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Create a new Series</p>

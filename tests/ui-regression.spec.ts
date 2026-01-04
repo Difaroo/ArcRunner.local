@@ -22,9 +22,11 @@ test.describe('ArcRunner UI Regression', () => {
     });
 
     test('Ingest Page loads', async ({ page }) => {
-        await page.goto('/ingest');
-        await expect(page.getByRole('heading', { name: /Ingest JSON/i })).toBeVisible();
-        await expect(page.getByRole('button', { name: /Save/i }).first()).toBeVisible();
+        await page.goto('/');
+        await page.getByRole('button', { name: 'Script' }).click();
+        // Check for actual text in ScriptView
+        await expect(page.getByText('Paste your script JSON below.')).toBeVisible();
+        await expect(page.getByRole('button', { name: /Load Studio & Episode Data/i })).toBeVisible();
     });
 
 });
