@@ -147,7 +147,8 @@ export function ActionToolbar({
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
                                         <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
-                                        {selectedModel === 'veo-fast' ? 'Veo Fast' : selectedModel === 'veo-quality' ? 'Veo Quality' : selectedModel === 'flux-pro' ? 'Flux Pro' : 'Flux Flex'}
+                                        <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
+                                        {selectedModel === 'veo-fast' ? 'Veo Fast' : selectedModel === 'veo-quality' ? 'Veo Quality' : selectedModel === 'veo-s2e' ? 'Veo S2E' : selectedModel === 'flux-pro' ? 'Flux Pro' : selectedModel === 'flux-flex' ? 'Flux Flex' : selectedModel === 'nano-banana-pro' ? 'Nano' : 'Model'}
                                         <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -164,11 +165,17 @@ export function ActionToolbar({
                         <DropdownMenuItem onClick={() => onModelChange('veo-quality')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
                             Veo Quality
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onModelChange('veo-s2e')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
+                            Veo S2E (Start-to-End)
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onModelChange('flux-pro')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
                             Flux Pro (Image)
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onModelChange('flux-flex')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
                             Flux Flex (Image)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onModelChange('nano-banana-pro')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
+                            Nano Banana Pro
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

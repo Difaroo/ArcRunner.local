@@ -87,4 +87,33 @@ test.describe('Payload Builders Unit Tests', () => {
         expect(payload.input.prompt).toContain('Images 1-2');
     });
 
+    test('Veo S2E: Generation Type Handover', async () => {
+        const builder = new PayloadBuilderVeo();
+
+        // Case 1: 2 Images (Start & End) -> IMAGE_TO_VIDEO
+        const ctxS2E: GenerationContext = {
+            input: { ...baseInput, model: 'veo-s2e' },
+            publicImageUrls: ['http://start.jpg', 'http://end.jpg']
+        };
+        const payloadS2E = builder.build(ctxS2E);
+        expect(payloadS2E.generationType).toBe('IMAGE_TO_VIDEO');
+        expect(payloadS2E.imageUrls).toHaveLength(2);
+
+        // Case 2: 1 Image -> Validation Fallback (Ref 2 Video)
+        const ctxRef: GenerationContext = {
+            input: { ...baseInput, model: 'veo-s2e' },
+            publicImageUrls: ['http://start.jpg']
+        };
+        const payloadRef = builder.build(ctxRef);
+        expect(payloadRef.generationType).toBe('REFERENCE_2_VIDEO');
+
+        // Case 3: 0 Images -> Text 2 Video
+        const ctxText: GenerationContext = {
+            input: { ...baseInput, model: 'veo-s2e' },
+            publicImageUrls: []
+        };
+        const payloadText = builder.build(ctxText);
+        expect(payloadText.generationType).toBe('TEXT_2_VIDEO');
+    });
+
 });

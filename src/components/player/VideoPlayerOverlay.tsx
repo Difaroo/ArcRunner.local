@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { downloadFile } from '@/lib/download-utils';
 import { Clip } from '@/types';
 import {
     Tooltip,
@@ -18,6 +19,10 @@ interface VideoPlayerOverlayProps {
     clips?: Clip[]; // To find model/type info
     archiveMedia: (url: string | null) => Promise<void>;
     isArchiving: boolean;
+    // Edit Support
+    libraryItems?: any[];
+    onUpdateClip?: (id: string, updates: Partial<Clip>) => Promise<void>;
+    onUpdateLibrary?: (id: string, updates: any) => Promise<void>;
 }
 
 export function VideoPlayerOverlay({
@@ -27,7 +32,10 @@ export function VideoPlayerOverlay({
     initialIndex = -1,
     clips = [],
     archiveMedia,
-    isArchiving
+    isArchiving,
+    libraryItems,
+    onUpdateClip,
+    onUpdateLibrary
 }: VideoPlayerOverlayProps) {
     const [currentUrl, setCurrentUrl] = useState<string | null>(url);
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -61,6 +69,42 @@ export function VideoPlayerOverlay({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentIndex, playlist, onClose]);
 
+    // Determine media type and item
+    // Resilience: Normalize URLs (decode) to ensure matches despite encoding differences
+    const normalize = (u: string | null | undefined) => u ? decodeURIComponent(u).trim() : '';
+    const targetUrl = normalize(currentUrl);
+
+    // Finding Loop Logic:
+    // 1. Clips: Check resultUrl (split by comma)
+    // 2. Library: Check refImageUrl (split by comma)
+    const playingClip = clips.find(c => {
+        const urls = (c.resultUrl || '').split(',').map(u => normalize(u));
+        return urls.includes(targetUrl);
+    });
+
+    const playingLibItem = !playingClip ? (libraryItems || []).find((i: any) => {
+        const urls = (i.refImageUrl || '').split(',').map(u => normalize(u));
+        return urls.includes(targetUrl);
+    }) : undefined;
+
+    const isImage = (playingClip?.model?.includes('flux')) || (playingLibItem?.type !== undefined) || currentUrl?.match(/\.(jpeg|jpg|png|webp)$/i);
+
+    // Edit State
+    const [editValue, setEditValue] = useState("");
+    const [isDirty, setIsDirty] = useState(false);
+
+    // Sync Edit Value on Navigation
+    useEffect(() => {
+        if (playingClip) {
+            setEditValue(playingClip.action || "");
+        } else if (playingLibItem) {
+            setEditValue(playingLibItem.description || "");
+        } else {
+            setEditValue("");
+        }
+        setIsDirty(false);
+    }, [currentUrl, playingClip, playingLibItem]);
+
     if (!currentUrl) return null;
 
     const handleVideoEnded = () => {
@@ -69,79 +113,155 @@ export function VideoPlayerOverlay({
             setCurrentIndex(nextIndex);
             setCurrentUrl(playlist[nextIndex]);
         } else {
-            // End of playlist
-            onClose();
+            // End of playlist: DO NOT CLOSE
+            // onClose(); 
         }
     };
 
-    // Determine media type
-    const playingClip = clips.find(c => c.resultUrl === currentUrl) || { model: '' };
-    const isImage = playingClip.model?.includes('flux') || currentUrl?.match(/\.(jpeg|jpg|png|webp)$/i);
+    const handleSave = async () => {
+        if (playingClip && onUpdateClip) {
+            await onUpdateClip(playingClip.id, { action: editValue });
+        } else if (playingLibItem && onUpdateLibrary) {
+            await onUpdateLibrary(playingLibItem.id, { description: editValue });
+        }
+        onClose(); // Save and Close as requested
+    };
 
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={onClose}>
-            <div className="relative w-[90vw] max-w-5xl aspect-video bg-black border border-zinc-800 shadow-2xl rounded-lg overflow-hidden group/player" onClick={e => e.stopPropagation()}>
-                {/* Top Right Controls */}
-                <div className="absolute top-4 right-4 z-50 flex gap-2">
-                    <button
-                        onClick={onClose}
-                        className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
-                    >
-                        <span className="material-symbols-outlined">close</span>
-                    </button>
-                </div>
+            <div className="relative w-[90vw] max-w-5xl flex flex-col gap-4" onClick={e => e.stopPropagation()}>
 
-                {/* Bottom Controls Overlay (Visible on Hover) */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 z-40 flex justify-between items-end pointer-events-none">
-                    <div className="pointer-events-auto">
-                        {/* Playlist Counter */}
-                        {playlist.length > 0 && (
-                            <div className="bg-black/50 text-white text-xs px-2 py-1 rounded inline-block mb-2">
-                                Playing {currentIndex + 1} of {playlist.length}
-                            </div>
-                        )}
+                {/* Media Container */}
+                <div className="relative aspect-video bg-black border border-zinc-800 shadow-2xl rounded-lg overflow-hidden group/player">
+                    {/* Top Right Controls */}
+                    <div className="absolute top-4 right-4 z-50 flex gap-2">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={async (e) => {
+                                e.stopPropagation();
+                                if (currentUrl) await downloadFile(currentUrl, playingClip?.title || 'download');
+                            }}
+                            className="text-orange-500 hover:text-orange-400 hover:bg-black/20"
+                            title="Download"
+                        >
+                            <span className="material-symbols-outlined !text-3xl">download</span>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onClose}
+                            className="text-orange-500 hover:text-orange-400 hover:bg-black/20"
+                            title="Close"
+                        >
+                            <span className="material-symbols-outlined !text-3xl">close</span>
+                        </Button>
                     </div>
 
-                    <div className="pointer-events-auto">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        className="bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md"
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            await archiveMedia(currentUrl);
-                                        }}
-                                        disabled={isArchiving}
-                                    >
-                                        {isArchiving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <span className="material-symbols-outlined !text-sm mr-2">save</span>}
-                                        {isArchiving ? "Saving..." : "Save Reference Image"}
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Download to local storage and set as permanent reference</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                    {/* Navigation Chevrons (Conditional on Playlist > 1) */}
+                    {playlist.length > 1 && (
+                        <>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePrev();
+                                }}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 z-50 backdrop-blur-sm border border-white/10"
+                            >
+                                <span className="material-symbols-outlined !text-2xl">chevron_left</span>
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleNext();
+                                }}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 z-50 backdrop-blur-sm border border-white/10"
+                            >
+                                <span className="material-symbols-outlined !text-2xl">chevron_right</span>
+                            </button>
+                        </>
+                    )}
+
+                    {/* Bottom Controls Overlay (Save Ref Image) */}
+                    <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 z-40 flex justify-end items-end pointer-events-none">
+                        <div className="pointer-events-auto">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            className="bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md"
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                await archiveMedia(currentUrl);
+                                            }}
+                                            disabled={isArchiving}
+                                        >
+                                            {isArchiving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <span className="material-symbols-outlined !text-sm mr-2">save</span>}
+                                            {isArchiving ? "Saving..." : "Save Reference Image"}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Download to local storage and set as permanent reference</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
                     </div>
+
+                    {isImage ? (
+                        <img
+                            src={currentUrl}
+                            className="w-full h-full object-contain"
+                            alt="Generated Content"
+                        />
+                    ) : (
+                        <video
+                            src={currentUrl}
+                            controls
+                            autoPlay
+                            className="w-full h-full object-contain"
+                            onEnded={handleVideoEnded}
+                        />
+                    )}
                 </div>
 
-                {isImage ? (
-                    <img
-                        src={currentUrl}
-                        className="w-full h-full object-contain"
-                        alt="Generated Content"
-                    />
-                ) : (
-                    <video
-                        src={currentUrl}
-                        controls
-                        autoPlay
-                        className="w-full h-full object-contain"
-                        onEnded={handleVideoEnded}
-                    />
+                {/* Edit Area */}
+                {(playingClip || playingLibItem) && (
+                    <div className="flex gap-2">
+                        <div className="flex-1">
+                            <textarea
+                                value={editValue}
+                                onChange={(e) => {
+                                    setEditValue(e.target.value);
+                                    setIsDirty(true);
+                                }}
+                                placeholder={playingClip ? "Edit Action..." : "Edit Description..."}
+                                className="w-full bg-stone-900/90 text-stone-200 border border-stone-800 rounded-md p-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none h-20"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1 justify-start">
+                            {/* Save Button */}
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline-success"
+                                            size="icon"
+                                            onClick={handleSave}
+                                            disabled={!isDirty}
+                                            className="h-8 w-8"
+                                            title="Save Changes"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">check</span>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>Save Changes</p></TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

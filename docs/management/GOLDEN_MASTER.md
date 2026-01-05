@@ -46,3 +46,12 @@
 
 ## 🎥 Veo API (Reference)
 *Ref: `POST /veo/generate`, distinct schema.*
+
+### Veo S2E (Start-to-End)
+New in **v0.16.0 (Griffin)**.
+- **Frontend Model**: `veo-s2e` (Maps to backend `veo3_fast`)
+- **Generation Type**: `IMAGE_TO_VIDEO`
+- **Logic**:
+    - **2 Images** (Strict): Uses Image 1 as Start Frame, Image 2 as End Frame.
+    - **1 Image**: Fallback to `REFERENCE_2_VIDEO` (Start Frame).
+    - **0 Images**: Fallback to `TEXT_2_VIDEO`.

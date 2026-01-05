@@ -1195,6 +1195,9 @@ export default function Home() {
         clips={clips}
         archiveMedia={archiveMedia}
         isArchiving={isArchiving}
+        libraryItems={libraryItems}
+        onUpdateClip={handleSave}
+        onUpdateLibrary={handleLibrarySave}
       />
 
       {/* Header */}

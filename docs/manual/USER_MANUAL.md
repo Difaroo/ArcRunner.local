@@ -12,6 +12,12 @@ The global **Video Player / Media Viewer** (accessible via thumbnails) supports 
 | **Arrow Left** | Previous item in playlist |
 | **Escape** | Close viewer |
 
+### Video Overlay Controls
+- **Edit**: Modify Clip Action or Library Description directly while viewing.
+- **Download**: Top-right orange icon to save the file locally.
+- **Save**: Green check button to commit text edits.
+- **Ref Image**: "Save Reference Image" button captures the current frame/image for the library.
+
 ## Generation Workflows
 
 ### Batch Generation
@@ -43,8 +49,16 @@ The generation engine now uses specialized "Builders" for each model type, ensur
   - Default: ~5.0.
 
 ### Veo (Video) Builder
-- **Dynamic Numbering**: Automatically rewrites prompts to reference "Image 1", "Image 2" etc., dynamically accounting for how many reference images are actually present.
+- **Dynamic Numbering**: Automatically rewrites prompts to reference "Image 1", "Image 2" etc.
 - **Duration**: Defaults to 5 seconds unless explicitly set to 10.
+- **Veo S2E (Start-to-End)**:
+    - **Purpose**: Generates video transitioning from a Start Frame to an End Frame.
+    - **Requirements**:
+        - **Image 1**: Start Frame.
+        - **Image 2**: End Frame.
+    - **Fallback Behavior**:
+        - **1 Image**: Falls back to "Reference-to-Video" using Image 1 as Start (Standard behavior).
+        - **0 Images**: Falls back to "Text-to-Video".
 
 ### Nano (Experimental)
 - Uses "Hardcoded Pro" template similar to Flux but optimized for speed.

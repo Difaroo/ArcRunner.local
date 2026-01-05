@@ -2,6 +2,33 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-05: v0.16.0 - Griffin (In Development)
+
+### Context
+Following the Phoenix refactor, the "Griffin" release focuses on Advanced Video Generation capabilities, specifically "Start-to-End" (S2E).
+
+### Changes
+- **Veo S2E**: Implemented "Image-to-Video" generation where Image 1 is the Start Frame and Image 2 is the End Frame.
+    - **Robustness**: Added automatic fallback to Ref-2-Video or Text-2-Video if images are missing, preventing failures.
+    - **Safety**: Wrapped Builder in defensive `try/catch`.
+
+## 2026-01-05: v0.15.1 - Phoenix Polish (Overlay Restoration)
+
+### Context
+A fast-follow release to v0.15.0 restoring critical video playback controls and refining the UI based on user feedback. The Overlay controls (Download/Cancel) were previously missing or misaligned.
+
+### Changes
+- **Video Player Overlay**:
+    - **Controls**: Restored "Download" and "Close" buttons.
+    - **UI Refinements**:
+        - Moved controls to Top-Right of the video viewport.
+        - Styled as minimalist Orange icons (Warning style) for visibility.
+        - Removed "Auto-Close" behavior to allow reviewing the final frame.
+    - **Edit Mode**: Aligned the "Save" button to the top of the edit field for better ergonomics.
+- **Bug Fixes**:
+    - **React Hooks**: Fixed `Rendered more hooks than during the previous render` crash in `VideoPlayerOverlay`.
+    - **URL Matching**: Fixed bug where comma-separated URLs (e.g., `url1,url2`) failed to match the single playing URL, breaking the Edit/Save linkage.
+
 ## 2026-01-04: v0.15.0 - Phoenix Refactor (The De-Monolith)
 
 ### Context

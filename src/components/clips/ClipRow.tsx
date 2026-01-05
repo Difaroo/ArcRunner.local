@@ -545,7 +545,7 @@ export function ClipRow({
                             originalUrl={clip.resultUrl}
                             model={clip.model}
                             title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
-                            // onPlay={onPlay} // Removed
+                            onPlay={onPlay}
                             className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
                         />
                     </div>
