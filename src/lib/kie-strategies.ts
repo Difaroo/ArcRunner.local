@@ -69,6 +69,49 @@ export interface KieStrategy {
     getType(): 'flux' | 'veo' | 'nano';
 }
 
+// --- SHARED HELPERS ---
+function safeStatus(val: any): string {
+    if (val === undefined || val === null) return '';
+    return String(val).toUpperCase();
+}
+
+function findResultUrl(data: any): string {
+    if (!data) return '';
+
+    // Direct Keys (Camel & Snake)
+    if (data.resultUrl) return data.resultUrl;
+    if (data.result_url) return data.result_url;
+    if (data.videoUrl) return data.videoUrl;
+    if (data.video_url) return data.video_url;
+    if (data.url) return data.url;
+    if (data.downloadUrl) return data.downloadUrl;
+    if (data.download_url) return data.download_url;
+    if (data.output) return data.output;
+    if (data.output_url) return data.output_url;
+
+    // Arrays
+    if (Array.isArray(data.resultUrls) && data.resultUrls[0]) return data.resultUrls[0];
+    if (Array.isArray(data.images) && data.images[0]?.url) return data.images[0].url;
+
+    // Recursive / Nested Response
+    if (data.response) {
+        let nested = data.response;
+        if (typeof nested === 'string') {
+            try { nested = JSON.parse(nested); } catch (e) {
+                // If response is a string URL
+                if (nested.startsWith('http')) return nested;
+                return '';
+            }
+        }
+        if (typeof nested === 'object' && nested !== null) {
+            // Avoid infinite recursion if response points to self (unlikely but safe)
+            if (nested !== data) return findResultUrl(nested);
+        }
+    }
+
+    return '';
+}
+
 // --- FLUX STRATEGY ---
 export class FluxStrategy implements KieStrategy {
     getType(): 'flux' | 'veo' | 'nano' { return 'flux'; }
@@ -80,33 +123,46 @@ export class FluxStrategy implements KieStrategy {
     }
 
     async checkStatus(taskId: string): Promise<StatusResult> {
-        const res = await kieFetch<{ state: string, resultJson?: string }>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
+        const res = await kieFetch<any>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
         console.log(`[FluxStrategy] Status Response for ${taskId}:`, JSON.stringify(res, null, 2));
-        const state = (res.data?.state || '').toLowerCase();
+
+        // Flux/Nano typically use 'state'
+        // But let's be defensive and check standard keys too
+        const rawState = res.data?.state || res.data?.status;
+        const s = safeStatus(rawState);
+
         let status: AppStatus = 'Generating';
         let resultUrl = '';
         let errorMsg = '';
 
-        const activeStates = ['queued', 'queuing', 'waiting', 'generating', 'processing', 'created', 'starting'];
-        if (activeStates.includes(state)) {
-            status = 'Generating';
-        } else if (['success', 'succeeded', 'completed', 'done'].includes(state)) {
+        // Success
+        if (['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'DONE', '1'].includes(s)) {
             status = 'Done';
+
+            // 1. Try JSON String first (Flux standard)
             if (res.data?.resultJson) {
                 try {
                     const results = JSON.parse(res.data.resultJson);
-                    resultUrl = results.images?.[0]?.url || results.resultUrls?.[0] || results.url || '';
+                    resultUrl = findResultUrl(results);
                 } catch (e) {
-                    status = 'Error';
-                    errorMsg = 'JSON_PARSE_ERR';
+                    // Fallback to top-level search
                 }
-            } else {
-                status = 'Error';
-                errorMsg = 'NO_RESULT_JSON';
             }
-        } else {
+            // 2. Fallback to global search in data
+            if (!resultUrl) {
+                resultUrl = findResultUrl(res.data || {});
+            }
+
+        }
+        // Failure
+        else if (['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT', '2', '3'].includes(s)) {
             status = 'Error';
-            errorMsg = state || 'Unknown Error';
+            errorMsg = safeStatus(res.data || '') || 'Generation Failed';
+        }
+        // Generating
+        else {
+            // If unknown, assume generating to be safe, unless explicit error
+            status = 'Generating';
         }
 
         // URL Check
@@ -134,57 +190,40 @@ export class VeoStrategy implements KieStrategy {
         console.log(`[VeoStrategy] Status Response for ${taskId}:`, JSON.stringify(res));
         const data = res.data || {};
 
-        // Handle Schema Divergence (Old Status vs New SuccessFlag)
         const rawStatus = data.status;
         let status: AppStatus = 'Generating';
         let resultUrl = '';
         let errorMsg = '';
 
-        // NEW SCHEMA: successFlag + completeTime
-        if (!rawStatus && (data.successFlag !== undefined || data.completeTime !== undefined)) {
-            if (!data.completeTime) {
-                status = 'Generating';
-            } else {
-                const isSuccess = data.successFlag === 1 || data.successFlag === true || String(data.successFlag) === 'true';
-                if (isSuccess) {
-                    status = 'Done';
-                    const rawResp = data.response;
-                    let parsed: any = {};
-                    if (typeof rawResp === 'string') {
-                        try { parsed = JSON.parse(rawResp); } catch (e) { }
-                    } else if (typeof rawResp === 'object' && rawResp !== null) {
-                        parsed = rawResp;
-                    }
-                    resultUrl = parsed.resultUrls?.[0] || parsed.videoUrl || parsed.url || parsed.downloadUrl || parsed.images?.[0]?.url || data.url || data.downloadUrl || '';
-                    if (!resultUrl && typeof rawResp === 'string' && rawResp.startsWith('http')) {
-                        resultUrl = rawResp;
-                    }
-                } else {
-                    status = 'Error';
-                    errorMsg = data.errorMessage || `Error Code: ${data.errorCode}`;
-                }
-            }
-        }
-        // LEGACY SCHEMA (status string)
-        else {
-            const s = (rawStatus || '').toUpperCase();
+        // 1. NEW SCHEMA CHECK: successFlag
+        // Robust check for various truthy values
+        const flag = data.successFlag;
+        const isSuccessFlag = flag === 1 || flag === true || String(flag) === 'true';
 
-            // Explicit Success
-            if (['COMPLETED', 'SUCCEEDED', 'DONE'].includes(s)) {
+        if (isSuccessFlag) {
+            // DONE
+            status = 'Done';
+            resultUrl = findResultUrl(data);
+        }
+        else if (data.successFlag !== undefined && !isSuccessFlag && data.completeTime) {
+            // Completed but flag says NO -> Error
+            status = 'Error';
+            errorMsg = data.errorMessage || `Error Code: ${data.errorCode}`;
+        }
+        else {
+            // 2. LEGACY STATUS CHECK
+            const s = safeStatus(rawStatus);
+
+            if (['COMPLETED', 'SUCCEEDED', 'DONE', 'SUCCESS', '1'].includes(s)) {
                 status = 'Done';
-                resultUrl = data.videoUrl || data.url || data.images?.[0]?.url || '';
+                resultUrl = findResultUrl(data);
             }
-            // Explicit Failure
-            else if (['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT'].includes(s)) {
+            else if (['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT', '2', '3'].includes(s)) {
                 status = 'Error';
                 errorMsg = data.errorMessage || s || 'Generation Failed';
             }
-            // Default: Assume Generating (Handles QUEUED, RUNNING, and unknown transient states)
             else {
                 status = 'Generating';
-                if (!['QUEUED', 'PENDING', 'RUNNING', 'CREATED', 'PROCESSING'].includes(s)) {
-                    console.warn(`[VeoStrategy] Unknown status '${s}' treated as Generating.`);
-                }
             }
         }
 
@@ -210,34 +249,34 @@ export class NanoStrategy implements KieStrategy {
     }
 
     async checkStatus(taskId: string): Promise<StatusResult> {
-        // Nano uses same recordInfo endpoint and structure as Flux (based on specs)
+        // Same Logic as Flux but separated class for clarity/future divergence
+        // Reusing the robust logic
         const res = await kieFetch<{ state: string, resultJson?: string }>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
         console.log(`[NanoStrategy] Status Response for ${taskId}:`, JSON.stringify(res, null, 2));
-        const state = (res.data?.state || '').toLowerCase();
+
+        const rawState = res.data?.state || res.data?.status;
+        const s = safeStatus(rawState);
+
         let status: AppStatus = 'Generating';
         let resultUrl = '';
         let errorMsg = '';
 
-        const activeStates = ['queued', 'queuing', 'waiting', 'generating', 'processing', 'created', 'starting'];
-        if (activeStates.includes(state)) {
-            status = 'Generating';
-        } else if (['success', 'succeeded', 'completed', 'done'].includes(state)) {
+        if (['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'DONE', '1'].includes(s)) {
             status = 'Done';
             if (res.data?.resultJson) {
                 try {
                     const results = JSON.parse(res.data.resultJson);
-                    resultUrl = results.images?.[0]?.url || results.resultUrls?.[0] || results.url || '';
-                } catch (e) {
-                    status = 'Error';
-                    errorMsg = 'JSON_PARSE_ERR';
-                }
-            } else {
-                status = 'Error';
-                errorMsg = 'NO_RESULT_JSON';
+                    resultUrl = findResultUrl(results);
+                } catch (e) { }
             }
-        } else {
+            if (!resultUrl) resultUrl = findResultUrl(res.data || {});
+        }
+        else if (['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT', '2', '3'].includes(s)) {
             status = 'Error';
-            errorMsg = state || 'Unknown Error';
+            errorMsg = safeStatus(res.data) || 'Generation Failed';
+        }
+        else {
+            status = 'Generating';
         }
 
         if (status === 'Done' && !resultUrl) {

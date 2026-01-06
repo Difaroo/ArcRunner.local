@@ -2,15 +2,23 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
-## 2026-01-05: v0.16.0 - Griffin (In Development)
+## 2026-01-06: v0.16.0 - Griffin (Veo S2E & Polling Robustness)
 
 ### Context
-Following the Phoenix refactor, the "Griffin" release focuses on Advanced Video Generation capabilities, specifically "Start-to-End" (S2E).
+Release "Griffin" delivers the long-awaited "Start-to-End" (S2E) generation for Veo, effectively enabling Image-to-Video workflows with precise start/end frames. This release also includes a critical hardening of the polling infrastructure and significant UI polish.
 
 ### Changes
-- **Veo S2E**: Implemented "Image-to-Video" generation where Image 1 is the Start Frame and Image 2 is the End Frame.
-    - **Robustness**: Added automatic fallback to Ref-2-Video or Text-2-Video if images are missing, preventing failures.
-    - **Safety**: Wrapped Builder in defensive `try/catch`.
+- **Veo S2E (Start-to-End)**:
+    - **Implementation**: Enabled `IMAGE_TO_VIDEO` generation type using Image 1 (Start) and Image 2 (End).
+    - **Robustness**: Added automatic fallback logic (if <2 images, fall back to Reference-2-Video or Text-2-Video) to prevent payload failures.
+- **Robust Polling Infrastructure**:
+    - **Zombie Killer**: Refined `usePolling` hook to intelligently kill "Zombie" tasks (Generating without Task ID) after 45s, while protecting long-running legitimate tasks.
+    - **Error Persistence**: Caught polling errors (404/500) are now persisted to the DB as `Error` status, preventing indefinite UI spinning.
+    - **Defensive Strategy**: Refactored `Veo`, `Flux`, and `Nano` strategies to handle inconsistent API responses (numeric statuses, varying result URL keys) without crashing.
+- **UI Polish**:
+    - **Video Player Overlay**: Moved "Save Reference Image" to top toolbar (orange icon), added tooltips, and restricted visibility to Images only.
+    - **Style Control**: Fixed floating tooltip artifact in the Action Toolbar.
+    - **Labels**: Renamed "Veo S2E" model label for clarity.
 
 ## 2026-01-05: v0.15.1 - Phoenix Polish (Overlay Restoration)
 

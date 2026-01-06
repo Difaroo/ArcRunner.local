@@ -70,7 +70,7 @@ export async function POST(request: Request) {
                 .catch(err => console.error('Thumbnail generation failed:', err));
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, clip: updatedClip });
 
     } catch (error: any) {
         console.error('Update Clip Error (DB):', error);

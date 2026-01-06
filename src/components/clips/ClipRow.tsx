@@ -196,6 +196,7 @@ export function ClipRow({
         (Object.keys(editValues) as Array<keyof Clip>).forEach(key => {
             const currentVal = editValues[key];
             let originalVal;
+            // Explicitly map refImageUrls key back to the 'explicitRefUrls' source of truth
             if (key === 'refImageUrls') {
                 originalVal = clip.explicitRefUrls;
             } else {
@@ -203,6 +204,14 @@ export function ClipRow({
             }
 
             if (normalize(currentVal) !== normalize(originalVal)) {
+
+                // IMPORTANT: When saving 'refImageUrls', the API expects the key 'refImageUrls',
+                // but the frontend Clip object stores it as 'explicitRefUrls'.
+                // If the key is 'refImageUrls', we send it as such.
+                // If it is 'explicitRefUrls', we ignore it here because we handle it via 'refImageUrls' key in editValues.
+                // Wait, startEditing sets 'refImageUrls' in editValues.
+                // So key will be 'refImageUrls'.
+
                 // @ts-ignore
                 updates[key] = currentVal;
             }

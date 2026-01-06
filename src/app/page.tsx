@@ -43,6 +43,7 @@ import { LibraryItem } from '@/lib/library';
 import { useDataStore } from '@/hooks/useDataStore';
 import { useSharedSelection } from '@/hooks/useSharedSelection';
 import { useMediaArchiver } from "@/hooks/useMediaArchiver";
+import { usePolling } from '@/hooks/usePolling';
 
 export default function Home() {
   const {
@@ -359,7 +360,12 @@ export default function Home() {
       // Update local state
       // Prefer server-returned clip which has authoritative image resolution
       if (data.success && data.clip) {
-        setClips(prev => prev.map(c => c.id === clipId ? { ...c, ...data.clip } : c));
+        setClips(prev => prev.map(c => c.id === clipId ? {
+          ...c,
+          ...data.clip,
+          // CRITICAL FIX: Sync explicitRefUrls with the DB refImageUrls
+          explicitRefUrls: data.clip.refImageUrls
+        } : c));
       } else {
         // Fallback: Optimistic update with robust trimming
         setClips(prev => prev.map(c => {
@@ -774,10 +780,13 @@ export default function Home() {
   };
 
   // --- Polling Logic ---
-  // --- Polling Logic ---
-  // --- Polling Logic ---
-  // --- Polling Logic ---
   // (Maintained by usePolling hook)
+  usePolling({
+    clips: clips,
+    libraryItems: libraryItems,
+    refreshData: refreshData,
+    intervalMs: 10000 // 10s polling
+  });
 
 
   // --- Duplicate Logic ---
@@ -1204,7 +1213,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.15.1 Phoenix</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.16.0 Griffin</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 

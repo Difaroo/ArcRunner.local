@@ -83,7 +83,7 @@ export function VideoPlayerOverlay({
     });
 
     const playingLibItem = !playingClip ? (libraryItems || []).find((i: any) => {
-        const urls = (i.refImageUrl || '').split(',').map(u => normalize(u));
+        const urls = (i.refImageUrl || '').split(',').map((u: string) => normalize(u));
         return urls.includes(targetUrl);
     }) : undefined;
 
@@ -135,27 +135,71 @@ export function VideoPlayerOverlay({
                 <div className="relative aspect-video bg-black border border-zinc-800 shadow-2xl rounded-lg overflow-hidden group/player">
                     {/* Top Right Controls */}
                     <div className="absolute top-4 right-4 z-50 flex gap-2">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={async (e) => {
-                                e.stopPropagation();
-                                if (currentUrl) await downloadFile(currentUrl, playingClip?.title || 'download');
-                            }}
-                            className="text-orange-500 hover:text-orange-400 hover:bg-black/20"
-                            title="Download"
-                        >
-                            <span className="material-symbols-outlined !text-3xl">download</span>
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={onClose}
-                            className="text-orange-500 hover:text-orange-400 hover:bg-black/20"
-                            title="Close"
-                        >
-                            <span className="material-symbols-outlined !text-3xl">close</span>
-                        </Button>
+                        {/* Save Reference Image (Images Only) */}
+                        {isImage && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                await archiveMedia(currentUrl);
+                                            }}
+                                            disabled={isArchiving}
+                                            className="text-orange-500 hover:text-orange-400 hover:bg-black/20"
+                                        >
+                                            {isArchiving ? <Loader2 className="h-6 w-6 animate-spin" /> : <span className="material-symbols-outlined !text-3xl">save</span>}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Save to local storage and set as permanent reference</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+
+                        {/* Download */}
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (currentUrl) await downloadFile(currentUrl, playingClip?.title || 'download');
+                                        }}
+                                        className="text-orange-500 hover:text-orange-400 hover:bg-black/40"
+                                    >
+                                        <span className="material-symbols-outlined !text-3xl">download</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Download File</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        {/* Close */}
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={onClose}
+                                        className="text-orange-500 hover:text-orange-400 hover:bg-black/40"
+                                    >
+                                        <span className="material-symbols-outlined !text-3xl">close</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Close</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
 
                     {/* Navigation Chevrons (Conditional on Playlist > 1) */}
@@ -181,34 +225,6 @@ export function VideoPlayerOverlay({
                             </button>
                         </>
                     )}
-
-                    {/* Bottom Controls Overlay (Save Ref Image) */}
-                    <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 z-40 flex justify-end items-end pointer-events-none">
-                        <div className="pointer-events-auto">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            size="sm"
-                                            variant="secondary"
-                                            className="bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md"
-                                            onClick={async (e) => {
-                                                e.stopPropagation();
-                                                await archiveMedia(currentUrl);
-                                            }}
-                                            disabled={isArchiving}
-                                        >
-                                            {isArchiving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <span className="material-symbols-outlined !text-sm mr-2">save</span>}
-                                            {isArchiving ? "Saving..." : "Save Reference Image"}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Download to local storage and set as permanent reference</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        </div>
-                    </div>
 
                     {isImage ? (
                         <img

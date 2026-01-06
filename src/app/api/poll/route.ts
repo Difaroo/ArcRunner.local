@@ -137,8 +137,36 @@ export async function POST(req: Request) {
                     updateCount++;
                 }
 
-            } catch (err) {
+            } catch (err: any) {
                 console.error(`[Poll] Error processing ${taskId}:`, err);
+
+                // CRITICAL UI FIX: If polling fails (e.g. 404, 500, or Network Error),
+                // Update the DB so the UI stops spinning and shows the error.
+                const failureMsg = err.message || "Polling Failed";
+
+                try {
+                    if (isLibrary) {
+                        await db.studioItem.update({
+                            where: { id: idInt },
+                            data: {
+                                status: 'Error',
+                                refImageUrl: failureMsg, // Store error in refImageUrl for Library items (convention)
+                                taskId: undefined // Clear task ID to stop polling
+                            }
+                        });
+                    } else {
+                        await db.clip.update({
+                            where: { id: idInt },
+                            data: {
+                                status: 'Error',
+                                resultUrl: failureMsg
+                            }
+                        });
+                    }
+                    updateCount++; // Count this as an update so frontend knows to refresh
+                } catch (dbErr) {
+                    console.error(`[Poll] Failed to persist error state for ${idInt}:`, dbErr);
+                }
             }
 
             // Artificial Delay to prevent API Rate Limits (5 requests per second?)

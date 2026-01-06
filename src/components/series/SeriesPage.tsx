@@ -250,7 +250,7 @@ export function SeriesPage({
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-col gap-1">
-                                                        <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                                                        <div className="flex justify-start gap-2 text-[10px] text-stone-400 font-mono">
                                                             <span>{data.count} / {totalGenerated} / {data.savedCount}</span>
                                                             <span>{savedProgress}%</span>
                                                         </div>

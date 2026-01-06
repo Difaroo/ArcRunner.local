@@ -147,8 +147,8 @@ export function ActionToolbar({
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
                                         <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
-                                        <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
-                                        {selectedModel === 'veo-fast' ? 'Veo Fast' : selectedModel === 'veo-quality' ? 'Veo Quality' : selectedModel === 'veo-s2e' ? 'Veo S2E' : selectedModel === 'flux-pro' ? 'Flux Pro' : selectedModel === 'flux-flex' ? 'Flux Flex' : selectedModel === 'nano-banana-pro' ? 'Nano' : 'Model'}
+
+                                        {selectedModel === 'veo-fast' ? 'Veo Fast' : selectedModel === 'veo-quality' ? 'Veo Quality' : selectedModel === 'veo-s2e' ? 'Veo Start 2 End' : selectedModel === 'flux-pro' ? 'Flux Pro' : selectedModel === 'flux-flex' ? 'Flux Flex' : selectedModel === 'nano-banana-pro' ? 'Nano' : 'Model'}
                                         <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -166,7 +166,7 @@ export function ActionToolbar({
                             Veo Quality
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onModelChange('veo-s2e')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
-                            Veo S2E (Start-to-End)
+                            Veo Start 2 End
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onModelChange('flux-pro')} className="focus:bg-stone-800 focus:text-white cursor-pointer">
                             Flux Pro (Image)
@@ -213,35 +213,35 @@ export function ActionToolbar({
 
                 {/* Style Selection */}
                 <DropdownMenu>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2 flex items-center gap-2">
-                                        <span className="text-zinc-500 font-semibold">STYLE</span>
-                                        <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
-                                        {currentStyle && (
-                                            <div
-                                                role="button"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    onStyleChange('');
-                                                }}
-                                                className="hover:bg-zinc-600 rounded-full h-4 w-4 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                                            >
-                                                <span className="material-symbols-outlined !text-[14px]">close</span>
-                                            </div>
-                                        )}
-                                        <span className="material-symbols-outlined !text-sm text-zinc-500">expand_more</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Select a visual style for the episode</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2 flex items-center gap-2 group">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span className="text-zinc-500 font-semibold cursor-help">STYLE</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Select a visual style for the episode</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
+                            <span className="material-symbols-outlined !text-sm text-zinc-500">expand_more</span>
+                            {currentStyle && (
+                                <div
+                                    role="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onStyleChange('');
+                                    }}
+                                    className="hover:bg-zinc-600 rounded-full h-4 w-4 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer z-50"
+                                >
+                                    <span className="material-symbols-outlined !text-[14px]">close</span>
+                                </div>
+                            )}
+                        </Button>
+                    </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
                         {availableStyles.map((style) => (
                             <DropdownMenuItem
