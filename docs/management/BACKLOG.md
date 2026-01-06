@@ -9,10 +9,10 @@
 - [ ] **Extended Edit Mode**: Expose other fields + controls in the inline edit view.
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
-- [ ] **Start-to-End Frame**:
-    - [ ] Capture frames of Clips (preview?).
-    - [ ] In/Out points for morphing?
-    - [ ] Complex actions/Clip types.
+- [x] **Start-to-End Frame**: (Released v0.16.0)
+    - [x] Capture frames of Clips (preview?).
+    - [x] In/Out points for morphing?
+    - [x] Complex actions/Clip types.
 
 ## 🎨 Studio Screen
 - [ ] **Seed Manager**: Manage/Recall favorite seeds.
