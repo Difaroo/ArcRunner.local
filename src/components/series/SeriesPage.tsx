@@ -190,6 +190,15 @@ export function SeriesPage({
                                                         id={`ep-num-${ep.id}`}
                                                         className="table-input h-8 w-12 p-1 text-center bg-stone-950 border-stone-800"
                                                         defaultValue={ep.id}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                const numInput = document.getElementById(`ep-num-${ep.id}`) as HTMLInputElement
+                                                                const titleInput = document.getElementById(`ep-title-${ep.id}`) as HTMLInputElement
+                                                                handleUpdateEpisode(ep.id, numInput.value, titleInput.value)
+                                                            } else if (e.key === 'Escape') {
+                                                                setEditingEpisodeId(null)
+                                                            }
+                                                        }}
                                                     />
                                                 ) : (
                                                     <span

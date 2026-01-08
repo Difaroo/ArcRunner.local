@@ -170,15 +170,28 @@ export function RowActions({
                 )}
             </div>
 
-            {/* STATUS TEXT */}
-            <div className={`text-[10px] text-stone-500 font-medium w-full mt-1 text-${alignStatus}`}>
+            {/* STATUS TEXT - Centered */}
+            <div className={`text-[10px] text-stone-500 font-medium w-full mt-1 text-center flex flex-col items-center`}>
                 {isDone ? (
                     <span className="text-stone-500 block">
                         {status?.startsWith('Saved') ? status : 'Ready'}
                     </span>
                 ) : null}
                 {isGenerating && <span className="text-primary/70 block">Gen...</span>}
-                {isError && <span className="text-destructive font-bold block">{status}</span>}
+                {isError && (
+                    <span className="text-destructive font-bold block leading-tight">
+                        Error
+                        {/* Show Details/Code if available */}
+                        {status.replace(/^(Error|Err)[:\s]*/i, '') && (
+                            <>
+                                <span className="block h-[1px]"></span>
+                                <span className="text-[9px] font-normal opacity-90 inline-block">
+                                    {status.replace(/^(Error|Err)[:\s]*/i, '')}
+                                </span>
+                            </>
+                        )}
+                    </span>
+                )}
             </div>
         </div>
     )

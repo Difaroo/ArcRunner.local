@@ -70,7 +70,8 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                             if (isMounted) refreshData(true);
                             zombieTracker.current.delete(c.id); // Reset
                         });
-                    } else {
+                    } else if (newCount > 1) {
+                        // Only refresh if it persists beyond the first detection (avoid race with initial API call)
                         console.log(`[Polling] Potential Zombie ${c.id} count: ${newCount}/3. Refreshing to check for ID...`);
                         if (isMounted) refreshData(true);
                     }

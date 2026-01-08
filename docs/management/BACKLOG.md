@@ -9,7 +9,14 @@
 - [ ] **Extended Edit Mode**: Expose other fields + controls in the inline edit view.
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
-- [x] **Start-to-End Frame**: (Released v0.16.0)
+## 🚀 Released v0.16.1 (Bugfix & Polish)
+- [x] **Spinner Flicker**: Fixed race condition in Poller that caused premature stops.
+- [x] **Style Payload Logic**: Fixed bug where style header was missing or incorrect for Text-Only styles.
+- [x] **Data Robustness**: Added grace periods to `usePolling` and `generate-manager`.
+- [x] **UI Polish**: Standardized Clip/Series views.
+
+## 🚀 Released v0.16.0 (Griffin)
+- [x] **Start-to-End Frame**:
     - [x] Capture frames of Clips (preview?).
     - [x] In/Out points for morphing?
     - [x] Complex actions/Clip types.

@@ -193,6 +193,7 @@ export function LibraryRow({
                         <Input
                             value={editValues.episode || ''}
                             onChange={e => handleChange('episode', e.target.value)}
+                            onKeyDown={e => e.key === 'Escape' && onCancelEdit()}
                             className="table-input h-full w-12 text-center"
                         />
                     ) : (
@@ -208,6 +209,7 @@ export function LibraryRow({
                         <Input
                             value={editValues.name || ''}
                             onChange={e => handleChange('name', e.target.value)}
+                            onKeyDown={e => e.key === 'Escape' && onCancelEdit()}
                             className="table-input h-full"
                         />
                     ) : (
@@ -262,6 +264,7 @@ export function LibraryRow({
                         <AutoResizeTextarea
                             value={editValues.description || ''}
                             onChange={e => handleChange('description', e.target.value)}
+                            onKeyDown={e => e.key === 'Escape' && onCancelEdit()}
                             className="min-h-[60px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
                         />
                     ) : (
@@ -277,6 +280,7 @@ export function LibraryRow({
                         <Input
                             value={editValues.negatives || ''}
                             onChange={e => handleChange('negatives', e.target.value)}
+                            onKeyDown={e => e.key === 'Escape' && onCancelEdit()}
                             className="table-input h-full"
                         />
                     ) : (
@@ -292,6 +296,7 @@ export function LibraryRow({
                         <Input
                             value={editValues.notes || ''}
                             onChange={e => handleChange('notes', e.target.value)}
+                            onKeyDown={e => e.key === 'Escape' && onCancelEdit()}
                             className="table-input italic h-full"
                         />
                     ) : (

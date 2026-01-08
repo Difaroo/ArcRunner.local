@@ -48,7 +48,12 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
 
         if (!res.ok) {
             console.error(`[KieFetch] RAW ERROR:`, JSON.stringify(data, null, 2));
-            throw new Error(data.error?.message || data.msg || JSON.stringify(data) || `Failed to call Kie.ai ${endpoint}`);
+            const errMsg = data.error?.message || data.msg || JSON.stringify(data) || `Failed to call Kie.ai ${endpoint}`;
+            const error: any = new Error(errMsg);
+            error.response = { status: res.status, data }; // Axios compatibility
+            error.status = res.status;
+            error.code = res.status; // Fallback code
+            throw error;
         }
         return data;
 

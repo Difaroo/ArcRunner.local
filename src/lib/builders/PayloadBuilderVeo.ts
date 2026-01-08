@@ -1,139 +1,80 @@
 import { PayloadBuilder, GenerationContext } from './PayloadBuilder';
+import { PromptConstructor } from './PromptConstructor';
 import { VeoPayload } from '@/lib/kie-types';
 
 export class PayloadBuilderVeo implements PayloadBuilder {
-
     supports(modelId: string): boolean {
         // Legacy: 'veo', 'veo-2', 'veo-fast' all map to this builder
         return modelId.startsWith('veo');
     }
 
     build(context: GenerationContext): VeoPayload {
-        try {
-            const { input, publicImageUrls } = context;
+        const { input } = context;
 
-            // --- DEFENSIVE: Resolve Resources ---
-            // Ensure strictly valid URLs (http/data). Filter out internal placeholders if any.
-            const validImageUrls = (publicImageUrls || []).filter(url =>
-                url && !url.startsWith('TASK:') && (url.startsWith('http') || url.startsWith('data:'))
-            );
+        // 1. Centralized Prompt & Image Selection
+        const constructed = PromptConstructor.construct(context);
+        const { prompt, imageUrls, warnings } = constructed;
 
-            // --- STEP 1: Resolve Descriptions (Fail-Safe Defaults) ---
-            // Prioritize computed descriptions from Manager, fallback to raw Clip data
-            const styleDesc = input.styleDescription || input.styleName || input.clip.style || "Cinematic";
-            const styleNegs = input.styleNegatives || "";
-
-            // Construct Subject Description if not pre-computed
-            const subjectDesc = input.subjectDescription ||
-                `${input.clip.character || ""} ${input.clip.action || ""} at ${input.clip.location || ""}. ${input.clip.camera || ""} shot.`;
-            const subjectNegs = input.subjectNegatives || "";
-
-            // --- STEP 2: Logic - Dynamic Numbering (Nano Parity) ---
-            // Calculate which image index defines the Style vs Content
-            const styleIdx = input.styleImageIndex;
-            let stylePos = "N+1";
-            let contentRange = "1-N";
-
-            if (styleIdx !== undefined && styleIdx >= 0) {
-                // Explicit index provided
-                const n = styleIdx;
-                stylePos = `Image ${n + 1}`;
-                contentRange = n > 0 ? (n === 1 ? "Image 1" : `Images 1-${n}`) : "None";
-            } else if (validImageUrls.length > 1) {
-                // Auto-detect: If >1 image, assume last one (or 2nd) is style? 
-                // Matching Nano logic: Assume Input[Last] is style for now.
-                // NOTE: For S2E (2 images), this means End Frame is treated as "Style".
-                stylePos = `Image ${validImageUrls.length}`;
-                contentRange = validImageUrls.length > 1 ? `Images 1-${validImageUrls.length - 1}` : "Image 1";
-            }
-
-            // Strength Calculation (1-10 -> 10-100%)
-            const strengthPct = Math.round((input.styleStrength || 5) * 10);
-
-            // --- STEP 3: Prompt Construction (Rich Template) ---
-            // Using "Hardcoded Pro" template from Nano for consistency
-            const lines = [
-                `[SYSTEM: PRIORITY RULE:`,
-                `${stylePos} defines the STYLE for the OUTPUT.`,
-                `IGNORE the subject of ${stylePos}.`,
-                `]`,
-                ``,
-                `STYLE: High fidelity ${stylePos} STYLE:`,
-                ``,
-                `[${styleDesc}]`,
-                `[${styleNegs}]`,
-                ``,
-                `OUTPUT SUBJECT:`,
-                `SUBJECT IMAGES [SUBJECT STUDIO ASSET REF IMAGES ${contentRange}]`,
-                `[${subjectDesc}]`,
-                `[${subjectNegs}]`,
-                ``,
-                `[INSTRUCTION: Preserve the identity and purpose of the OUTPUT SUBJECT. Apply the ${stylePos} STYLE: Facial style: ${strengthPct}%, Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality: to the OUTPUT SUBJECT.]`
-            ];
-
-            let finalPrompt = lines.join('\n');
-
-            // Fallback: If description components were empty/invalid, revert to basic prompt?
-            // Actually, the template handles empty values gracefully via defaults above.
-            // Safety check: specific length limit? Veo might have one.
-            if (finalPrompt.length > 5000) {
-                console.warn('[PayloadBuilderVeo] Prompt too long, truncating to 5000 chars.');
-                finalPrompt = finalPrompt.substring(0, 4997) + '...';
-            }
-
-            // --- STEP 4: Payload Assembly ---
-            const payload: VeoPayload = {
-                model: 'veo3_fast', // Strict match user requirement
-                prompt: finalPrompt,
-                aspectRatio: input.aspectRatio || '16:9',
-                durationType: input.clip.duration || '5',
-                enableTranslation: true,
-                enableFallback: true
-            };
-
-            // Attach Images (Defensive Check)
-            if (input.model === 'veo-s2e') {
-                // S2E requires 2 images (Start & End)
-                if (validImageUrls.length >= 2) {
-                    payload.imageUrls = validImageUrls.slice(0, 2); // Strict: Top 2
-                    payload.generationType = 'IMAGE_TO_VIDEO';
-                } else if (validImageUrls.length === 1) {
-                    console.warn('[PayloadBuilderVeo] S2E requested but only 1 image found. Falling back to REFERENCE_2_VIDEO.');
-                    // Determine user intent here. If they selected S2E but only have 1 image,
-                    // do we fall back to Ref-2-Video (Image 1->Start) or Text?
-                    // Logic: "Ref 2 Video" is better than failure.
-                    payload.imageUrls = validImageUrls;
-                    payload.generationType = 'REFERENCE_2_VIDEO';
-                } else {
-                    console.warn('[PayloadBuilderVeo] S2E requested but 0 images found. Falling back to TEXT_2_VIDEO.');
-                    // 0 Images -> Fallback to Text
-                    payload.generationType = 'TEXT_2_VIDEO';
-                }
-            } else if (validImageUrls.length > 0) {
-                payload.imageUrls = validImageUrls;
-                payload.generationType = 'REFERENCE_2_VIDEO';
-            } else {
-                payload.generationType = 'TEXT_2_VIDEO';
-            }
-
-            // Safety: ensure duration is valid string '5' or '10'?
-            if (payload.durationType !== '5' && payload.durationType !== '10') {
-                payload.durationType = '5';
-            }
-
-            return payload;
-
-        } catch (error) {
-            console.error('[PayloadBuilderVeo] Critical Error building payload:', error);
-            // Emergency Fallback to prevent crash
-            // Return a minimal valid payload to allow error to propagate from API rather than Client crash
-            return {
-                model: 'veo3_fast',
-                prompt: context.input.styleDescription || "Emergency Fallback Prompt",
-                generationType: 'TEXT_2_VIDEO', // Safe default
-                aspectRatio: '16:9',
-                durationType: '5'
-            };
+        if (warnings.length > 0) {
+            console.warn('[PayloadBuilderVeo] Warnings:', warnings);
         }
+
+        // 2. Veo Specifics - Determine Generation Type
+        const requestedModel = input.model || 'veo3_fast';
+        let generationType = 'TEXT_TO_VIDEO';
+
+        if (input.model === 'veo-s2e') {
+            // S2E Requested
+            if (imageUrls.length >= 2) {
+                generationType = 'IMAGE_TO_VIDEO'; // Strict S2E
+            } else if (imageUrls.length === 1) {
+                // Fallback handled by PromptConstructor selection (returns 1 image)
+                generationType = 'REFERENCE_2_VIDEO';
+                console.warn('[PayloadBuilderVeo] S2E requested but <2 images. Fallback to Ref-2-Video.');
+            } else {
+                generationType = 'TEXT_2_VIDEO';
+                console.warn('[PayloadBuilderVeo] S2E requested but 0 images. Fallback to T2V.');
+            }
+        } else {
+            // Standard Veo logic
+            if (imageUrls.length > 0) {
+                generationType = 'REFERENCE_2_VIDEO'; // Standard I2V
+                // Note: Veo API might treat >1 image as "Start/End" if mode is I2V?
+                // Verify API docs: usually I2V takes array. 
+                // If standard Veo, we probably want I2V prompt logic which PromptConstructor provided.
+            } else {
+                generationType = 'TEXT_2_VIDEO';
+            }
+        }
+
+        // Map UI model selection to API Model ID
+        let apiModelId = 'veo3_fast';
+        const isTextOnly = imageUrls.length === 0;
+
+        if (input.model === 'veo-quality') {
+            if (isTextOnly) {
+                apiModelId = 'veo3'; // Quality allowed for Text-Only
+            } else {
+                // API CONSTRAINT: Reference-to-Video only supports Veo Fast.
+                // We must downgrade to Fast if images are present.
+                apiModelId = 'veo3_fast';
+                console.warn('[PayloadBuilderVeo] Downgrading Veo Quality to Fast: Reference Images require Fast model.');
+            }
+        } else if (input.model === 'veo-s2e') {
+            apiModelId = 'veo3_fast';
+        }
+
+        // 3. Payload Assembly
+        return {
+            taskType: generationType,
+            generationType: generationType, // Add matching interface key
+            model: apiModelId,
+            prompt: prompt, // Use the constructed prompt
+            imageUrls: imageUrls, // Use the selected images
+            aspectRatio: input.aspectRatio || "16:9",
+            durationType: (input.clip.duration && input.clip.duration === '10s') ? '10' : '5',
+            enableTranslation: true,
+            enableFallback: true
+        };
     }
 }

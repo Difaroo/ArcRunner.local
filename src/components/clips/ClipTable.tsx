@@ -1,7 +1,7 @@
 import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ClipRow } from "./ClipRow"
-import { Clip } from "@/app/api/clips/route"
+import { Clip } from "@/types"
 import { useState, useEffect } from "react"
 import {
     DndContext,
@@ -72,7 +72,21 @@ export function ClipTable({
     const [orderedClips, setOrderedClips] = useState(clips)
 
     useEffect(() => {
-        setOrderedClips(clips)
+        // Smarter Update: Preserve current sort order, but update data content
+        setOrderedClips(currentOrdered => {
+            const clipMap = new Map(clips.map(c => [c.id, c]))
+
+            // 1. Update existing items in their current order
+            const updated = currentOrdered
+                .filter(c => clipMap.has(c.id))
+                .map(c => clipMap.get(c.id)!)
+
+            // 2. Identify and Append new items (additions)
+            const currentIds = new Set(currentOrdered.map(c => c.id))
+            const newItems = clips.filter(c => !currentIds.has(c.id))
+
+            return [...updated, ...newItems]
+        })
     }, [clips])
 
     const sensors = useSensors(

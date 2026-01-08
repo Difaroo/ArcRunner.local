@@ -2,6 +2,22 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-08: v0.16.1 - Phoenix Robustness (Spinner Fix)
+
+### Context
+A critical polish release addressing a "Spinner Flicker" bug where transient API behavior caused the generation UI to stall prematurely.
+
+### Changes
+- **Polling Robustness**:
+    - **Anti-Flicker**: Patched `usePolling` with a grace period for new tasks (count > 1) to prevent "Zero Task ID" race conditions from triggering aggressive resets.
+    - **Logic**: Poller now ignores "Generating but no ID" state during the initial 10-15s upload window.
+- **Payload Logic**:
+    - **Style**: Verified and fixed logic where "Text Only" styles (no reference image) correctly suppress the automatic "Defined by IMAGE X" header.
+- **Documentation**:
+    - **Backlog**: Archived completed v0.16.0 items.
+    - **Manual**: Updated notes on Style Description data hygiene.
+- **Version Bump**: 0.16.0 -> 0.16.1.
+
 ## 2026-01-06: v0.16.0 - Griffin (Veo S2E & Polling Robustness)
 
 ### Context

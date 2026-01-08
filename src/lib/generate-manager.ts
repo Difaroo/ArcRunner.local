@@ -19,7 +19,7 @@ export interface GenerateTaskInput {
     // Usually prompt is built from clip fields.
 
     // Or we accept the full Clip object?
-    clip: Clip & { prompt?: string, duration?: string }; // Extended for legacy/UI fields
+    clip: Clip & { prompt?: string, duration?: string, explicitRefUrls?: string }; // Extended for legacy/UI fields
 
     // Diagnosis
     dryRun?: boolean;
@@ -133,8 +133,14 @@ export class GenerateManager {
             // -- Style --
             const styleName = input.clip.style || "";
             const styleItem = findItem(styleName, 'LIB_STYLE');
-            input.styleName = styleName;
-            input.styleDescription = styleItem?.description || styleName;
+
+            if (!styleItem && styleName) {
+                console.warn(`[GenerateManager] Style '${styleName}' not found in library. Ignoring to prevent phantom text styles.`);
+            }
+
+            input.styleName = styleItem ? styleName : "";
+            // FIX: Do NOT fallback to styleName if item is missing. This prevents "Ghost Styles" (e.g. renamed/deleted assets) from persisting as text prompts.
+            input.styleDescription = styleItem?.description || "";
             input.styleNegatives = styleItem?.negatives || "";
 
             // -- Character / Subject --
@@ -147,20 +153,34 @@ export class GenerateManager {
             const camName = input.clip.camera || "";
             const camItem = findItem(camName, 'LIB_CAMERA');
 
-            // Construct Composite Subject Description
+            // Construct Composite Subject Description (Strict Order: Loc -> Char -> Action -> Dialog -> Cam)
             const parts = [];
+
+            // 1. Location
+            if (locItem?.description) {
+                // USER REQUEST: Insert "LOCATION: [Name]:" label
+                const nameLabel = locName ? `LOCATION: ${locName}: ` : 'LOCATION: ';
+                parts.push(`${nameLabel}At ${locItem.description}`);
+            }
+            else if (locName) parts.push(`LOCATION: ${locName}: At ${locName}`);
+
+            // 2. Characters
             if (charItems.length > 0) parts.push(charItems.map((i: any) => i.description || i.name).join(' and '));
             else if (input.clip.character) parts.push(input.clip.character);
 
-            if (input.clip.action) parts.push(input.clip.action);
+            // 3. Action
+            if (input.clip.action) {
+                parts.push(`ACTION: ${input.clip.action}`);
+            }
 
-            if (locItem?.description) parts.push(`at ${locItem.description}`);
-            else if (locName) parts.push(`at ${locName}`);
+            // 4. Dialog (New)
+            if (input.clip.dialog) parts.push(`Character says: "${input.clip.dialog}"`);
 
+            // 5. Camera
             if (camItem?.description) parts.push(`${camItem.description} shot.`);
             else if (camName) parts.push(`${camName} shot.`);
 
-            input.subjectDescription = parts.join(' ');
+            input.subjectDescription = parts.join('. '); // Use period separator for clarity
 
             // Collect Negatives
             const subjNegs = [
@@ -178,42 +198,51 @@ export class GenerateManager {
             });
 
             // --- UNIFIED BUILDER PATTERN ---
-            // Works for both Veo (Video) and Flux (Image)
             const builder = BuilderFactory.getBuilder(model);
             if (!builder) throw new Error(`Model not supported: ${model}`);
 
+            // 1. Resolve Granular Images to Public URLs
+            const ensureList = async (urls: string[]) => {
+                const results = await Promise.allSettled(urls.map(u => this.ensurePublicUrl(u)));
+                return results.map(r => {
+                    if (r.status === 'fulfilled') return (r as PromiseFulfilledResult<string>).value;
+                    console.error('[GenerateManager] Image Upload Failed, skipping slot:', r.reason);
+                    return ""; // Return empty string to preserve index alignment (Robustness)
+                });
+            };
+
+            // Style Image
+            let publicStyleImage: string | null = null;
+            if (styleItem?.refImageUrl) {
+                const [res] = await ensureList([styleItem.refImageUrl]);
+                publicStyleImage = res || null;
+            }
+
+            // Character Images
+            const rawCharUrls = characterImageUrls; // From shared-resolver
+            const publicCharImages = await ensureList(rawCharUrls);
+
+            // Location Images
+            const rawLocUrls = locationImageUrls; // From shared-resolver
+            const publicLocImages = await ensureList(rawLocUrls);
+
+            // Explicit Images (Clip Refs) - Note: shared-resolver mixing explicit+lib is tricky.
+            // resolveClipImages returns 'explicitRefs' as comma-joined string.
+            const rawExplicit = (input.clip.explicitRefUrls || input.clip.refImageUrls || "").split(',').map((s: string) => s.trim()).filter(Boolean);
+            const publicExplicitImages = await ensureList(rawExplicit);
+
+            // Legacy Fallback (keeping fullRefs for safety if needed, but PromptConstructor should use granular)
             let publicImageUrls: string[] = [];
             if (fullRefs) {
                 const rawUrls = fullRefs.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
-
-                // Robustness: Use allSettled to ensure one bad link doesn't kill usage of others
-                const results = await Promise.allSettled(rawUrls.map(url => this.ensurePublicUrl(url)));
-
-                publicImageUrls = results
-                    .filter(r => r.status === 'fulfilled')
-                    .map(r => (r as PromiseFulfilledResult<string>).value);
-
-                // Log failures for visibility
-                results.forEach((r, i) => {
-                    if (r.status === 'rejected') {
-                        console.warn(`[GenerateManager] Failed to resolve ref image '${rawUrls[i]}':`, r.reason);
-                    }
-                });
+                publicImageUrls = await ensureList(rawUrls);
             }
 
             // --- FLUX T2I PATCH ---
             // 'flux-2/flex-image-to-image' requires input_urls to be non-empty.
-            // If we have no images (Text-to-Image), we must inject a dummy placeholder.
-            if (!isVideo && publicImageUrls.length === 0) {
-                console.log('[GenerateManager] No input images found for Flux. Injecting dummy placeholder for T2I.');
+            if (!isVideo && publicImageUrls.length === 0 && publicExplicitImages.length === 0 && publicCharImages.length === 0 && publicLocImages.length === 0 && !publicStyleImage) {
+                console.log('[GenerateManager] No input images found for Flux. Injecting dummy placeholder.');
                 try {
-                    const dummyPath = '/api/media/defaults/empty.png';
-                    // We need to resolve this local path to a public URL via upload
-                    // ensurePublicUrl handles /api/ paths nicely?
-                    // Wait, ensurePublicUrl handles /api/media/uploads/ or /api/images/
-                    // I need to make sure ensurePublicUrl can handle this path or just manually do it.
-
-                    // Let's modify ensurePublicUrl logic slightly or just duplicate the logic here for safety
                     const filePath = path.join(process.cwd(), 'storage/media/defaults/empty.png');
                     if (fs.existsSync(filePath)) {
                         const fileBuffer = await fs.promises.readFile(filePath);
@@ -221,11 +250,10 @@ export class GenerateManager {
                         const uploadRes = await uploadFileBase64(base64, "empty.png");
                         const publicUrl = uploadRes.data?.url || uploadRes.url || (uploadRes.data as any)?.downloadUrl;
                         if (publicUrl) {
-                            publicImageUrls.push(publicUrl);
-                            console.log('[GenerateManager] Dummy injected:', publicUrl);
+                            publicImageUrls.push(publicUrl); // Legacy
+                            // Should we push to explicit? No, keep it separate or let Builder handle fallback?
+                            // Let's rely on legacy publicImageUrls for the failsafe.
                         }
-                    } else {
-                        console.error('[GenerateManager] CRITICAL: Dummy image missing at', filePath);
                     }
                 } catch (e) {
                     console.error('[GenerateManager] Failed to inject dummy image:', e);
@@ -234,11 +262,31 @@ export class GenerateManager {
 
             let payload;
             try {
-                payload = builder.build({ input, publicImageUrls });
+                payload = builder.build({
+                    input,
+                    publicImageUrls,
+                    characterImages: publicCharImages,
+                    locationImages: publicLocImages,
+                    explicitImages: publicExplicitImages,
+                    styleImage: publicStyleImage,
+
+                    // Rich Asset Data
+                    locationAsset: locItem ? { name: locName, description: locItem.description || "", negatives: locItem.negatives || "" } : undefined,
+                    characterAssets: charItems.map((c: any) => ({
+                        name: c.name,
+                        description: c.description || "",
+                        negatives: c.negatives || "",
+                        refImageUrl: c.refImageUrl || undefined // Pass DB URL for linkage
+                    })),
+                    styleAsset: styleItem ? { description: styleItem.description || "", negatives: styleItem.negatives || "" } : undefined,
+                    cameraAsset: camItem ? { description: camItem.description || "", negatives: camItem.negatives || "" } : undefined
+                });
             } catch (builderError: any) {
                 console.error('[GenerateManager] Builder Failed:', builderError);
                 throw new Error(`Builder Error: ${builderError.message}`);
             }
+
+
 
             if (input.dryRun) {
                 // @ts-ignore
@@ -284,25 +332,43 @@ export class GenerateManager {
 
         } catch (error: any) {
             console.error(`[GenerateManager] Fatal Error:`, error);
+            // DEBUG: Log full structure to identify missing code
+            try {
+                const debugObj = JSON.parse(JSON.stringify(error, Object.getOwnPropertyNames(error)));
+                console.error('[GenerateManager] FULL ERROR STRUCTURE:', JSON.stringify(debugObj, null, 2));
+            } catch (e) { console.error('Error logging error', e); }
 
             // Enhanced Error Reporting
             if (error.response) {
                 console.error('[GenerateManager] API Error Response Status:', error.response.status);
-                console.error('[GenerateManager] API Error Data:', JSON.stringify(error.response.data, null, 2));
-            } else if (error.cause) {
-                console.error('[GenerateManager] Error Cause:', error.cause);
+                // console.error('[GenerateManager] API Error Data:', JSON.stringify(error.response.data, null, 2));
             }
 
             // Robust Error Parsing
             let statusMsg = 'Error';
             const msg = (error.message || String(error)).toLowerCase();
 
-            if (msg.includes('500')) statusMsg = 'Error 500';
+            // Attempt to capture specific status code if available
+            if (error.response?.status) statusMsg = `Error ${error.response.status}`;
+            else if (error.status) statusMsg = `Error ${error.status}`;
+            else if (error.code) statusMsg = `Error ${error.code}`; // Moved up for priority
+
+            // Semantic overrides
+            else if (msg.includes('500')) statusMsg = 'Error 500';
             else if (msg.includes('400')) statusMsg = 'Error 400';
             else if (msg.includes('422')) statusMsg = 'Error 422'; // Validation
             else if (msg.includes('upload failed')) statusMsg = 'Upload Err';
             else if (msg.includes('file not found')) statusMsg = 'File 404';
-            else if (msg.includes('fetch')) statusMsg = 'Net Err';
+            else if (msg.includes('fetch') || msg.includes('network')) statusMsg = 'Net Err';
+
+            // Final Fallback: Use the Error Message itself (Truncated) if strictly "Error"
+            if (statusMsg === 'Error') {
+                // Clean prompt prefix if present? No, just take first 15 chars
+                // e.g. "Error: Unprocessable" -> "Error Unprocess"
+                const cleanMsg = (error.message || "Unknown").replace(/^Error:?\s*/i, '');
+                // Take first 12 chars to fit UI (e.g. "Bad Request")
+                statusMsg = `Error ${cleanMsg.substring(0, 12)}`;
+            }
 
             // Ensure we update status even if it fails
             try {

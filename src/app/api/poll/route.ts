@@ -138,10 +138,33 @@ export async function POST(req: Request) {
                 }
 
             } catch (err: any) {
-                console.error(`[Poll] Error processing ${taskId}:`, err);
+                console.error(`[Poll] Error checking ${taskId}:`, err);
 
-                // CRITICAL UI FIX: If polling fails (e.g. 404, 500, or Network Error),
-                // Update the DB so the UI stops spinning and shows the error.
+                // --- ROBUST ERROR HANDLING ---
+                // Do NOT fail the task in DB if the error is transient (Network, Timeout, 5xx)
+                // This allows the next poll cycle to retry.
+
+                let isTransient = false;
+                const msg = (err.message || "").toLowerCase();
+
+                // 1. Timeout / Network
+                if (msg.includes('timed out') || msg.includes('fetch failed') || msg.includes('network') || err.name === 'AbortError') {
+                    isTransient = true;
+                }
+
+                // 2. Server Errors (5xx)
+                // If Kie is overloaded (502/503/504), wait it out.
+                if (err.status && err.status >= 500) {
+                    isTransient = true;
+                }
+
+                if (isTransient) {
+                    console.warn(`[Poll] Transient Error for ${taskId}. Skipping status update to allow retry. Reason: ${msg}`);
+                    // Continue to next item without modifying DB
+                    continue;
+                }
+
+                // If error is Terminal (4xx, or explicit API failure), fail the task.
                 const failureMsg = err.message || "Polling Failed";
 
                 try {
@@ -150,8 +173,8 @@ export async function POST(req: Request) {
                             where: { id: idInt },
                             data: {
                                 status: 'Error',
-                                refImageUrl: failureMsg, // Store error in refImageUrl for Library items (convention)
-                                taskId: undefined // Clear task ID to stop polling
+                                refImageUrl: failureMsg,
+                                taskId: undefined
                             }
                         });
                     } else {
@@ -163,7 +186,7 @@ export async function POST(req: Request) {
                             }
                         });
                     }
-                    updateCount++; // Count this as an update so frontend knows to refresh
+                    updateCount++; // Trigger frontend refresh
                 } catch (dbErr) {
                     console.error(`[Poll] Failed to persist error state for ${idInt}:`, dbErr);
                 }

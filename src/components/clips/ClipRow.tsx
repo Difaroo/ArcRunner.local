@@ -547,8 +547,14 @@ export function ClipRow({
 
             <TableCell className="align-top py-3 w-[80px] text-left">
                 {/* RESULT Column using MediaDisplay */}
-                {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status === 'Error') && clip.resultUrl && (
-                    <div className="flex justify-start">
+                {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status?.startsWith('Error')) && clip.resultUrl && (
+                    <div className={`flex justify-start relative ${clip.status?.startsWith('Error') ? 'opacity-50 grayscale border-red-500 border-2 rounded-md' : ''}`}>
+                        {/* Visual Warning for Stale/Error State */}
+                        {clip.status?.startsWith('Error') && (
+                            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                <span className="material-symbols-outlined text-red-500 bg-black/50 rounded-full p-1">warning</span>
+                            </div>
+                        )}
                         <MediaDisplay
                             url={clip.resultUrl}
                             originalUrl={clip.resultUrl}

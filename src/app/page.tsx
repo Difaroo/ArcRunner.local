@@ -1102,7 +1102,9 @@ export default function Home() {
       // Use Episode Style if available, otherwise fallback to clip style (which might be empty now)
       // Actually, user said "Make clip render function reference episode STYLE for all clips of the Ep"
       // So we override the clip's style with the Episode Style.
-      const styleToUse = currentStyle || clip.style;
+      // Use Episode Style if available. LEGACY FALLBACK REMOVED.
+      // We no longer fallback to clip.style to prevent confusion with old sheet data.
+      const styleToUse = currentStyle || "";
 
       // Default to Image (Flux) if not explicitly Video (Veo) to prevent accidental cost
       const isVideo = selectedModel.startsWith('veo');
@@ -1213,7 +1215,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.16.0 Griffin</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.16.1 Phoenix</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1518,7 +1520,7 @@ export default function Home() {
                 currentEpKey={currentEpKey}
                 totalClips={activeClips.length}
                 readyClips={activeClips.filter(c => c.status === 'Done').length}
-                selectedCount={selectedIds.size}
+                selectedCount={activeClips.filter(c => selectedIds.has(c.id)).length}
                 onGenerateSelected={handleGenerateSelected}
                 onDownloadSelected={handleDownloadSelected}
                 selectedModel={selectedModel}

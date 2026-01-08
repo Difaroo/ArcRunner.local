@@ -212,51 +212,56 @@ export function ActionToolbar({
                 </DropdownMenu>
 
                 {/* Style Selection */}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2 flex items-center gap-2 group">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="text-zinc-500 font-semibold cursor-help">STYLE</span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Select a visual style for the episode</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                            <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
-                            <span className="material-symbols-outlined !text-sm text-zinc-500">expand_more</span>
-                            {currentStyle && (
-                                <div
-                                    role="button"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        onStyleChange('');
-                                    }}
-                                    className="hover:bg-zinc-600 rounded-full h-4 w-4 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer z-50"
+                <div className="relative group">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white ml-2 flex items-center gap-2 pr-8">
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className="text-zinc-500 font-semibold cursor-help">STYLE</span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Select a visual style for the episode</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
+                                <span className="material-symbols-outlined !text-sm text-zinc-500">expand_more</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
+                            {availableStyles.map((style) => (
+                                <DropdownMenuItem
+                                    key={style}
+                                    onClick={() => onStyleChange(style)}
+                                    className="focus:bg-stone-800 focus:text-white cursor-pointer"
                                 >
-                                    <span className="material-symbols-outlined !text-[14px]">close</span>
-                                </div>
+                                    {style}
+                                </DropdownMenuItem>
+                            ))}
+                            {availableStyles.length === 0 && (
+                                <div className="p-2 text-xs text-stone-500">No styles found in Studio</div>
                             )}
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
-                        {availableStyles.map((style) => (
-                            <DropdownMenuItem
-                                key={style}
-                                onClick={() => onStyleChange(style)}
-                                className="focus:bg-stone-800 focus:text-white cursor-pointer"
-                            >
-                                {style}
-                            </DropdownMenuItem>
-                        ))}
-                        {availableStyles.length === 0 && (
-                            <div className="p-2 text-xs text-stone-500">No styles found in Studio</div>
-                        )}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Separate Clear Button - Positioned consistently */}
+                    {currentStyle && (
+                        <div
+                            role="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onStyleChange('');
+                            }}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-zinc-600 rounded-full h-5 w-5 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer z-50 bg-stone-900/50"
+                            title="Clear Style"
+                        >
+                            <span className="material-symbols-outlined !text-[14px]">close</span>
+                        </div>
+                    )}
+                </div>
 
 
                 <div className="h-4 w-px bg-zinc-700"></div>
@@ -266,7 +271,7 @@ export function ActionToolbar({
 
                     {/* Selected Count */}
                     <span className={`text-xs font-medium uppercase transition-colors mr-1 ${selectedCount > 0 ? "text-primary" : "text-zinc-600"}`}>
-                        {selectedCount} SELECTED
+                        {selectedCount}&nbsp;SELECTED
                     </span>
 
                     {/* Generate Button opens Dialog */}

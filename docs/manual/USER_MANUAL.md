@@ -36,30 +36,39 @@ When generating multiple items (Clips or Library Assets), a **Confirmation Dialo
 - **Persistence**: Application state (Series, Episodes) is stored in a local SQLite database (`v0.15_RECOVERY_DATA.db`) but presented via the robust v0.14.2 UI.
 - **Polling**: Background polling ensures generation status updates are reflected in near real-time.
 
-## Prompt Mechanics (New in v0.15)
-The generation engine now uses specialized "Builders" for each model type, ensuring optimal prompt construction.
+## Prompt Logic & Architecture (v0.16.0 Matrix)
 
-### Flux (Image)Builder
-- **Sandwich Prompt Logic**: 
-  - **Start**: Reference Image 1 (Subject)
-  - **Middle**: Prompt Text + Style Description
-  - **End**: Reference Image 3 (Style)
-- **Guidance Scale**: Auto-calculated based on "Style Strength". 
-  - Formula: `1.5 + ((strength - 1) * (8.5 / 9))`.
-  - Default: ~5.0.
+The system uses a deterministic "Logic Matrix" to construct payloads based on the Model and Input availability. This ensures optimal behavior without manual configuration.
 
-### Veo (Video) Builder
-- **Dynamic Numbering**: Automatically rewrites prompts to reference "Image 1", "Image 2" etc.
-- **Duration**: Defaults to 5 seconds unless explicitly set to 10.
-- **Veo S2E (Start-to-End)**:
-    - **Purpose**: Generates video transitioning from a Start Frame to an End Frame.
-    - **Requirements**:
-        - **Image 1**: Start Frame.
-        - **Image 2**: End Frame.
-    - **Fallback Behavior**:
-        - **1 Image**: Falls back to "Reference-to-Video" using Image 1 as Start (Standard behavior).
-        - **0 Images**: Falls back to "Text-to-Video".
+### The 5 Logic States
+
+| State | Model | Inputs | Logic Behavior | API Task Type |
+| :--- | :--- | :--- | :--- | :--- |
+| **A** | **Flux** | 1+ Images | **Legacy Sandwich**: Image 1 (Subject) + Prompt + Image 3 (Style) | N/A (Image) |
+| **B** | **Flux/Veo** | Text + Style | **Text Style**: Applies style via text prompting only. | `TEXT_2_VIDEO` |
+| **C** | **Veo Rep** | 1-3 Images | **Reference Mode**: Uses up to 3 images as "Character/Location" references. | `REFERENCE_2_VIDEO` |
+| **D** | **Veo** | 0 Images | **Text Only**: Pure text-to-video generation. | `TEXT_2_VIDEO` |
+| **E** | **Veo S2E** | 2 Images | **Start-to-End**: Transitions strictly from Image 1 to Image 2. | `IMAGE_TO_VIDEO` |
+
+### Image Hierarchy
+When resolving multiple images (e.g., Location + Characters), the system fills slots in this priority order (Max 3):
+1.  **Location** (Always Image 1 if present)
+2.  **Character 1**
+3.  **Character 2** / Reference
+*Note: If a Style Image is active (State C), it takes the LAST slot.*
+
+### Validation & Fallback
+-   **S2E Safety**: If "Veo Start 2 End" is selected but only 1 image is available, the system automatically downgrades to **State C (Reference Mode)** to prevent errors.
+-   **Ghost Images**: The system validates exact URL existence. Empty names or "undefined" strings are filtered out before payload construction.
+
+### Veo Builder Specifics
+-   **Dynamic Numbering**: Automatically rewrites prompts to reference "[Image 1]", "[Image 2]" corresponding to the Legend.
+-   **Duration**: Defaults to 5 seconds unless explicitly set to 10.
 
 ### Nano (Experimental)
-- Uses "Hardcoded Pro" template similar to Flux but optimized for speed.
+- Uses "Hardcoded Pro" template similar to Flux but optimized for self-hosting speed.
 - Enforces strict aspect ratio handling.
+
+## Data Hygiene: Style Descriptions
+**Critical Note**: When using "Text Only" styles (State B or D), ensure your Style Asset's text description does NOT contain phrases like "Follow STYLE REFERENCE IMAGE". Using such text without an actual image attached may confuse the model or cause it to hallucinate an image source.
+
