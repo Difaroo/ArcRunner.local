@@ -210,11 +210,22 @@ export function ClipRow({
         const updates: Partial<Clip> = {};
         const normalize = (val: any) => val === undefined || val === null ? '' : String(val);
 
+        // STRICT WHITELIST: Only allow editing fields that are exposed in the UI.
+        // This prevents accidental overwrite of system fields (resultUrl, status) via stale local state.
+        const ALLOWED_FIELDS: Array<keyof Clip> = [
+            'action',
+            'negativePrompt',
+            'dialog',
+            'episode',
+            'refImageUrls', // Mapped to explicitRefUrls
+            'character',
+            'location',
+            // Add other editable fields here if needed (e.g. shotType, camera).
+            // DO NOT INCLUDE: resultUrl, status, taskId.
+        ];
+
         (Object.keys(editValues) as Array<keyof Clip>).forEach(key => {
-            // EXCLUDE SYSTEM FIELDS from being overwritten by potentially stale local state
-            if (['resultUrl', 'status', 'taskId', 'thumbnailPath', 'createdAt', 'updatedAt'].includes(key as string)) {
-                return;
-            }
+            if (!ALLOWED_FIELDS.includes(key)) return;
 
             const currentVal = editValues[key];
             let originalVal;

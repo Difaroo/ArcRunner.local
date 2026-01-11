@@ -19,10 +19,13 @@ export async function POST(request: Request) {
 
         // Map updates to Prisma fields
         // Frontend sends keys that mostly match Prisma, but let's be safe.
+        // CRITICAL SECURITY FIX: STRICT WHITELIST
+        // We REMOVE 'resultUrl', 'status', 'taskId' from this list.
+        // These fields MUST ONLY be updated by the System (Polling/Generation), not by User Edits.
         const validFields = [
-            'status', 'title', 'character', 'location', 'style', 'camera',
-            'action', 'dialog', 'refImageUrls', 'seed', 'resultUrl', 'model', 'sortOrder',
-            'negativePrompt', 'isHiddenInStoryboard'
+            'title', 'character', 'location', 'style', 'camera',
+            'action', 'dialog', 'refImageUrls', 'seed', 'model', 'sortOrder',
+            'negativePrompt', 'isHiddenInStoryboard', 'explicitRefUrls' // Added explicitRefUrls
         ];
 
         const prismaData: any = {};
