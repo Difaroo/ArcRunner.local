@@ -58,10 +58,24 @@ export class PayloadBuilderKling implements PayloadBuilder {
         // 5. Model ID
         const model = 'kling-2.6/image-to-video';
 
+        // 6. Prompt Safety (Truncation)
+        // Kling 2.6 has a strict limit (approx 2000-2500 chars).
+        // StandardSchema can be very verbose (Bios + Style + Instructions).
+        // We truncate to 2000 to be safe.
+        let finalPrompt = prompt;
+        const MAX_KLING_CHARS = 2000;
+        if (finalPrompt.length > MAX_KLING_CHARS) {
+            console.warn(`[PayloadBuilderKling] Prompt too long (${finalPrompt.length} chars). Truncating to ${MAX_KLING_CHARS}.`);
+            // Truncate logic: simple slice.
+            // Ideally we'd keep the ACTION (end) and truncate the middle (Bio), but that's complex text processsing.
+            // For now, simple truncation prevents the 500 Error.
+            finalPrompt = finalPrompt.slice(0, MAX_KLING_CHARS);
+        }
+
         return {
             model: model,
             input: {
-                prompt: prompt,
+                prompt: finalPrompt,
                 image_urls: selectedImages,
                 sound: sound,
                 duration: duration
