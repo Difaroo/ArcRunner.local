@@ -9,6 +9,12 @@
 - [ ] **Extended Edit Mode**: Expose other fields + controls in the inline edit view.
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
+## 🚀 Released v0.17.0 (Phoenix Polish)
+- [x] **Data Integrity Firewall**: Whitelist/Sanitization to prevent result overwrites.
+- [x] **Kling Priority**: Explicit override logic.
+- [x] **Visibility Logic**: Hybrid deduplication for reference images.
+- [x] **Prompt Safety**: Kling truncation (2000 chars).
+
 ## 🚀 Released v0.16.2 (Phoenix Stability)
 - [x] **Nano Polling Loop**: Fixed infinite "Generating" loop for Nano models.
 - [x] **Model Persistence**: Fixed data loss where `model` field wasn't saved to DB.

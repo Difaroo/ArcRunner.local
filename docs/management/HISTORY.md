@@ -1,6 +1,42 @@
 # Project History & Architecture Log
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
+## 2026-01-11: v0.17.0 - Phoenix Polish (The Stability Release)
+
+### Context
+This milestone release consolidates a week of intensive "Hotfix & Polish" cycles (v0.16.4 - v0.16.9) into a stable production baseline. The focus was entirely on **Data Integrity**, **Visibility**, and **Model Reliability**. We resolved critical bugs where reference images disappeared, results were overwritten, and prompts caused API crashes.
+
+### Key Features & Fixes (Rollup)
+
+#### 1. Data Integrity Firewall (v0.16.5)
+- **Problem**: Saving a Clip Row (text edit) after a background generation finished would overwrite the new `resultUrl` with the stale `resultUrl` from the editor start.
+- **Solution**: Implemented a **Double-Lock Mechanism**:
+    - **Frontend**: Strict Whitelist in `ClipRow` editor prevents system fields (`resultUrl`, `status`) from being sent.
+    - **Backend**: API Firewall in `/update_clip` strictly sanitizes incoming payloads, rejecting any write attempts to protected fields.
+
+#### 2. Kling 2.6 "Explicit Priority" (v0.16.8)
+- **Problem**: Users couldn't "override" a Character bio image with a specific manual reference image for a single shot without deleting the bio.
+- **Solution**: Updated `PayloadBuilderKling`. If a **Manual Reference Image** is present, it now **strictly prioritizes** that image, ignoring all bio-derived images.
+
+#### 3. Smart Visibility Logic (v0.16.7)
+- **Problem**: Reference images appeared to "disappear" if they matched a Character thumb, or were duplicated, confusing users.
+- **Solution**: Implemented **Hybrid Visibility**:
+    - **Manual Adds**: Always shown (even if duplicate).
+    - **Legacy Data**: Filtered to remove duplicates.
+
+#### 4. API Stability
+- **Prompt Truncation (v0.16.9)**: Added 2000-char safety limit to Kling payloads to prevent `500 Text too long` errors.
+- **Resolver Logic (v0.16.4)**: Hardened `resolveClipImages` to strictly prefer explicit user inputs over library lookups.
+
+#### 5. User Experience
+- **Download vs Archive**: Changed "Save" buttons in Video Player/Modal to standard **OS Download** behavior.
+- **Ref Persistence**: Fixed bug where editing a row wiped its reference images.
+
+### Version Bump
+- **Minor**: 0.16.3 -> 0.17.0.
+
+---
+
 ## 2026-01-11: v0.16.3 - Phoenix Stability (Save Logic & Polling)
 
 ### Context
