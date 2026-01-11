@@ -27,6 +27,17 @@ export class PayloadBuilderKling implements PayloadBuilder {
 
         // 2. Image Handling
         const selectedImages = [...imageUrls];
+
+        // OVERRIDE: Prioritize Explicit Images for Kling if present
+        // User Request: "I don't want to remove chars and location... bc I may need to rerender in nano again."
+        // Solution: If an Explicit Image (Ref Image) exists, force Kling to use THAT instead of the Character/Location image.
+        if (context.explicitImages && context.explicitImages.length > 0) {
+            console.log(`[PayloadBuilderKling] Explicit Priority Override: using ${context.explicitImages[0]}`);
+            // Clearing the array and adding just the explicit one ensures it's the only one used.
+            selectedImages.length = 0;
+            selectedImages.push(context.explicitImages[0]);
+        }
+
         if (selectedImages.length > 1) {
             console.warn(`[PayloadBuilderKling] Model requires exactly 1 image, but ${selectedImages.length} found. Using the first one.`);
             selectedImages.splice(1); // Keep only first
