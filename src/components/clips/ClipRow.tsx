@@ -102,9 +102,25 @@ export function ClipRow({
     // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
     // UPDATE: User feedback indicates this hides images they just added if they match a character.
     // Decision: SHOW ALL IMAGES. Duplicates are better than disappearing data.
+    // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
+    // UPDATE v0.16.7: Hybrid Approach
+    // 1. If we have 'explicitRefUrls' (Manual inputs), we SHOW EVERYTHING in it. The user added it, they want to see it.
+    // 2. If we fallback to 'refImageUrls' (Legacy DB), we FILTER out Auto-Resolved images to prevent duplicates.
     const getCleanExplicitRefs = () => {
-        const rawExplicit = clip.explicitRefUrls || clip.refImageUrls || '';
-        return rawExplicit.split(',').map(s => s.trim()).filter(Boolean);
+        const hasExplicit = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null;
+
+        if (hasExplicit) {
+            // New Data: Show exactly what is explicit (even if duplicate)
+            return (clip.explicitRefUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+        } else {
+            // Legacy Fallback: Filter out duplicates
+            const rawUrls = (clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+            const autoImages = new Set([
+                ...(clip.characterImageUrls || []),
+                ...(clip.locationImageUrls || [])
+            ]);
+            return rawUrls.filter(u => !autoImages.has(u));
+        }
     };
 
     const handleStartEdit = () => {
