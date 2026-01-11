@@ -9,7 +9,7 @@
 - [ ] **Extended Edit Mode**: Expose other fields + controls in the inline edit view.
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
-## 🚀 Released v0.17.0 (Phoenix Polish)
+## 🚀 Released v0.17.0 (Falcon)
 - [x] **Data Integrity Firewall**: Whitelist/Sanitization to prevent result overwrites.
 - [x] **Kling Priority**: Explicit override logic.
 - [x] **Visibility Logic**: Hybrid deduplication for reference images.

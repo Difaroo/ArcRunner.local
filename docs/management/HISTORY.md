@@ -1,7 +1,7 @@
 # Project History & Architecture Log
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
-## 2026-01-11: v0.17.0 - Phoenix Polish (The Stability Release)
+## 2026-01-11: v0.17.0 - Falcon (Stability & Precision)
 
 ### Context
 This milestone release consolidates a week of intensive "Hotfix & Polish" cycles (v0.16.4 - v0.16.9) into a stable production baseline. The focus was entirely on **Data Integrity**, **Visibility**, and **Model Reliability**. We resolved critical bugs where reference images disappeared, results were overwritten, and prompts caused API crashes.

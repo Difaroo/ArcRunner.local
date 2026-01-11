@@ -13,7 +13,7 @@
 ---
 
 ## Past Sprints
-### v0.17.0 (Released Jan 11)
-- **Focus**: Data Integrity & Stability.
+### v0.17.0 (Released Jan 11) - Falcon
+- **Focus**: Stability & Precision.
 - **Outcome**: Resolved all known disappearance/overwrite bugs.
 
