@@ -44,3 +44,10 @@ next-env.d.ts
 
 # Local Storage
 /storage/
+
+# Logs
+*.log
+
+# Generated Content
+public/thumbnails/
+compare_payloads.py

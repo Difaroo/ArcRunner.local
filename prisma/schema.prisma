@@ -57,6 +57,7 @@ model StudioItem {
   episode     String?  // "1" (Keep as string for now to match sheet usage, or int?)
   status      String   @default("IDLE") // IDLE, GENERATING, DONE, ERROR
   taskId      String?  // Active Kie Task ID (replacing URL hacking)
+  model       String?  // Override for generation logic
   
   // Relations
   seriesId    String
@@ -82,6 +83,7 @@ model Clip {
   model           String?  // "veo-3", "flux"
   seed            String?
   sortOrder       Int      @default(0)
+  negativePrompt  String?  // "No outlines, No subtitles"
 
   // Media
   refImageUrls    String?  // The EXPLICIT urls string "url1, url2"

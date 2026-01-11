@@ -14,8 +14,8 @@ The global **Video Player / Media Viewer** (accessible via thumbnails) supports 
 
 ### Video Overlay Controls
 - **Edit**: Modify Clip Action or Library Description directly while viewing.
-- **Download**: Top-right orange icon to save the file locally.
-- **Save**: Green check button to commit text edits.
+- **Save / Download**: The Green "Floppy disk" button (and the Orange Download icon) both perform a direct **Save to Computer** action.
+- **Edit Save**: The smaller Green "Check" button commits text edits (Description/Action) to the database.
 - **Ref Image**: "Save Reference Image" button captures the current frame/image for the library.
 
 ## Generation Workflows
@@ -68,6 +68,9 @@ When resolving multiple images (e.g., Location + Characters), the system fills s
 ### Nano (Experimental)
 - Uses "Hardcoded Pro" template similar to Flux but optimized for self-hosting speed.
 - Enforces strict aspect ratio handling.
+
+## Render Engine Architecture
+For a deep dive into the technical "under-the-hood" flow of the generating engine (from UI to Payload to Persistence), please refer to the [Render Engine Architecture Guide](../architecture/RENDER_ENGINE_ARCHITECTURE.md).
 
 ## Data Hygiene: Style Descriptions
 **Critical Note**: When using "Text Only" styles (State B or D), ensure your Style Asset's text description does NOT contain phrases like "Follow STYLE REFERENCE IMAGE". Using such text without an actual image attached may confuse the model or cause it to hallucinate an image source.

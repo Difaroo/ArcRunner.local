@@ -18,5 +18,10 @@ export interface GenerationContext {
 
 export interface PayloadBuilder {
     supports(modelId: string): boolean;
+    /**
+     * Validates construction context before building.
+     * Throws Error if invalid.
+     */
+    validate(context: GenerationContext): void;
     build(context: GenerationContext): any;
 }

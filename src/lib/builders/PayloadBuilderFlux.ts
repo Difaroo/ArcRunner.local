@@ -7,6 +7,11 @@ export class PayloadBuilderFlux implements PayloadBuilder {
         return modelId.includes('flux');
     }
 
+    validate(context: GenerationContext): void {
+        if (!context.input) throw new Error('Input missing from GenerationContext');
+        // Add more specific Flux checks here if needed
+    }
+
     build(context: GenerationContext): FluxPayload {
         const { input } = context;
 
@@ -25,7 +30,7 @@ export class PayloadBuilderFlux implements PayloadBuilder {
         const guidanceScale = 1.5 + ((styleStrength - 1) * (8.5 / 9));
 
         return {
-            taskType: 'TEXT_TO_IMAGE', // Generic type
+
             model: model,
             input: {
                 prompt: prompt,

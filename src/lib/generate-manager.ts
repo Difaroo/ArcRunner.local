@@ -1,10 +1,11 @@
 import { db } from '@/lib/db';
-import { createFluxTask, createVeoTask, createNanoTask, FluxPayload, VeoPayload, NanoPayload, uploadFileBase64 } from '@/lib/kie';
+import { createFluxTask, createVeoTask, createNanoTask, createKlingTask, FluxPayload, VeoPayload, NanoPayload, KlingPayload, uploadFileBase64 } from '@/lib/kie';
 import { resolveClipImages } from '@/lib/shared-resolvers';
 import { getLibraryItems } from '@/lib/library';
 import fs from 'fs';
 import path from 'path';
 import { BuilderFactory } from '@/lib/builders/BuilderFactory';
+import { getModelConfig } from '@/lib/models';
 import { Clip } from '@prisma/client';
 
 // Input payload for a generation task
@@ -13,13 +14,14 @@ export interface GenerateTaskInput {
     seriesId: string;
     model?: string;
     aspectRatio?: string;
+    sound?: boolean; // NEW: Audio Toggle
 
     // Provided overrides
     prompt?: string; // If we build prompt here, or pass it in? 
     // Usually prompt is built from clip fields.
 
     // Or we accept the full Clip object?
-    clip: Clip & { prompt?: string, duration?: string, explicitRefUrls?: string }; // Extended for legacy/UI fields
+    clip: Clip & { prompt?: string, duration?: string, explicitRefUrls?: string, negativePrompt?: string | null }; // Extended for legacy/UI fields
 
     // Diagnosis
     dryRun?: boolean;
@@ -55,36 +57,32 @@ export class GenerateManager {
         // 1. Select Strategy (Model Resolution) - Moved UP to determine Image Mode
         // DESIGN RULE: Clip.model is LEGACY. 
         // Source of Truth is the Episode (Menu/Toolbar) or the explicit input from that menu.
-        let effectiveModel = input.model;
-        console.log(`[GenerateManager Debug] Input Model: '${input.model}'`);
+        // 1. Select Strategy (Model Resolution)
+        let effectiveModelId = input.model;
 
-        if (!effectiveModel && input.clip.episodeId) {
+        if (!effectiveModelId && input.clip.episodeId) {
             try {
                 const ep = await db.episode.findUnique({
                     where: { id: input.clip.episodeId },
                     select: { model: true }
                 });
                 if (ep?.model) {
-                    effectiveModel = ep.model;
+                    effectiveModelId = ep.model;
                 }
             } catch (err) {
                 console.warn('[GenerateManager] Failed to fetch episode model:', err);
             }
         }
 
-        let rawModel = effectiveModel || 'veo';
-        if (rawModel === 'flux' || rawModel === 'flux-pro') rawModel = 'flux-2/flex-image-to-image';
-        if (rawModel.startsWith('veo')) rawModel = 'veo3_fast';
+        const config = getModelConfig(effectiveModelId);
 
-        const model = rawModel;
+        console.log(`[GenerateManager Debug] Input Model: '${input.model}' -> Config ID: '${config.id}' (Strategy: ${config.apiStrategy})`);
 
-        const getStrategyType = (m: string): 'flux' | 'veo' | 'nano' => {
-            if (m.startsWith('veo')) return 'veo';
-            if (m.startsWith('flux')) return 'flux';
-            if (m.includes('nano') || m.includes('banana')) return 'nano';
-            return m.includes('video') ? 'veo' : 'flux';
-        };
-        const apiType = getStrategyType(model);
+        const apiType = config.apiStrategy; // 'veo' | 'flux' | 'nano'
+        const builderId = config.builderId; // 'veo' | 'flux' | 'nano'
+
+        // Legacy variable for BuilderFactory calls
+        const model = builderId;
 
         // 2. Resolve Library References (Server-Side)
         const libraryItems = await db.studioItem.findMany({
@@ -262,8 +260,11 @@ export class GenerateManager {
 
             let payload;
             try {
-                payload = builder.build({
-                    input,
+                const buildContext = {
+                    input: {
+                        ...input,
+                        model: effectiveModelId // CRITICAL: Ensure resolved model is passed so PromptConstructor selects correct schema (Nano vs Standard)
+                    },
                     publicImageUrls,
                     characterImages: publicCharImages,
                     locationImages: publicLocImages,
@@ -280,7 +281,13 @@ export class GenerateManager {
                     })),
                     styleAsset: styleItem ? { description: styleItem.description || "", negatives: styleItem.negatives || "" } : undefined,
                     cameraAsset: camItem ? { description: camItem.description || "", negatives: camItem.negatives || "" } : undefined
-                });
+                };
+
+                // VALIDATION (Hardening)
+                console.log(`[GenerateManager] Validating Builder Context...`);
+                builder.validate(buildContext);
+
+                payload = builder.build(buildContext);
             } catch (builderError: any) {
                 console.error('[GenerateManager] Builder Failed:', builderError);
                 throw new Error(`Builder Error: ${builderError.message}`);
@@ -298,7 +305,19 @@ export class GenerateManager {
                 result = await createVeoTask(payload as VeoPayload);
             } else if (apiType === 'nano') {
                 console.log(`[GenerateManager] Sending to Kie (Nano)...`, JSON.stringify(payload, null, 2));
+                // LOG DEBUG
+                try {
+                    const logPath = path.join(process.cwd(), 'debug_gen.log');
+                    fs.appendFileSync(logPath, `[${new Date().toISOString()}] Sending Nano Task for ${input.clipId}...\n`);
+                } catch (e) { }
                 result = await createNanoTask(payload as NanoPayload);
+                try {
+                    const logPath = path.join(process.cwd(), 'debug_gen.log');
+                    fs.appendFileSync(logPath, `[${new Date().toISOString()}] Nano Result: ${JSON.stringify(result)}\n`);
+                } catch (e) { }
+            } else if (apiType === 'kling') {
+                console.log(`[GenerateManager] Sending to Kie (Kling)...`, JSON.stringify(payload, null, 2));
+                result = await createKlingTask(payload as KlingPayload);
             } else {
                 console.log(`[GenerateManager] Sending to Kie (Flux)...`, JSON.stringify(payload, null, 2));
                 result = await createFluxTask(payload as FluxPayload);
@@ -320,7 +339,11 @@ export class GenerateManager {
                     return { resultUrl: directUrl };
                 } else {
                     // Async or waiting - Save Task ID but KEEP previous resultUrl
-                    await this.updateTaskId(input.clipId, result.taskId, 'Generating');
+                    await this.updateTaskId(input.clipId, result.taskId, 'Generating', input.model || 'veo-fast');
+                    try {
+                        const logPath = path.join(process.cwd(), 'debug_gen.log');
+                        fs.appendFileSync(logPath, `[${new Date().toISOString()}] Updated DB with TaskID: ${result.taskId}\n`);
+                    } catch (e) { }
                     return { taskId: result.taskId };
                 }
             } else if (directUrl) {
@@ -332,6 +355,10 @@ export class GenerateManager {
 
         } catch (error: any) {
             console.error(`[GenerateManager] Fatal Error:`, error);
+            try {
+                const logPath = path.join(process.cwd(), 'debug_gen.log');
+                fs.appendFileSync(logPath, `[${new Date().toISOString()}] FATAL ERROR: ${error.message}\nStack: ${error.stack}\n`);
+            } catch (e) { }
             // DEBUG: Log full structure to identify missing code
             try {
                 const debugObj = JSON.parse(JSON.stringify(error, Object.getOwnPropertyNames(error)));
@@ -393,11 +420,11 @@ export class GenerateManager {
         });
     }
 
-    private async updateTaskId(clipId: string, taskId: string, status: string) {
+    private async updateTaskId(clipId: string, taskId: string, status: string, model: string) {
         // Save Task ID separately, preserving previous resultUrl
         await db.clip.update({
             where: { id: parseInt(clipId) },
-            data: { taskId, status }
+            data: { taskId, status, model }
         });
     }
 

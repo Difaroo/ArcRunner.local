@@ -21,13 +21,13 @@ export async function POST(request: Request) {
         // Frontend sends keys that mostly match Prisma, but let's be safe.
         const validFields = [
             'status', 'title', 'character', 'location', 'style', 'camera',
-            'action', 'dialog', 'refImageUrls', 'seed', 'resultUrl', 'model', 'sortOrder'
+            'action', 'dialog', 'refImageUrls', 'seed', 'resultUrl', 'model', 'sortOrder',
+            'negativePrompt', 'isHiddenInStoryboard'
         ];
 
         const prismaData: any = {};
         for (const [key, value] of Object.entries(updates)) {
             if (validFields.includes(key)) {
-                // ... (existing logic)
                 if (key === 'sortOrder') {
                     prismaData[key] = parseInt(value as string) || 0;
                 } else {
@@ -36,10 +36,13 @@ export async function POST(request: Request) {
             }
         }
 
+        console.log(`[API] Update Clip ${id} Payload:`, JSON.stringify(prismaData));
+
         const updatedClip = await db.clip.update({
             where: { id },
             data: prismaData
         });
+        console.log(`[API] Update Success:`, JSON.stringify(updatedClip));
 
         // Robustness Check: Does the thumbnail actually exist on disk?
         let thumbnailFileExists = false;

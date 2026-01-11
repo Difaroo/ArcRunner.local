@@ -18,9 +18,10 @@ interface LibraryTableProps {
     onPlay?: (url: string) => void;
     onDelete?: (id: string) => void;
     onDuplicate?: (id: string) => void;
+    onArchive?: (url: string) => void;
 }
 
-export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, onSelect, onSelectAll, onGenerate, isGenerating, onPlay, onDelete, onDuplicate }: LibraryTableProps) {
+export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, onSelect, onSelectAll, onGenerate, isGenerating, onPlay, onDelete, onDuplicate, onArchive }: LibraryTableProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const handleStartEdit = (item: LibraryItem) => {
@@ -72,7 +73,7 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                     <TableBody>
                         {items.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={9} className="h-24 text-center text-stone-500">
+                                <TableCell colSpan={10} className="h-24 text-center text-stone-500">
                                     No studio items found.
                                 </TableCell>
                             </TableRow>
@@ -98,6 +99,7 @@ export function LibraryTable({ items, onSave, currentSeriesId, selectedItems, on
                                         onDownload={handleDownload}
                                         onDelete={onDelete}
                                         onDuplicate={onDuplicate}
+                                        onArchive={onArchive}
                                     />
                                 );
                             })

@@ -86,7 +86,7 @@ export async function GET() {
 
 
         // 5. Transform Clips
-        const clips = dbClips.map(clip => {
+        const clips = dbClips.map((clip: any) => {
             // Defensive Coding: Skip clips with broken relations
             if (!clip.episode) {
                 console.warn(`Orphan clip found (ID: ${clip.id}). Skipping.`);
@@ -123,6 +123,7 @@ export async function GET() {
                 resultUrl: clip.resultUrl || '',
                 taskId: clip.taskId || '',
                 seed: clip.seed || '',
+                negativePrompt: clip.negativePrompt || '',
                 episode: clip.episode.number.toString(),
                 series: seriesId,
                 sortOrder: clip.sortOrder,
@@ -130,7 +131,7 @@ export async function GET() {
                 isHiddenInStoryboard: clip.isHiddenInStoryboard || false,
                 thumbnailPath: clip.thumbnailPath || ''
             };
-        }).filter((c): c is NonNullable<typeof c> => c !== null); // Remove orphans
+        }).filter((c: any): c is NonNullable<typeof c> => c !== null); // Remove orphans
 
         // Update Series Episode Counts
         series.forEach(s => {
@@ -203,21 +204,28 @@ export async function POST(req: Request) {
                 refImageUrls: clip.explicitRefUrls || '', // Store explicit only
                 episodeId: dbEpisode.id,
                 sortOrder: clip.sortOrder || 0,
-                // If initializing with a resultUrl (rare for new clips, but possible)
+                // @ts-ignore
+                negativePrompt: clip.negativePrompt || '',
+                // If initializing with a resultUrl (rare for new clips, but refined here)
+                // @ts-ignore
                 resultUrl: clip.resultUrl || undefined,
             },
             include: { episode: true }
         });
 
         // Async Thumbnail Generation
+        // @ts-ignore
         if (newClip.resultUrl) {
+            // @ts-ignore
             generateThumbnail(newClip.resultUrl, newClip.id.toString())
                 .then(async (thumbnailPath) => {
                     if (thumbnailPath) {
                         await db.clip.update({
+                            // @ts-ignore
                             where: { id: newClip.id },
                             data: { thumbnailPath }
                         });
+                        // @ts-ignore
                         console.log(`Thumbnail generated for NEW clip ${newClip.id}: ${thumbnailPath}`);
                     }
                 });
@@ -227,10 +235,15 @@ export async function POST(req: Request) {
             success: true,
             clip: {
                 ...clip,
+                // @ts-ignore
                 id: newClip.id.toString(),
                 status: newClip.status,
+                // @ts-ignore
                 episode: newClip.episode.number.toString(),
-                refImageUrls: newClip.refImageUrls
+                // @ts-ignore
+                refImageUrls: newClip.refImageUrls, // Note: This is Explicit only for POST usually, but consistent with DB
+                // @ts-ignore
+                explicitRefUrls: newClip.refImageUrls // Explicitly return this for frontend logic
             }
         });
 
@@ -261,6 +274,9 @@ export async function PUT(req: Request) {
                 dialog: clip.dialog,
                 status: clip.status,
                 refImageUrls: clip.explicitRefUrls,
+                // @ts-ignore
+                negativePrompt: clip.negativePrompt,
+                // @ts-ignore
                 resultUrl: clip.resultUrl,
                 isHiddenInStoryboard: clip.isHiddenInStoryboard
             }
@@ -337,16 +353,23 @@ export async function PUT(req: Request) {
                 id: updatedClip.id.toString(),
                 episode: updatedClip.episodeId, // or clipWithContext.episode.number.toString(), but UI uses flattened structure?
                 // Let's match GET structure as close as possible without re-serializing everything if not needed.
-                // Actually, simpler: Just add the missing arrays. The frontend likely merges this into existing state.
                 characterImageUrls,
                 locationImageUrls,
-                refImageUrls: fullRefs
+                refImageUrls: fullRefs,
+                explicitRefUrls: updatedClip.refImageUrls // CRITICAL: Propagate DB value as Explicit
             };
 
             return NextResponse.json({ success: true, clip: finalClip });
         }
 
-        return NextResponse.json({ success: true, clip: updatedClip });
+        return NextResponse.json({
+            success: true,
+            clip: {
+                ...updatedClip,
+                // Ensure Explicit Ref is passed back if we are falling back to simple return
+                explicitRefUrls: updatedClip.refImageUrls
+            }
+        });
 
     } catch (error: any) {
         console.error('PUT Error:', error);

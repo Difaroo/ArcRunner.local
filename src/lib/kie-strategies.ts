@@ -1,15 +1,10 @@
-import { FluxPayload, VeoPayload, NanoPayload, AppStatus } from './kie-types';
+import { FluxPayload, VeoPayload, NanoPayload, KlingPayload, AppStatus, KieResult } from './kie-types';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const KIE_API_KEY = process.env.KIE_API_KEY;
 const KIE_BASE_URL = 'https://api.kie.ai/api/v1';
 
-
-
-export interface StatusResult {
-    status: AppStatus;
-    resultUrl: string;
-    errorMsg: string;
-}
 
 interface KieResponse<T = any> {
     data?: T;
@@ -67,17 +62,42 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
     }
 }
 
-// Strategy Interface
-export interface KieStrategy {
-    createTask(payload: any): Promise<{ taskId: string, rawData: any }>;
-    checkStatus(taskId: string): Promise<StatusResult>;
-    getType(): 'flux' | 'veo' | 'nano';
-}
-
-// --- SHARED HELPERS ---
+// --- HELPERS ---
 function safeStatus(val: any): string {
     if (val === undefined || val === null) return '';
     return String(val).toUpperCase();
+}
+
+/**
+ * Normalizes the chaotic status codes from various Kie-hosted models (Flux, Veo, Nano)
+ * into a standard AppStatus.
+ * 
+ * @param rawStatus - String or Number status from API
+ * @param successFlag - Optional boolean flag (Veo specific)
+ * @param hasError - Explicit error presence
+ */
+function normalizeKieStatus(rawStatus: any, successFlag?: any, hasError?: boolean): { status: AppStatus, isDone: boolean, isError: boolean } {
+    const s = safeStatus(rawStatus);
+
+    // 1. Explicit Success Flag (Veo Priority)
+    if (successFlag !== undefined) {
+        const isTrue = successFlag === 1 || successFlag === true || String(successFlag) === 'true';
+        if (isTrue) return { status: 'Done', isDone: true, isError: false };
+        // If flag is false but we have a status, fall through...
+    }
+
+    // 2. Standard Status Codes
+    if (['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'DONE', '1'].includes(s)) {
+        return { status: 'Done', isDone: true, isError: false };
+    }
+
+    // 3. Error Codes
+    if (hasError || ['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT', '2', '3'].includes(s)) {
+        return { status: 'Error', isDone: false, isError: true };
+    }
+
+    // 4. Default: Generating
+    return { status: 'Generating', isDone: false, isError: false };
 }
 
 function findResultUrl(data: any): string {
@@ -117,6 +137,14 @@ function findResultUrl(data: any): string {
     return '';
 }
 
+// Strategy Interface
+export interface KieStrategy {
+    createTask(payload: any): Promise<{ taskId: string, rawData: any }>;
+    checkStatus(taskId: string): Promise<KieResult>;
+    getType(): 'flux' | 'veo' | 'nano' | 'kling';
+}
+
+
 // --- FLUX STRATEGY ---
 export class FluxStrategy implements KieStrategy {
     getType(): 'flux' | 'veo' | 'nano' { return 'flux'; }
@@ -127,56 +155,42 @@ export class FluxStrategy implements KieStrategy {
         return { taskId, rawData: res };
     }
 
-    async checkStatus(taskId: string): Promise<StatusResult> {
+    async checkStatus(taskId: string): Promise<KieResult> {
         const res = await kieFetch<any>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
-        console.log(`[FluxStrategy] Status Response for ${taskId}:`, JSON.stringify(res, null, 2));
+        console.log(`[FluxStrategy] Status Check ${taskId} RAW:`, JSON.stringify(res));
 
-        // Flux/Nano typically use 'state'
-        // But let's be defensive and check standard keys too
         const rawState = res.data?.state || res.data?.status;
-        const s = safeStatus(rawState);
-
-        let status: AppStatus = 'Generating';
+        const normalized = normalizeKieStatus(rawState);
         let resultUrl = '';
         let errorMsg = '';
 
-        // Success
-        if (['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'DONE', '1'].includes(s)) {
-            status = 'Done';
+        if (normalized.isDone) {
+            console.log(`[FluxStrategy] DONE Payload:`, JSON.stringify(res.data));
 
-            // 1. Try JSON String first (Flux standard)
+            // Flux Robust Check
+            if (res.data?.model_outputs?.output) resultUrl = res.data.model_outputs.output;
+            else if (res.data?.model_outputs?.url) resultUrl = res.data.model_outputs.url;
+            else if (res.data?.output) resultUrl = res.data.output;
+            else if (res.data?.url) resultUrl = res.data.url;
+
             if (res.data?.resultJson) {
                 try {
                     const results = JSON.parse(res.data.resultJson);
-                    resultUrl = findResultUrl(results);
-                } catch (e) {
-                    // Fallback to top-level search
-                }
+                    if (!resultUrl) resultUrl = findResultUrl(results);
+                } catch (e) { }
             }
-            // 2. Fallback to global search in data
+            if (!resultUrl) resultUrl = findResultUrl(res.data || {});
+
             if (!resultUrl) {
-                resultUrl = findResultUrl(res.data || {});
+                normalized.status = 'Error';
+                errorMsg = 'MISSING_URL - Check Console';
             }
-
-        }
-        // Failure
-        else if (['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT', '2', '3'].includes(s)) {
-            status = 'Error';
-            errorMsg = safeStatus(res.data || '') || 'Generation Failed';
-        }
-        // Generating
-        else {
-            // If unknown, assume generating to be safe, unless explicit error
-            status = 'Generating';
+        } else if (normalized.isError) {
+            const data = res.data || {};
+            errorMsg = safeStatus(data.failMsg || data.failCode || data.error || data.message || data.errorMessage) || 'Generation Failed';
         }
 
-        // URL Check
-        if (status === 'Done' && !resultUrl) {
-            status = 'Error';
-            errorMsg = 'MISSING_URL';
-        }
-
-        return { status, resultUrl, errorMsg };
+        return { status: normalized.status, resultUrl, errorMsg, debugRaw: res.data };
     }
 }
 
@@ -190,55 +204,35 @@ export class VeoStrategy implements KieStrategy {
         return { taskId, rawData: res };
     }
 
-    async checkStatus(taskId: string): Promise<StatusResult> {
+    async checkStatus(taskId: string): Promise<KieResult> {
         const res = await kieFetch<any>(`/veo/record-info?taskId=${taskId}`, { method: 'GET' });
-        console.log(`[VeoStrategy] Status Response for ${taskId}:`, JSON.stringify(res));
+        // console.log(`[VeoStrategy] Status Response for ${taskId}:`, JSON.stringify(res));
         const data = res.data || {};
 
         const rawStatus = data.status;
-        let status: AppStatus = 'Generating';
+        const normalized = normalizeKieStatus(rawStatus, data.successFlag);
+
+        // Edge Case: Veo sometimes marks "Complete" but successFlag is false/undefined -> Error
+        if (data.completeTime && !normalized.isDone && !normalized.isError && data.successFlag !== 1 && data.successFlag !== true) {
+            normalized.status = 'Error';
+            normalized.isError = true;
+        }
+
         let resultUrl = '';
         let errorMsg = '';
 
-        // 1. NEW SCHEMA CHECK: successFlag
-        // Robust check for various truthy values
-        const flag = data.successFlag;
-        const isSuccessFlag = flag === 1 || flag === true || String(flag) === 'true';
-
-        if (isSuccessFlag) {
-            // DONE
-            status = 'Done';
+        if (normalized.isDone) {
             resultUrl = findResultUrl(data);
-        }
-        else if (data.successFlag !== undefined && !isSuccessFlag && data.completeTime) {
-            // Completed but flag says NO -> Error
-            status = 'Error';
-            errorMsg = data.errorMessage || `Error Code: ${data.errorCode}`;
-        }
-        else {
-            // 2. LEGACY STATUS CHECK
-            const s = safeStatus(rawStatus);
-
-            if (['COMPLETED', 'SUCCEEDED', 'DONE', 'SUCCESS', '1'].includes(s)) {
-                status = 'Done';
-                resultUrl = findResultUrl(data);
+            // Validation
+            if (!resultUrl) {
+                normalized.status = 'Error';
+                errorMsg = 'MISSING_URL';
             }
-            else if (['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT', '2', '3'].includes(s)) {
-                status = 'Error';
-                errorMsg = data.errorMessage || s || 'Generation Failed';
-            }
-            else {
-                status = 'Generating';
-            }
+        } else if (normalized.isError) {
+            errorMsg = data.errorMessage || data.errorCode || 'Generation Failed';
         }
 
-        // URL Check
-        if (status === 'Done' && !resultUrl) {
-            status = 'Error';
-            errorMsg = 'MISSING_URL';
-        }
-
-        return { status, resultUrl, errorMsg };
+        return { status: normalized.status, resultUrl, errorMsg, debugRaw: data };
     }
 }
 
@@ -247,57 +241,159 @@ export class NanoStrategy implements KieStrategy {
     getType(): 'flux' | 'veo' | 'nano' { return 'nano'; }
 
     async createTask(payload: NanoPayload): Promise<{ taskId: string, rawData: any }> {
-        // Nano uses same endpoint as Flux
+        console.log('[NanoStrategy] Creating Task:', JSON.stringify(payload));
+
+        // Log to file
+        try {
+            const logPath = path.join(process.cwd(), 'debug_nano.log');
+            fs.appendFileSync(logPath, `[${new Date().toISOString()}] CREATE REQ: ${JSON.stringify(payload)}\n`);
+        } catch (e) { }
+
+        const res = await kieFetch<any>('/jobs/createTask', { method: 'POST', body: payload });
+        console.log('[NanoStrategy] Create Response:', JSON.stringify(res));
+
+        // Log response
+        try {
+            const logPath = path.join(process.cwd(), 'debug_nano.log');
+            fs.appendFileSync(logPath, `[${new Date().toISOString()}] CREATE RES: ${JSON.stringify(res)}\n`);
+        } catch (e) { }
+
+        const taskId = res.data?.taskId || res.taskId || res.jobId || res.task_id || '';
+        if (!taskId) {
+            console.error('[NanoStrategy] FAILED TO EXTRACT TASK ID from:', JSON.stringify(res));
+            try {
+                const logPath = path.join(process.cwd(), 'debug_nano.log');
+                fs.appendFileSync(logPath, `[${new Date().toISOString()}] ERROR: Missing Task ID in response!\n`);
+            } catch (e) { }
+        }
+        return { taskId, rawData: res };
+    }
+
+    async checkStatus(taskId: string): Promise<KieResult> {
+        try {
+            // Nano uses Flux infrastructure
+            const res = await kieFetch<any>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
+
+            // LOG TO FILE FOR DEBUGGING
+            try {
+                const logPath = path.join(process.cwd(), 'debug_nano.log');
+                const logEntry = `[${new Date().toISOString()}] Task: ${taskId} | State: ${res.data?.state || res.data?.status} | Data: ${JSON.stringify(res)}\n`;
+                fs.appendFileSync(logPath, logEntry);
+            } catch (e) { console.error('Log failed', e); }
+
+            console.log(`[NanoStrategy] Status Check ${taskId} RAW:`, JSON.stringify(res));
+
+            const rawState = res.data?.state || res.data?.status;
+            const normalized = normalizeKieStatus(rawState);
+            let resultUrl = '';
+            let errorMsg = '';
+
+            if (normalized.isDone) {
+                console.log(`[NanoStrategy] DONE Payload:`, JSON.stringify(res.data)); // Debug final payload
+
+                // 1. Check for specific Nano output fields often used in this backend
+                // Common variations: data.model_outputs.output, data.output, data.url
+                if (res.data?.model_outputs?.output) resultUrl = res.data.model_outputs.output;
+                else if (res.data?.model_outputs?.url) resultUrl = res.data.model_outputs.url;
+                else if (res.data?.output) resultUrl = res.data.output;
+                else if (res.data?.url) resultUrl = res.data.url;
+
+                // 2. Parse resultJson if present (Flux style)
+                if (!resultUrl && res.data?.resultJson) {
+                    try {
+                        const results = JSON.parse(res.data.resultJson);
+                        resultUrl = findResultUrl(results);
+                    } catch (e) { }
+                }
+
+                // 3. Last Resort Fallback
+                if (!resultUrl) resultUrl = findResultUrl(res.data || {});
+
+                if (!resultUrl) {
+                    normalized.status = 'Error';
+                    errorMsg = 'MISSING_URL - Check Console for Payload';
+                    // Log specfic failure to file
+                    try {
+                        const logPath = path.join(process.cwd(), 'debug_nano.log');
+                        fs.appendFileSync(logPath, `[${new Date().toISOString()}] ERROR: ID ${taskId} is DONE but NO URL FOUND. Data: ${JSON.stringify(res.data)}\n`);
+                    } catch (e) { }
+                }
+            } else if (normalized.isError) {
+                // Robust extraction of error message
+                const data = res.data || {};
+                errorMsg = safeStatus(data.failMsg || data.failCode || data.error || data.message || data.errorMessage) || 'Generation Failed';
+            }
+
+            return { status: normalized.status, resultUrl, errorMsg, debugRaw: res.data };
+
+        } catch (error: any) {
+            // Log Logic for Network Failures
+            try {
+                const logPath = path.join(process.cwd(), 'debug_nano.log');
+                const errMsg = error.message || String(error);
+                fs.appendFileSync(logPath, `[${new Date().toISOString()}] FATAL EXCEPTION for ${taskId}: ${errMsg}\n`);
+            } catch (e) { }
+            throw error;
+        }
+    }
+}
+
+// --- KLING STRATEGY ---
+export class KlingStrategy implements KieStrategy {
+    getType(): 'flux' | 'veo' | 'nano' | 'kling' { return 'kling'; }
+
+    async createTask(payload: KlingPayload): Promise<{ taskId: string, rawData: any }> {
         const res = await kieFetch<any>('/jobs/createTask', { method: 'POST', body: payload });
         const taskId = res.data?.taskId || res.taskId || res.jobId || res.task_id || '';
         return { taskId, rawData: res };
     }
 
-    async checkStatus(taskId: string): Promise<StatusResult> {
-        // Same Logic as Flux but separated class for clarity/future divergence
-        // Reusing the robust logic
-        const res = await kieFetch<{ state: string, resultJson?: string }>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
-        console.log(`[NanoStrategy] Status Response for ${taskId}:`, JSON.stringify(res, null, 2));
+    async checkStatus(taskId: string): Promise<KieResult> {
+        // Kling uses same infra as Flux/Nano
+        const res = await kieFetch<any>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
+        console.log(`[KlingStrategy] Status Check ${taskId} RAW:`, JSON.stringify(res));
 
         const rawState = res.data?.state || res.data?.status;
-        const s = safeStatus(rawState);
-
-        let status: AppStatus = 'Generating';
+        const normalized = normalizeKieStatus(rawState);
         let resultUrl = '';
         let errorMsg = '';
 
-        if (['SUCCESS', 'SUCCEEDED', 'COMPLETED', 'DONE', '1'].includes(s)) {
-            status = 'Done';
+        if (normalized.isDone) {
+            console.log(`[KlingStrategy] DONE Payload:`, JSON.stringify(res.data));
+
+            // Kling Robust Check
+            if (res.data?.model_outputs?.output) resultUrl = res.data.model_outputs.output;
+            else if (res.data?.model_outputs?.url) resultUrl = res.data.model_outputs.url;
+            else if (res.data?.output) resultUrl = res.data.output;
+            else if (res.data?.url) resultUrl = res.data.url;
+
             if (res.data?.resultJson) {
                 try {
                     const results = JSON.parse(res.data.resultJson);
-                    resultUrl = findResultUrl(results);
+                    if (!resultUrl) resultUrl = findResultUrl(results);
                 } catch (e) { }
             }
             if (!resultUrl) resultUrl = findResultUrl(res.data || {});
-        }
-        else if (['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT', '2', '3'].includes(s)) {
-            status = 'Error';
-            errorMsg = safeStatus(res.data) || 'Generation Failed';
-        }
-        else {
-            status = 'Generating';
+
+            if (!resultUrl) {
+                normalized.status = 'Error';
+                errorMsg = 'MISSING_URL - Check Console';
+            }
+        } else if (normalized.isError) {
+            const data = res.data || {};
+            errorMsg = safeStatus(data.failMsg || data.failCode || data.error || data.message || data.errorMessage) || 'Generation Failed';
         }
 
-        if (status === 'Done' && !resultUrl) {
-            status = 'Error';
-            errorMsg = 'MISSING_URL';
-        }
-
-        return { status, resultUrl, errorMsg };
+        return { status: normalized.status, resultUrl, errorMsg, debugRaw: res.data };
     }
 }
 
 // --- FACTORY ---
 export const KieClient = {
-    getStrategy(type: 'flux' | 'veo' | 'nano'): KieStrategy {
+    getStrategy(type: 'flux' | 'veo' | 'nano' | 'kling'): KieStrategy {
         if (type === 'flux') return new FluxStrategy();
         if (type === 'nano') return new NanoStrategy();
+        if (type === 'kling') return new KlingStrategy();
         return new VeoStrategy();
     },
 

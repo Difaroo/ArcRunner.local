@@ -1,6 +1,36 @@
 # Project History & Architecture Log
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
+## 2026-01-11: v0.16.3 - Phoenix Stability (Save Logic & Polling)
+
+### Context
+Addressed critical user feedback regarding data integrity. Users reported that "saving" a clip often wiped its reference images or reverted the result preview. This was traced to destructive client-side filtering and a logic mismatch in the "Save" button expectation (Archive vs Download).
+
+### Changes
+- **Save Button Refactor**:
+    - **UX Alignment**: Changed the Green "Save" button in both `MediaPreviewModal` and `VideoPlayerOverlay` to perform a **Download to Computer** action (OS Dialog).
+    - **Logic**: Removed the potentially destructive `archiveMedia` hooks from these buttons to prevent accidental modification of backend reference data.
+- **Data Integrity**:
+    - **State Corruption Fix**: Patched `src/app/page.tsx` to prevent `onSave` from overwriting authoritative "Explicit" references with "Resolved" references, which was causing implicit data pollution.
+    - **Non-Destructive Filtering**: Updated `ClipRow` to filter duplicate thumbnails *visually* in the UI only, while preserving the raw data in the Editor to prevent accidental deletion during saves.
+- **Polling Robustness**:
+    - **Result Ordering**: Refactored `api/poll/route.ts` to use robust array manipulation for prepending new results. This ensures the latest generation always appears first in the CSV list, fixing the "Reverted to Previous" preview bug.
+- **Version Bump**: 0.16.2 -> 0.16.3.
+
+## 2026-01-09: v0.16.2 - Phoenix Stability (Nano Polling)
+
+### Context
+Resolved a critical "Infinite Generating" loop for Nano models where the polling architecture failed to retrieve the result URL due to missing model persistence. This release cements the robustness of the polling system with regression testing.
+
+### Changes
+- **Polling Architecture**:
+    - **Logic Fix**: Backend route now correctly respects "Generating" status instead of converting it to "Error" prematurely.
+    - **Model Persistence**: updated `GenerateManager` to strictly persist `model` ("nano-banana-pro") to the database, ensuring correct polling strategy selection.
+    - **Smart Merge**: Frontend now intelligently merges polled data to prevent "Zombie" task detection from killing valid (but slow-to-sync) tasks.
+- **Testing**:
+    - **Regression**: Added `scripts/test-integrity.ts` to verify database persistence of generation payloads.
+    - **Mocking**: Added `MOCK_KIE` support to `src/lib/kie.ts` for cost-free integration testing.
+- **Version Bump**: 0.16.1 -> 0.16.2.
 
 ## 2026-01-08: v0.16.1 - Phoenix Robustness (Spinner Fix)
 

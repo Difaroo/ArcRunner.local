@@ -4,6 +4,7 @@ import { PromptSchema } from './prompt/types';
 import { StandardSchema } from './prompt/schemas/StandardSchema';
 import { TransitionSchema } from './prompt/schemas/TransitionSchema';
 import { LegacySchema } from './prompt/schemas/LegacySchema';
+import { NanoSchema } from './prompt/schemas/NanoSchema';
 
 export interface ConstructedPrompt {
     prompt: string;
@@ -21,6 +22,7 @@ export class PromptConstructor {
     private static standardSchema = new StandardSchema();
     private static transitionSchema = new TransitionSchema();
     private static legacySchema = new LegacySchema();
+    private static nanoSchema = new NanoSchema();
 
     static construct(context: GenerationContext): ConstructedPrompt {
         const { input } = context;
@@ -38,8 +40,10 @@ export class PromptConstructor {
             schema = this.transitionSchema;
         } else if (model.includes('flux')) {
             schema = this.legacySchema;
+        } else if (model.includes('nano') || model.includes('banana')) {
+            schema = this.nanoSchema;
         } else {
-            // Default (Veo Standard, Veo Quality, Nano, etc.)
+            // Default (Veo Standard, Veo Quality, Kling, etc.)
             schema = this.standardSchema;
         }
 

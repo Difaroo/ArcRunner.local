@@ -14,6 +14,7 @@ interface AppState {
     error: string;
     deletedLibraryIds: Set<string>;
     deletedClipIds: Set<string>;
+    lastWriteTime: number; // Concurrency Control
 
     // Simple Setters
     setClips: (clips: Clip[] | ((prev: Clip[]) => Clip[])) => void;
@@ -28,6 +29,7 @@ interface AppState {
     // Logic Actions
     markLibraryItemDeleted: (id: string) => void;
     markClipDeleted: (id: string) => void;
+    notifyWrite: () => void;
     refreshData: (silent?: boolean) => Promise<void>;
 
     // Media Player State
@@ -57,6 +59,7 @@ const createStore: StateCreator<AppState> = (set, get) => ({
     error: '',
     deletedLibraryIds: new Set(),
     deletedClipIds: new Set(),
+    lastWriteTime: 0,
 
     // Generic Setter Helpers
     setClips: (input) => set((state) => ({ clips: typeof input === 'function' ? (input as any)(state.clips) : input })),
@@ -77,7 +80,11 @@ const createStore: StateCreator<AppState> = (set, get) => ({
         deletedClipIds: new Set(state.deletedClipIds).add(id)
     })),
 
+    // Concurrency Control
+    notifyWrite: () => set({ lastWriteTime: Date.now() }),
+
     refreshData: async (silent = false) => {
+        const startTime = Date.now();
         if (!silent) set({ loading: true });
 
         try {
@@ -86,10 +93,30 @@ const createStore: StateCreator<AppState> = (set, get) => ({
 
             if (data.error) throw new Error(data.error);
 
-            // Batch updates
+            // Batch updates with Concurrency Check
             set((state) => {
+                // If a write occurred AFTER this fetch started, ignore the result to prevent overwriting
+                if (state.lastWriteTime > startTime) {
+                    console.log(`[DataStore] Skipping poll update. Write occurred at ${state.lastWriteTime} > Fetch Start ${startTime}`);
+
+                    // We can still update non-volatile things if we want, but for safety, stick to existing state
+                    return { loading: false };
+                }
+
+                // Smart Merge Logic: Preserve Task ID if Server returns empty but Local has it (Race Condition Fix)
+                const currentClips = state.clips;
+                const newClips = (data.clips || []).map((nc: Clip) => {
+                    const existing = currentClips.find(c => c.id === nc.id);
+
+                    if (existing && existing.taskId && !nc.taskId && existing.status === 'Generating' && nc.status === 'Generating') {
+                        // Keep local Task ID
+                        return { ...nc, taskId: existing.taskId, model: existing.model || nc.model };
+                    }
+                    return nc;
+                });
+
                 const updates: Partial<AppState> = {
-                    clips: data.clips,
+                    clips: newClips,
                     loading: false
                 };
 
@@ -116,7 +143,8 @@ const createStore: StateCreator<AppState> = (set, get) => ({
             console.error('Fetch error:', err);
             set({ error: err.message, loading: !silent ? false : get().loading });
         } finally {
-            if (!silent) set({ loading: false });
+            // Only turn off loading if we actually touched it
+            if (!silent) set((state) => ({ loading: false }));
         }
     },
 

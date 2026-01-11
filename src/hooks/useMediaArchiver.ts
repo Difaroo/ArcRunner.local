@@ -41,7 +41,18 @@ export function useMediaArchiver({
             let finalUrl = currentUrl;
             if (!currentUrl.startsWith('/api/media')) {
                 try {
-                    const res = await fetch(currentUrl);
+                    // Try direct fetch first
+                    let res;
+                    try {
+                        res = await fetch(currentUrl);
+                        if (!res.ok) throw new Error('Direct fetch failed');
+                    } catch (directErr) {
+                        // If Direct Failure (CORS or Network), fallback to Proxy
+                        console.log("Direct fetch failed, trying proxy...", directErr);
+                        const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(currentUrl)}`;
+                        res = await fetch(proxyUrl);
+                        if (!res.ok) throw new Error(`Proxy fetch failed: ${res.statusText}`);
+                    }
                     const blob = await res.blob();
                     const type = blob.type;
 
@@ -103,7 +114,7 @@ export function useMediaArchiver({
                     setPlayingVideoUrl(updates.resultUrl);
                 }
 
-                // alert("Saved to Storage & Added to Refs!");
+                alert("Saved to Storage & Added to Refs!");
 
             } else if (libItem) {
                 // Library Logic (Append)

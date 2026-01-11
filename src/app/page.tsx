@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader2, Sun, Moon, Pencil, Check, X } from "lucide-react";
 import { Clip, Series, Episode } from '@/types'; // Added Episode type import to fix linter error if it wasn't there
 import { resolveClipImages } from '@/lib/shared-resolvers';
+import { getModelConfig } from '@/lib/models';
 import { downloadFile, getClipFilename } from '@/lib/download-utils';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -56,7 +57,7 @@ export default function Home() {
     deletedLibraryIds, markLibraryItemDeleted,
     deletedClipIds, markClipDeleted,
     loading, error,
-    refreshData,
+    refreshData, notifyWrite,
     currentEpisode, setCurrentEpisode,
     playingVideoUrl, setPlayingVideoUrl
   } = useDataStore(s => s);
@@ -76,6 +77,8 @@ export default function Home() {
   const [editValues, setEditValues] = useState<Partial<Clip>>({});
   const [saving, setSaving] = useState(false);
   const [selectedModel, setSelectedModel] = useState('veo-fast');
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [clipDuration, setClipDuration] = useState("5");
 
   // Persistence Guard (Nav only)
   const [isRestored, setIsRestored] = useState(false);
@@ -256,6 +259,7 @@ export default function Home() {
 
     setAllEpisodes(prev => [...prev, newEpisode]);
     setShowNewEpisodeDialog(false);
+    notifyWrite();
   };
 
   // handleAddSeries logic simplified for dialog prop
@@ -280,6 +284,7 @@ export default function Home() {
       setSeriesList(prev => [...prev, newSeries]);
       setCurrentSeriesId(data.id);
       setShowAddSeriesDialog(false);
+      notifyWrite();
     } else {
       throw new Error(data.error || 'Failed to add series');
     }
@@ -288,6 +293,7 @@ export default function Home() {
   const handleSeriesUpdate = async (id: string, updates: Partial<Series>) => {
     // 1. Optimistic Update
     setSeriesList(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    notifyWrite();
 
     try {
       // 2. API Call
@@ -354,8 +360,13 @@ export default function Home() {
         }),
       });
 
+      console.log(`[handleSave] Saving ${clipId}`, updates);
       const data = await res.json();
-      if (!res.ok) throw new Error('Failed to save');
+      console.log(`[handleSave] Response ${clipId}`, data.clip);
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+
+      // CRITICAL: Notify store of a write to invalidate pending polls
+      notifyWrite();
 
       // Update local state
       // Prefer server-returned clip which has authoritative image resolution
@@ -363,8 +374,9 @@ export default function Home() {
         setClips(prev => prev.map(c => c.id === clipId ? {
           ...c,
           ...data.clip,
-          // CRITICAL FIX: Sync explicitRefUrls with the DB refImageUrls
-          explicitRefUrls: data.clip.refImageUrls
+          ...updates, // FORCE USER UPDATES (Prevent Stale Revert)
+          // CRITICAL FIX: Sync explicitRefUrls with the DB refImageUrls (which is now properly explicit in API)
+          explicitRefUrls: data.clip.explicitRefUrls || data.clip.refImageUrls // Use Explicit if available (preferred), fallback only if old API
         } : c));
       } else {
         // Fallback: Optimistic update with robust trimming
@@ -402,9 +414,9 @@ export default function Home() {
       setEditingId(null);
       setEditValues({});
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Save error:', err);
-      alert('Failed to save changes');
+      alert(`Failed to save changes: ${err.message || err}`);
     } finally {
       setSaving(false);
     }
@@ -678,7 +690,8 @@ export default function Home() {
     // DIRECT RESOLUTION: Solve Stale State Issue
     // Look up the series model directly from the source of truth
     const currentSeriesDirect = seriesList.find(s => s.id === currentSeriesId);
-    const resolvedModel = currentSeriesDirect?.defaultModel || 'flux-2/flex-image-to-image';
+    // Priority: Studio Item Override > Series Default > Global Fallback
+    const resolvedModel = item.model || currentSeriesDirect?.defaultModel || 'flux-2/flex-image-to-image';
 
     try {
       const res = await fetch('/api/generate-library', {
@@ -729,6 +742,47 @@ export default function Home() {
       });
     }
   }
+
+  // --- Studio Model Logic ---
+  const handleStudioModelChange = async (modelId: string) => {
+    if (selectedLibraryIds.size === 0) return alert("Select items to set their model.");
+
+    // Clean value: 'default' -> null (remove override)
+    const val = modelId === 'default' ? null : modelId;
+
+    setCopyMessage(`Updating ${selectedLibraryIds.size} items...`);
+
+    // Batch Update Loop
+    const promises = Array.from(selectedLibraryIds).map(id =>
+      handleLibrarySave(id, { model: val })
+    );
+
+    await Promise.all(promises);
+    setCopyMessage(null);
+  };
+
+  // derived model for toolbar
+  // If selection empty -> Series Default
+  // If selection exists -> Show model if consistent, else return 'mixed' (handled by toolbar as null/mixed)
+  const studioToolbarModel = useMemo(() => {
+    if (selectedLibraryIds.size === 0) {
+      const series = seriesList.find(s => s.id === currentSeriesId);
+      return series?.defaultModel || 'flux-2/flex-image-to-image';
+    }
+
+    // Check consistency
+    const items = currentLibraryItems.filter(i => selectedLibraryIds.has(i.id));
+    if (items.length === 0) return 'flux-2/flex-image-to-image';
+
+    // Check if models are null (default) or set
+    // If null, it means it's using series default, but explicitly stored as null.
+    // For toolbar "Mixed" check, we treat null as 'default'.
+
+    const first = items[0].model;
+    const allSame = items.every(i => i.model === first);
+
+    return allSame ? (first || 'default') : 'mixed';
+  }, [selectedLibraryIds, currentLibraryItems, seriesList, currentSeriesId]);
 
   // --- Studio Generation Confirmation ---
   const [showStudioConfirm, setShowStudioConfirm] = useState(false);
@@ -785,7 +839,7 @@ export default function Home() {
     clips: clips,
     libraryItems: libraryItems,
     refreshData: refreshData,
-    intervalMs: 10000 // 10s polling
+    intervalMs: 5000 // 5s polling (Aggressive)
   });
 
 
@@ -878,6 +932,7 @@ export default function Home() {
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || 'Creation failed');
+      notifyWrite();
 
       // 7. Update Real ID
       setClips(prev => prev.map(c => {
@@ -961,6 +1016,7 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Creation failed');
+      notifyWrite();
 
       // Update Real ID
       setClips(prev => prev.map(c => {
@@ -1114,10 +1170,12 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clip: { ...clip, style: styleToUse }, // Override style
+          clip: { ...clip, style: styleToUse, duration: clipDuration }, // Override style & duration
           library: allSeriesAssets, // Use filtered library
           model: selectedModel || 'flux', // Provide fallback string
           aspectRatio: aspectRatio, // Pass Aspect Ratio
+          sound: audioEnabled, // Pass Audio Toggle
+          seed: currentSeed ?? undefined, // Pass Persistent Seed
           rowIndex: parseInt(clip.id) // Use immutable ID (Sheet Row Index)
         }),
       });
@@ -1133,7 +1191,9 @@ export default function Home() {
       // Clone item to ensure React update
       newClips[index] = {
         ...newClips[index],
-        resultUrl: data.resultUrl || data.taskId
+        taskId: data.taskId || newClips[index].taskId, // Crucial: Set TaskID so polling sees it
+        resultUrl: data.resultUrl || '', // Only set resultUrl if actual URL returned
+        model: selectedModel || 'flux' // Save model so polling knows what to check
       };
       setClips(newClips);
 
@@ -1215,7 +1275,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.16.1 Phoenix</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">v0.16.3 Phoenix</span>
 
           <div className="h-6 w-px bg-border/40 mx-2"></div>
 
@@ -1527,6 +1587,14 @@ export default function Home() {
                 onModelChange={async (model) => {
                   setSelectedModel(model);
                   localStorage.setItem("selectedModel", model);
+
+                  // Audio/Duration Reset Logic (Defensive UI)
+                  const newConfig = getModelConfig(model);
+                  if (!newConfig.hasAudio) {
+                    setAudioEnabled(false);
+                    setClipDuration("5");
+                  }
+
                   // Persist to Episode
                   try {
                     await fetch('/api/update_episode', {
@@ -1557,6 +1625,12 @@ export default function Home() {
                 onAspectRatioChange={(ratio) => updateEpisodeSetting({ aspectRatio: ratio })}
                 onAddClip={handleAddClip}
                 clips={activeClips}
+                enableAudio={audioEnabled}
+                onEnableAudioChange={setAudioEnabled}
+                duration={clipDuration}
+                onDurationChange={setClipDuration}
+                seed={currentSeed}
+                onSeedChange={(val) => updateEpisodeSetting({ seed: val })}
               />
             )}
             {currentView === 'library' && (
@@ -1578,6 +1652,9 @@ export default function Home() {
                   onSeedChange={(val) => updateEpisodeSetting({ seed: val })}
                   aspectRatio={currentAspectRatio}
                   onAspectRatioChange={(ratio) => updateEpisodeSetting({ aspectRatio: ratio })}
+                  // Model Control
+                  selectedModel={studioToolbarModel === 'mixed' ? null : studioToolbarModel}
+                  onModelChange={handleStudioModelChange}
                 />
               </div>
             )}
@@ -1697,6 +1774,7 @@ export default function Home() {
                 }}
                 onDelete={handleDeleteLibraryItem}
                 onDuplicate={handleDuplicateLibraryItem}
+                onArchive={archiveMedia}
               />
             ) : currentView === 'storyboard' ? (
               <StoryboardView

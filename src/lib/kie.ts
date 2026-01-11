@@ -1,7 +1,7 @@
 import { KieClient } from './kie-strategies';
-import { FluxPayload, VeoPayload, NanoPayload, AppStatus } from './kie-types';
+import { FluxPayload, VeoPayload, NanoPayload, KlingPayload, AppStatus } from './kie-types';
 
-export type { FluxPayload, VeoPayload, NanoPayload, AppStatus };
+export type { FluxPayload, VeoPayload, NanoPayload, KlingPayload, AppStatus };
 
 // Delegate create functions
 /**
@@ -23,7 +23,19 @@ export async function createVeoTask(payload: VeoPayload) {
  * Creates a Nano Task via Strategy
  */
 export async function createNanoTask(payload: NanoPayload) {
+    // MOCK_MODE for Testing
+    if (process.env.MOCK_KIE === 'true') {
+        console.log('[Kie] MOCK MODE: createNanoTask returning fake ID');
+        return { taskId: 'MOCK-TASK-' + Date.now(), rawData: { mock: true } };
+    }
     return KieClient.getStrategy('nano').createTask(payload);
+}
+
+/**
+ * Creates a Kling Task via Strategy
+ */
+export async function createKlingTask(payload: KlingPayload) {
+    return KieClient.getStrategy('kling').createTask(payload);
 }
 
 /**
@@ -34,6 +46,6 @@ export const uploadFileBase64 = KieClient.uploadFileBase64;
 /**
  * Checks the status of a task using the appropriate strategy
  */
-export async function checkKieTaskStatus(taskId: string, type: 'flux' | 'veo' | 'nano') {
+export async function checkKieTaskStatus(taskId: string, type: 'flux' | 'veo' | 'nano' | 'kling') {
     return KieClient.getStrategy(type).checkStatus(taskId);
 }

@@ -1,6 +1,8 @@
 
 // Use CJS require to bypass ESM complexity
 const { PayloadBuilderVeo } = require('../src/lib/builders/PayloadBuilderVeo');
+const { PayloadBuilderFlux } = require('../src/lib/builders/PayloadBuilderFlux');
+const { PayloadBuilderNano } = require('../src/lib/builders/PayloadBuilderNano');
 
 function assert(condition: boolean, message: string) {
     if (!condition) {
@@ -17,6 +19,8 @@ async function runMatrix() {
     console.log("==========================================");
 
     const veoBuilder = new PayloadBuilderVeo();
+    const fluxBuilder = new PayloadBuilderFlux();
+    const nanoBuilder = new PayloadBuilderNano();
 
     // --- TEST 1: VEO S2E (2 Explicit Images) ---
     console.log("\n--- TEST 1: Veo S2E (2 Explicit Images) ---");
@@ -30,7 +34,7 @@ async function runMatrix() {
         characterAssets: [],
         locationImages: [],
         explicitImages: ['http://start.png', 'http://end.png'],
-        publicImageUrls: ['http://start.png', 'http://end.png'],
+        publicImageUrls: ['http://start.png', 'http://end.png'], // Legacy fallback
         styleImage: null
     };
     const payS2E = veoBuilder.build(ctxS2E);
@@ -97,6 +101,43 @@ async function runMatrix() {
     console.log(`Model: ${payText.model}`);
     assert(payText.model === 'veo3', "Text Only mode should ALLOW 'veo3' (Quality)");
     assert(payText.imageUrls.length === 0, "No images");
+
+    // --- TEST 4: FLUX PRO (Check Params) ---
+    console.log("\n--- TEST 4: Flux Pro (Params & Prompt) ---");
+    const ctxFlux = {
+        input: {
+            clip: { id: 'flux', action: "Portrait" },
+            model: 'flux-pro',
+            styleStrength: 5
+        },
+        characterImages: [], characterAssets: [],
+        locationImages: [], explicitImages: [],
+        publicImageUrls: [],
+        styleImage: null
+    };
+    const payFlux = fluxBuilder.build(ctxFlux);
+    console.log(`Model: ${payFlux.model}, Guidance: ${payFlux.input.guidance}`);
+    assert(payFlux.model === 'flux-2/flex-image-to-image', "Flux Pro maps to standard endpoint"); // Updated mapping check
+    assert(payFlux.input.aspect_ratio === '16:9', "Default Aspect Ratio");
+    // Guidance logic: 1.5 + ((5-1)*(8.5/9)) = 1.5 + 3.77 = ~5.3
+    assert(payFlux.input.guidance > 5, "Guidance Scale Calc Check");
+
+    // --- TEST 5: NANO (Check Type) ---
+    console.log("\n--- TEST 5: Nano (Values) ---");
+    const ctxNano = {
+        input: {
+            clip: { id: 'nano', action: "Fast" },
+            model: 'nano-banana'
+        },
+        characterImages: [], characterAssets: [],
+        locationImages: [], explicitImages: [],
+        publicImageUrls: [],
+        styleImage: null
+    };
+    const payNano = nanoBuilder.build(ctxNano);
+    console.log(`Model: ${payNano.model}, Res: ${payNano.input.resolution}`);
+    assert(payNano.input.resolution === '2K', "Nano resolution should be 2K");
+    assert(payNano.input.output_format === 'png', "Nano format should be png");
 
 
     // --- TEST 6: SMART LINKAGE (Explicit Image Claims Character Slot) ---

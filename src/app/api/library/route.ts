@@ -26,7 +26,7 @@ export async function POST(req: Request) {
         const body = await req.json();
         // Support two modes: 'duplicate' action or direct create
         // Simplest: just accept the object fields and create
-        const { type, name, description, refImageUrl, negatives, notes, episode, series } = body;
+        const { type, name, description, refImageUrl, negatives, notes, episode, series, model } = body;
 
         if (!type || !name || !series) {
             return NextResponse.json({ error: 'Missing required fields (type, name, series)' }, { status: 400 });
@@ -41,7 +41,8 @@ export async function POST(req: Request) {
                 negatives: negatives || '',
                 notes: notes || '',
                 episode: episode || '1',
-                seriesId: series
+                seriesId: series,
+                model: model || null
             }
         });
 
@@ -57,7 +58,8 @@ export async function POST(req: Request) {
                 negatives: newItem.negatives,
                 notes: newItem.notes,
                 episode: newItem.episode,
-                series: newItem.seriesId
+                series: newItem.seriesId,
+                model: newItem.model
             }
         });
 

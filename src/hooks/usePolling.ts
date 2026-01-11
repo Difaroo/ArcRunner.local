@@ -12,6 +12,7 @@ interface PollTarget {
     type: 'CLIP' | 'LIBRARY';
     id: string; // row index
     taskId: string;
+    model?: string;
 }
 
 export function usePolling({ clips, libraryItems, refreshData, intervalMs = 15000 }: UsePollingProps) {
@@ -43,6 +44,9 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
             // Set of currently detected zombies to clean up old entries
             const detectedZombies = new Set<string>();
 
+            // Start Loop Log (Proves loop is running)
+            // Loop Tick (Silent)
+
             // 1. Scan Clips
             clips.forEach(c => {
                 const isGenerating = c.status === 'Generating';
@@ -54,6 +58,10 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                 const isZombie = isGenerating && !hasTask;
 
                 if (isZombie) {
+                    // ZOMBIE LOGIC DISABLED FOR DEBUGGING
+                    console.log(`[Polling] IGNORING Zombie Detection for ${c.id} (Debug Mode)`);
+
+                    /*
                     detectedZombies.add(c.id);
                     const currentCount = zombieTracker.current.get(c.id) || 0;
                     const newCount = currentCount + 1;
@@ -75,11 +83,14 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                         console.log(`[Polling] Potential Zombie ${c.id} count: ${newCount}/3. Refreshing to check for ID...`);
                         if (isMounted) refreshData(true);
                     }
+                    */
+
                 } else if (isGenerating && hasTask) {
                     targets.push({
                         type: 'CLIP',
                         id: c.id,
-                        taskId: c.taskId!
+                        taskId: c.taskId!,
+                        model: c.model
                     });
                 }
             });
@@ -101,15 +112,16 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                         type: 'LIBRARY',
                         id: i.id,
                         taskId: i.taskId!
+                        // Library items don't have model field usually, defaulting to Flux in backend if missing
                     });
                 }
             });
 
             if (targets.length > 0) {
-                console.log(`[Polling] Checking ${targets.length} active tasks:`, targets.map(t => ({ id: t.id, task: t.taskId })));
+                console.log(`[Polling] Checking ${targets.length} active tasks:`, targets.map(t => ({ id: t.id, task: t.taskId, model: t.model || 'auto' })));
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout (Reverted)
 
                     const res = await fetch('/api/poll', {
                         method: 'POST',
@@ -122,7 +134,6 @@ export function usePolling({ clips, libraryItems, refreshData, intervalMs = 1500
                     const data = await res.json();
 
                     if (data.success && data.updated > 0) {
-                        console.log(`[Polling] Updated ${data.updated} items. Silent Refreshing...`);
                         if (isMounted) await refreshData(true);
                     }
                 } catch (err: any) {

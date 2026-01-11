@@ -1,109 +1,96 @@
+/* eslint-disable no-console */
 import fs from 'fs';
 import path from 'path';
 import { generateThumbnail } from './thumbnail-generator';
 
 const MEDIA_DIR = path.join(process.cwd(), 'public', 'media', 'library');
+const CLIPS_DIR = path.join(process.cwd(), 'public', 'media', 'clips');
 
-// Ensure directory exists
+// Ensure directories exist
 if (!fs.existsSync(MEDIA_DIR)) {
     fs.mkdirSync(MEDIA_DIR, { recursive: true });
 }
+if (!fs.existsSync(CLIPS_DIR)) {
+    fs.mkdirSync(CLIPS_DIR, { recursive: true });
+}
 
 export async function persistLibraryImage(remoteUrl: string, itemId: string, customFilename?: string): Promise<{ localPath: string, thumbnailPath: string | null }> {
+    return persistMedia(remoteUrl, itemId, MEDIA_DIR, '/media/library', customFilename);
+}
+
+export async function persistClipMedia(remoteUrl: string, clipId: string, customFilename?: string): Promise<{ localPath: string, thumbnailPath: string | null }> {
+    return persistMedia(remoteUrl, clipId, CLIPS_DIR, '/media/clips', customFilename);
+}
+
+// Refactored shared logic
+async function persistMedia(remoteUrl: string, id: string, targetDir: string, publicPrefix: string, customFilename?: string): Promise<{ localPath: string, thumbnailPath: string | null }> {
     try {
-        console.log(`[Persistence] Downloading image for Item ${itemId} from ${remoteUrl}`);
+        console.log(`[Persistence] Downloading media for ${id} from ${remoteUrl}`);
 
         const response = await fetch(remoteUrl);
-        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+        if (!response.ok) throw new Error(`Failed to fetch media: ${response.statusText}`);
 
         const buffer = await response.arrayBuffer();
 
-        // Determine extension (default png)
+        // Determine extension
         let ext = 'png';
         const contentType = response.headers.get('content-type');
         if (contentType) {
             if (contentType.includes('jpeg')) ext = 'jpg';
             else if (contentType.includes('webp')) ext = 'webp';
+            else if (contentType.includes('video/mp4')) ext = 'mp4';
+            else if (contentType.includes('video/quicktime')) ext = 'mov';
+            else if (contentType.includes('video/webm')) ext = 'webm';
+        } else {
+            // Try URL extension
+            const urlExt = remoteUrl.split('.').pop()?.split('?')[0];
+            if (urlExt && ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'mov'].includes(urlExt)) {
+                ext = urlExt;
+            }
         }
 
-        let filename = `${itemId}_${Date.now()}.${ext}`;
+        let filename = `${id}_${Date.now()}.${ext}`;
 
         if (customFilename) {
-            // Defensive: Sanitize custom filename
             const sanitized = customFilename.replace(/[^a-zA-Z0-9\.\-\_\s]/g, '').trim();
             if (sanitized) {
-                // Ensure extension is appended if not present
                 filename = sanitized.endsWith(`.${ext}`) ? sanitized : `${sanitized}.${ext}`;
             }
         }
 
         // Defensive: Check for collision and auto-increment version
         let finalFilename = filename;
-        let localFilePath = path.join(MEDIA_DIR, finalFilename);
+        let localFilePath = path.join(targetDir, finalFilename);
 
         if (fs.existsSync(localFilePath)) {
-            console.warn(`[Persistence] Collision detected for ${finalFilename}. Attempting to resolve...`);
-
-            const parsed = path.parse(filename);
-            const nameWithoutExt = parsed.name; // "Series.1 Asset 2"
-
-            // Regex to find trailing " <Number>"
-            // Matches "Text 2", "Text 99"
-            const versionMatch = nameWithoutExt.match(/^(.*?)(\d+)$/);
-
-            let baseName = nameWithoutExt;
-            let currentVer = 0;
-
-            if (versionMatch) {
-                baseName = versionMatch[1]; // "Series.1 Asset " (includes trailing space)
-                currentVer = parseInt(versionMatch[2], 10);
-            }
-
-            let conflict = true;
-            let safety = 0;
-            while (conflict && safety < 100) {
-                currentVer++;
-                // If baseName has simple separator, keep it clean
-                // If original was "Asset 2", base is "Asset ". New is "Asset 3".
-                // If original was "Asset", no match, base is "Asset". New is "Asset_1"? Or "Asset 1"?
-
-                if (versionMatch) {
-                    finalFilename = `${baseName}${currentVer}${parsed.ext}`;
-                } else {
-                    // Fallback for non-versioned names: append _1, _2
-                    finalFilename = `${nameWithoutExt}_${currentVer}${parsed.ext}`;
+            // Simple collision strategy: Append timestamp if collision on ID-based name
+            if (!customFilename) {
+                finalFilename = `${id}_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
+                localFilePath = path.join(targetDir, finalFilename);
+            } else {
+                // Versioning logic for custom names (simplified)
+                const parsed = path.parse(filename);
+                let ver = 1;
+                while (fs.existsSync(path.join(targetDir, finalFilename)) && ver < 20) {
+                    finalFilename = `${parsed.name}_${ver}${parsed.ext}`;
+                    ver++;
                 }
-
-                localFilePath = path.join(MEDIA_DIR, finalFilename);
-                conflict = fs.existsSync(localFilePath);
-                safety++;
+                localFilePath = path.join(targetDir, finalFilename);
             }
-
-            if (conflict) {
-                // Nuclear fallback if 100 versions exist
-                finalFilename = `${parsed.name}_${Date.now()}${parsed.ext}`;
-                localFilePath = path.join(MEDIA_DIR, finalFilename);
-            }
-
-            console.log(`[Persistence] Resolved collision to: ${finalFilename}`);
         }
 
-        // Write Full Res
         await fs.promises.writeFile(localFilePath, Buffer.from(buffer));
-        const publicPath = `/media/library/${finalFilename}`;
+        const publicPath = `${publicPrefix}/${finalFilename}`;
 
-        console.log(`[Persistence] Saved full-res to: ${localFilePath}`);
+        console.log(`[Persistence] Saved to: ${localFilePath}`);
 
-        // Generate Thumbnail from Local File (More efficient than re-downloading)
-        // Note: generateThumbnail expects a URL/Path. We can pass the absolute path.
-        const thumbnailPath = await generateThumbnail(localFilePath, itemId);
+        // Generate Thumbnail (Handles both Image and Video)
+        const thumbnailPath = await generateThumbnail(localFilePath, id);
 
         return { localPath: publicPath, thumbnailPath };
 
     } catch (error) {
-        console.error(`[Persistence] Failed to persist image for Item ${itemId}:`, error);
-        // Fallback: return remote url and null thumbnail? 
-        // Or throw? If persistence fails, we should stick to remote URL to at least show something.
+        console.error(`[Persistence] Failed to persist media for ${id}:`, error);
         throw error;
     }
 }

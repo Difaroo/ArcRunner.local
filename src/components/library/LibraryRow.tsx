@@ -34,6 +34,7 @@ import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea";
 import { MediaDisplay } from "@/components/media/MediaDisplay";
 import { RowActions } from "@/components/ui/RowActions";
 import { LibraryItem } from '@/lib/library';
+import { MODEL_LIST } from '@/lib/models';
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { useRowShortcuts } from "@/hooks/useRowShortcuts";
 
@@ -51,6 +52,7 @@ interface LibraryRowProps {
     onPlay?: (url: string) => void;
     onDownload: (url: string, name: string) => void;
     onDuplicate?: (id: string) => void;
+    onArchive?: (url: string) => void;
 }
 
 export function LibraryRow({
@@ -66,7 +68,8 @@ export function LibraryRow({
     onDelete,
     onPlay,
     onDownload,
-    onDuplicate
+    onDuplicate,
+    onArchive
 }: LibraryRowProps) {
     const [editValues, setEditValues] = useState<Partial<LibraryItem>>({});
 
@@ -238,7 +241,7 @@ export function LibraryRow({
                                 </Tooltip>
                             </TooltipProvider>
                             <DropdownMenuContent className="bg-stone-900 border-stone-800 text-white">
-                                {LIBRARY_TYPES.map(type => (
+                                {['LIB_CHARACTER', 'LIB_LOCATION', 'LIB_STYLE', 'LIB_CAMERA'].map(type => (
                                     <DropdownMenuItem
                                         key={type}
                                         onClick={() => handleChange('type', type)}
@@ -338,6 +341,7 @@ export function LibraryRow({
                                     isThumbnail={!!item.thumbnailPath}
                                     // onPlay={onPlay || (() => { })} // Removed
                                     className="w-full h-full"
+                                    onSave={onArchive}
                                 />
                             </div>
                         )

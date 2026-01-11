@@ -9,6 +9,12 @@
 - [ ] **Extended Edit Mode**: Expose other fields + controls in the inline edit view.
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
+## 🚀 Released v0.16.2 (Phoenix Stability)
+- [x] **Nano Polling Loop**: Fixed infinite "Generating" loop for Nano models.
+- [x] **Model Persistence**: Fixed data loss where `model` field wasn't saved to DB.
+- [x] **Smart Merging**: Prevented Zombie Killer from destroying valid tasks during slow updates.
+- [x] **Regression Testing**: Added `test-integrity.ts`.
+
 ## 🚀 Released v0.16.1 (Bugfix & Polish)
 - [x] **Spinner Flicker**: Fixed race condition in Poller that caused premature stops.
 - [x] **Style Payload Logic**: Fixed bug where style header was missing or incorrect for Text-Only styles.

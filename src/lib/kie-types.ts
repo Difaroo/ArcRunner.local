@@ -43,4 +43,27 @@ export interface NanoPayload {
     };
 }
 
+export interface KlingPayload {
+    model: string; // 'kling-2.6/image-to-video'
+    callBackUrl?: string;
+    input: {
+        prompt: string;
+        image_urls: string[]; // Required
+        sound: boolean;       // Required
+        duration: string;     // "5" or "10"
+        [key: string]: any;
+    };
+}
+
+
 export type AppStatus = 'Generating' | 'Done' | 'Error';
+
+export interface KieResult {
+    status: AppStatus;
+    resultUrl?: string;
+    errorMsg?: string;
+    // Raw fallback for debugging
+    debugRaw?: any;
+}
+
+export type TaskPayload = FluxPayload | VeoPayload | NanoPayload | KlingPayload;

@@ -11,6 +11,7 @@ interface MediaDisplayProps {
     isThumbnail?: boolean // If true, force image rendering for the preview
     contentType?: 'video' | 'image' | 'auto' // Explicit type override
     className?: string
+    onSave?: (url: string) => void
 }
 
 export function MediaDisplay({
@@ -21,7 +22,8 @@ export function MediaDisplay({
     onPlay,
     isThumbnail,
     contentType = 'auto',
-    className
+    className,
+    onSave
 }: MediaDisplayProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 

@@ -144,17 +144,18 @@ export function VideoPlayerOverlay({
                                             variant="ghost"
                                             size="icon"
                                             onClick={async (e) => {
+                                                e.preventDefault();
                                                 e.stopPropagation();
-                                                await archiveMedia(currentUrl);
+                                                // User Expectation: "Save" means "Download to OS"
+                                                if (currentUrl) await downloadFile(currentUrl, playingClip?.title || 'download');
                                             }}
-                                            disabled={isArchiving}
                                             className="text-orange-500 hover:text-orange-400 hover:bg-black/20"
                                         >
-                                            {isArchiving ? <Loader2 className="h-6 w-6 animate-spin" /> : <span className="material-symbols-outlined !text-3xl">save</span>}
+                                            <span className="material-symbols-outlined !text-3xl">save</span>
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>Save to local storage and set as permanent reference</p>
+                                        <p>Save to Computer</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>

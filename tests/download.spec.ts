@@ -29,15 +29,19 @@ test.describe('Download API Architecture', () => {
         const maliciousFilename = '../../etc/passwd.txt';
 
         const response = await request.get(`/api/proxy-download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(maliciousFilename)}`);
+        if (!response.ok()) {
+            console.log('Sanitization Test Failed Status:', response.status());
+            console.log('Sanitization Test Failed Body:', await response.text());
+        }
         expect(response.ok()).toBeTruthy();
 
         const headers = response.headers();
         // Expect sanitized version: .._.._etc_passwd.txt or similar depending on regex
         // Our regex is /[^a-zA-Z0-9._-]/g -> '_'
-        // so ".." becomes "..", "/" becomes "_"
-        // ../../etc/passwd.txt -> .._.._etc_passwd.txt
-        expect(headers['content-disposition']).not.toContain('passwd'); // Shouldn't be raw
-        expect(headers['content-disposition']).toContain('.._.._etc_passwd.txt');
+        // AND we use path.basename() now, so directory traversal is stripped.
+        // ../../etc/passwd.txt -> passwd.txt
+        expect(headers['content-disposition']).not.toContain('/'); // No slashes
+        expect(headers['content-disposition']).toContain('passwd.txt');
     });
 
     // 3. Verify Error Handling

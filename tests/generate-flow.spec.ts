@@ -61,15 +61,12 @@ test.describe('Generate Flow', () => {
 
     test('should trigger generation for selected clip', async ({ page }) => {
         // 0.5. Verify Series Load & Select
-        // Real Data: 'Candy_Jones' is a known series title from the DB
-        await expect(page.getByText('Candy_Jones').first()).toBeVisible();
-        await page.getByText('Candy_Jones').first().click();
+        // MOCKED Data: 'Test Series'
+        await expect(page.getByText('Test Series').first()).toBeVisible();
+        await page.getByText('Test Series').first().click();
 
         // 0.6 Click Episode in Table to Navigate
-        // Real Data: '1.01' or 'Ep 1' - looking at logs, series has episodes.
-        // We'll click the first episode tab if available, or just verify clips load.
-        // In this hierarchy, we might already see clips if default episode is selected.
-
+        // MOCKED Data: 'Ep 1'
         // Explicitly navigate to 'Episode' view (Clips Table)
         await page.getByRole('button', { name: 'Episode' }).first().click();
 
@@ -77,8 +74,8 @@ test.describe('Generate Flow', () => {
         await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
 
         // 1. Verify Load
-        // Real Data: "Tape 216" matches the logs
-        const tapeClip = page.getByText('Tape 216').first();
+        // MOCKED Data: "A hero stands on a cliff"
+        const tapeClip = page.getByText('A hero stands on a cliff').first();
         await expect(tapeClip).toBeVisible({ timeout: 10000 });
 
         // 2. Select Clip
@@ -87,7 +84,7 @@ test.describe('Generate Flow', () => {
             .getByRole('checkbox').first().click();
 
         // 3. Click Generate
-        await page.getByRole('button', { name: 'Generate' }).first().click();
+        await page.getByTestId('generate-selected-button').first().click();
 
         // 4. Verify Status Change
         // Using network interception as proof of call is good enough if UI is tricky

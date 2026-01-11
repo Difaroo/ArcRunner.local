@@ -6,8 +6,8 @@ const manager = new GenerateManager();
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        // page.tsx sends: { clip, library, model, aspectRatio, rowIndex }
-        const { clip, model, aspectRatio } = body;
+        // page.tsx sends: { clip, library, model, aspectRatio, rowIndex, seed }
+        const { clip, model, aspectRatio, seed } = body;
 
         // Validate inputs
         if (!clip || !clip.id) {
@@ -19,6 +19,7 @@ export async function POST(req: Request) {
             seriesId: clip.series || '1',
             model: model,
             aspectRatio: aspectRatio,
+            seed: seed ? parseInt(String(seed)) : undefined,
             clip: clip
         };
 

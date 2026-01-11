@@ -1,6 +1,6 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
-import { X, ZoomIn, Play, Download } from "lucide-react"
+import { X, ZoomIn, Play, Download, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { downloadFile } from "@/lib/download-utils"
 
@@ -11,12 +11,13 @@ interface MediaPreviewModalProps {
     type: 'video' | 'image'
     title?: string
     urls?: string[] // Optional array for slideshow
+    onSave?: (url: string) => void
 }
 
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-export function MediaPreviewModal({ isOpen, onClose, url, type, title, urls = [] }: MediaPreviewModalProps) {
+export function MediaPreviewModal({ isOpen, onClose, url, type, title, urls = [], onSave }: MediaPreviewModalProps) {
     // If urls provided, use them. Else fallback to single url.
     // Filter out potential junk
     const validUrls = urls.length > 0
@@ -81,13 +82,30 @@ export function MediaPreviewModal({ isOpen, onClose, url, type, title, urls = []
                             )}
                         </div>
                         <div className="flex items-center gap-2 pointer-events-auto">
+                            {onSave && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9 text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                                    onClick={async (e) => {
+                                        e.preventDefault();
+                                        // User Expectation: "Save" means "Download to OS"
+                                        // We bypass the onSave archival logic to avoid confusion/side-effects
+                                        const filename = `${title || 'download'}.${type === 'video' ? 'mp4' : 'png'}`;
+                                        await downloadFile(currentUrl, filename);
+                                    }}
+                                    title="Save to Computer"
+                                >
+                                    <Save className="h-5 w-5" />
+                                </Button>
+                            )}
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-9 w-9 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
                                 onClick={async () => {
                                     const filename = `${title || 'download'}.${type === 'video' ? 'mp4' : 'png'}`;
-                                    await downloadFile(src, filename);
+                                    await downloadFile(currentUrl, filename);
                                 }}
                                 title="Download File"
                             >

@@ -19,6 +19,7 @@ export interface LibraryItem {
     series: string;
     status?: string;
     taskId?: string;
+    model?: string | null;
 }
 
 /**
@@ -47,7 +48,8 @@ export async function getLibraryItems(filterSeriesId?: string): Promise<LibraryI
             episode: item.episode || '1',
             series: item.seriesId,
             status: item.status || 'IDLE',
-            taskId: item.taskId || ''
+            taskId: item.taskId || '',
+            model: item.model || null
         }));
     } catch (error) {
         console.error('Error fetching library items (DB):', error);

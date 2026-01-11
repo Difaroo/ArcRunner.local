@@ -8,6 +8,10 @@ export class PayloadBuilderVeo implements PayloadBuilder {
         return modelId.startsWith('veo');
     }
 
+    validate(context: GenerationContext): void {
+        if (!context.input) throw new Error('Input missing from GenerationContext');
+    }
+
     build(context: GenerationContext): VeoPayload {
         const { input } = context;
 

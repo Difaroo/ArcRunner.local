@@ -98,15 +98,32 @@ export function ClipRow({
         position: isDragging ? 'relative' as const : undefined,
     }
 
+    // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
+    const getCleanExplicitRefs = () => {
+        const rawExplicit = clip.explicitRefUrls || clip.refImageUrls || ''; // Fallback to refImageUrls if explicit missing
+        const urls = rawExplicit.split(',').map(s => s.trim()).filter(Boolean);
+
+        // Block List: Character and Location Images
+        const autoImages = new Set([
+            ...(clip.characterImageUrls || []),
+            ...(clip.locationImageUrls || [])
+        ]);
+
+        return urls.filter(u => !autoImages.has(u));
+    };
+
     const handleStartEdit = () => {
         // removed blocking guard for 'Done' clips as per user feedback
         startEditing()
     }
 
     const startEditing = () => {
-        // IMPORTANT: Initialize editValues with explicitRefUrls for the refImageUrls field.
+        // IMPORTANT: Initialize editValues with explicit keys to ensure tracking works
+        // We do NOT filter here, to prevent data loss. Filtering is visual only (View mode).
+
         setEditValues({
             ...clip,
+            negativePrompt: clip.negativePrompt || '',
             refImageUrls: clip.explicitRefUrls || ''
         })
         onEdit(clip)
@@ -194,6 +211,11 @@ export function ClipRow({
         const normalize = (val: any) => val === undefined || val === null ? '' : String(val);
 
         (Object.keys(editValues) as Array<keyof Clip>).forEach(key => {
+            // EXCLUDE SYSTEM FIELDS from being overwritten by potentially stale local state
+            if (['resultUrl', 'status', 'taskId', 'thumbnailPath', 'createdAt', 'updatedAt'].includes(key as string)) {
+                return;
+            }
+
             const currentVal = editValues[key];
             let originalVal;
             // Explicitly map refImageUrls key back to the 'explicitRefUrls' source of truth
@@ -204,14 +226,6 @@ export function ClipRow({
             }
 
             if (normalize(currentVal) !== normalize(originalVal)) {
-
-                // IMPORTANT: When saving 'refImageUrls', the API expects the key 'refImageUrls',
-                // but the frontend Clip object stores it as 'explicitRefUrls'.
-                // If the key is 'refImageUrls', we send it as such.
-                // If it is 'explicitRefUrls', we ignore it here because we handle it via 'refImageUrls' key in editValues.
-                // Wait, startEditing sets 'refImageUrls' in editValues.
-                // So key will be 'refImageUrls'.
-
                 // @ts-ignore
                 updates[key] = currentVal;
             }
@@ -432,9 +446,9 @@ export function ClipRow({
                 </EditableCell>
             </TableCell>
             <TableCell className={`align-top text-white text-xs w-[140px] ${isEditing ? "p-1" : "py-3"}`}>
-                <div>
-                    <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
-                        {isEditing ? (
+                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
+                    {isEditing ? (
+                        <div className="flex flex-col gap-2">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 w-full justify-start text-xs text-left truncate">
@@ -453,11 +467,30 @@ export function ClipRow({
                                     ))}
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                        ) : (
+
+                            {/* NEGATIVE PROMPT (NEGATE) */}
+                            <div className="space-y-1">
+                                <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase">NEGATE</span>
+                                <AutoResizeTextarea
+                                    value={editValues.negativePrompt || ''}
+                                    onChange={(e) => handleChange('negativePrompt', e.target.value)}
+                                    className="min-h-[40px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-normal leading-relaxed placeholder:text-zinc-600"
+                                    placeholder="No blur, distortions..."
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-1 w-full h-full">
                             <span className="table-text truncate block">{clip.camera || '+'}</span>
-                        )}
-                    </EditableCell>
-                </div>
+                            {clip.negativePrompt ? (
+                                <div className="flex flex-col gap-0 mt-2">
+                                    <span className="font-semibold text-stone-500 text-[10px] tracking-wider uppercase">NEGATE</span>
+                                    <span className="table-text">{clip.negativePrompt}</span>
+                                </div>
+                            ) : null}
+                        </div>
+                    )}
+                </EditableCell>
             </TableCell>
             <TableCell className={`align-top text-white w-[15%] ${isEditing ? "p-1" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
@@ -499,7 +532,7 @@ export function ClipRow({
                     </div>
                 ) : (
                     (() => {
-                        const urls = clip.explicitRefUrls ? clip.explicitRefUrls.split(',').map(s => s.trim()).filter(Boolean) : [];
+                        const urls = getCleanExplicitRefs();
                         return urls.length > 0 ? (
                             <div className="flex gap-1 justify-end" onClick={handleStartEdit}>
                                 {urls.slice(0, 3).map((url, i) => (

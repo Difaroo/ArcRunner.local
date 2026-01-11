@@ -22,6 +22,7 @@ export interface Clip {
     model?: string;
     isHiddenInStoryboard?: boolean;
     thumbnailPath?: string;
+    negativePrompt?: string | null;
 }
 
 export interface Series {
@@ -46,6 +47,7 @@ export interface LibraryItem {
     series: string;
     status?: string;
     taskId?: string;
+    model?: string | null;
 }
 
 export interface Episode {
