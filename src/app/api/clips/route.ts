@@ -17,10 +17,26 @@ export async function GET() {
         const [dbSeries, dbEpisodes, dbStudioItems, dbClips] = await Promise.all([
             db.series.findMany(),
             db.episode.findMany({ orderBy: { number: 'asc' } }),
-            db.studioItem.findMany(),
+            db.studioItem.findMany({
+                include: {
+                    media: {
+                        where: { category: 'STUDIO_UPLOAD' }, // Or just take all attached to it?
+                        orderBy: { createdAt: 'desc' }
+                    }
+                }
+            }),
             db.clip.findMany({
-                include: { episode: { include: { series: true } } },
-                orderBy: { sortOrder: 'asc' }
+                include: {
+                    episode: { include: { series: true } },
+                    mediaResults: true,
+                    mediaReferences: {
+                        orderBy: { createdAt: 'asc' }
+                    }
+                },
+                orderBy: [
+                    { sortOrder: 'asc' },
+                    { id: 'asc' }
+                ]
             })
         ]);
 
@@ -53,17 +69,23 @@ export async function GET() {
         });
 
         // 4. Transform Studio Items (Library)
-        const libraryItems = dbStudioItems.map(item => ({
-            id: item.id.toString(),
-            type: item.type,
-            name: item.name,
-            description: item.description || '',
-            refImageUrl: item.refImageUrl || '',
-            negatives: item.negatives || '',
-            notes: item.notes || '',
-            episode: item.episode || '1',
-            series: item.seriesId
-        }));
+        const libraryItems = dbStudioItems.map(item => {
+            // READER SWITCH: Use Media Table (Latest) -> Legacy
+            // @ts-ignore
+            const mediaUrl = (item.media && item.media.length > 0) ? item.media[0].url : item.refImageUrl;
+
+            return {
+                id: item.id.toString(),
+                type: item.type,
+                name: item.name,
+                description: item.description || '',
+                refImageUrl: mediaUrl || '', // Source from Media
+                negatives: item.negatives || '',
+                notes: item.notes || '',
+                episode: item.episode || '1',
+                series: item.seriesId
+            };
+        });
 
         // Helper for Studio Lookups
         const libraryImages: Record<string, Record<string, string>> = {}; // SeriesID -> Name -> URL
@@ -101,7 +123,25 @@ export async function GET() {
                 return seriesLib[key] || globalLibrary[key];
             };
 
-            const { fullRefs, explicitRefs, characterImageUrls, locationImageUrls } = resolveClipImages(clip, findLib);
+            // READER MIGRATION: Prefer Media Table (New) over Legacy Columns
+            // ---------------------------------------------------------------
+
+            // A. Resolve Results (Video/Image)
+            // Use logical last item (most recent) from Media table
+            const mediaResult = clip.mediaResults && clip.mediaResults.length > 0
+                ? clip.mediaResults[clip.mediaResults.length - 1].url
+                : clip.resultUrl; // Fallback to Legacy
+
+            // B. Resolve References (Images)
+            // Construct CSV from Media table if available
+            let explicitRefs = clip.refImageUrls || '';
+            if (clip.mediaReferences && clip.mediaReferences.length > 0) {
+                explicitRefs = clip.mediaReferences.map((m: any) => m.url).join(',');
+            }
+
+            // Proxy Clip for Resolver
+            const proxyClip = { ...clip, refImageUrls: explicitRefs };
+            const { fullRefs, explicitRefs: resolvedExplicit, characterImageUrls, locationImageUrls } = resolveClipImages(proxyClip, findLib);
 
             const allRefs = fullRefs;
 
@@ -116,11 +156,14 @@ export async function GET() {
                 camera: clip.camera || '',
                 action: clip.action || '',
                 dialog: clip.dialog || '',
-                refImageUrls: allRefs,
-                explicitRefUrls: explicitRefs || (clip.refImageUrls || ''),
+                // Resolved Images (Source of Truth = Media Table)
+                refImageUrls: fullRefs,
+                explicitRefUrls: resolvedExplicit,
+                mediaReferences: clip.mediaReferences, // EXPOSED: Full Array of Objects
                 characterImageUrls,
                 locationImageUrls,
-                resultUrl: clip.resultUrl || '',
+                // Result (Source of Truth = Media Table)
+                resultUrl: mediaResult || '',
                 taskId: clip.taskId || '',
                 seed: clip.seed || '',
                 negativePrompt: clip.negativePrompt || '',

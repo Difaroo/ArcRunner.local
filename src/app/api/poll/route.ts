@@ -8,6 +8,7 @@ import { generateThumbnail } from '@/lib/thumbnail-generator';
 import { persistLibraryImage, persistClipMedia } from '@/lib/media-persistence';
 import * as fs from 'fs';
 import * as path from 'path';
+import { MediaService } from '@/lib/services/media-service';
 
 export async function POST(req: Request) {
     try {
@@ -151,56 +152,67 @@ export async function POST(req: Request) {
                     let newRefUrl = finalResult;
 
                     // Persistence Logic
-                    if (status === 'Done' && finalResult && finalResult.startsWith('http')) {
-                        try {
-                            const seriesName = currentItem?.series?.name || 'UnknownSeries';
-                            const epNum = currentItem?.episode || '0';
-                            const assetName = currentItem?.name || 'Asset';
-                            const existingRefs = currentItem?.refImageUrl ? currentItem.refImageUrl.split(',').length : 0;
-                            const version = existingRefs + 1;
-                            const customName = `${seriesName}.${epNum} ${assetName} ${version}`;
+                    // Persistence Logic
+                    if (status === 'Done' && finalResult) {
+                        let localPath = finalResult;
+                        if (finalResult.startsWith('http')) {
+                            try {
+                                const seriesName = currentItem?.series?.name || 'UnknownSeries';
+                                const epNum = currentItem?.episode || '0';
+                                const assetName = currentItem?.name || 'Asset';
+                                const existingRefs = currentItem?.refImageUrl ? currentItem.refImageUrl.split(',').length : 0;
+                                const version = existingRefs + 1;
+                                const customName = `${seriesName}.${epNum} ${assetName} ${version}`;
 
-                            const { localPath } = await persistLibraryImage(finalResult, idInt.toString(), customName);
-                            newRefUrl = localPath;
-                        } catch (e) {
-                            console.error(`Persistence failed for Item ${idInt}:`, e);
+                                const res = await persistLibraryImage(finalResult, idInt.toString(), customName);
+                                localPath = res.localPath;
+                            } catch (e) {
+                                console.error(`Persistence failed for Item ${idInt}:`, e);
+                            }
                         }
+
+                        // FALCON REFACTOR: Dual-Write for Studio Items
+                        // This updates StudioItem.refImageUrl AND creates a Media record
+                        await MediaService.addStudioResult(idInt, localPath, localPath);
                     }
 
-                    const existingUrl = currentItem?.refImageUrl || '';
-                    const cleanExisting = existingUrl.replace(/^,|,$/g, '').trim();
-                    const updatedUrlCsv = cleanExisting ? `${newRefUrl},${cleanExisting}` : newRefUrl;
+                    console.log(`[PollLibrary] Updating Item ${idInt}: Status=${finalStatus}`);
 
-                    console.log(`[PollLibrary] Updating Item ${idInt}: Status=${finalStatus}`, { newRefUrl });
-
+                    // Final Status Update (Service handles images, we handle status/taskId)
                     await db.studioItem.update({
                         where: { id: idInt },
                         data: {
                             status: finalStatus,
-                            refImageUrl: finalStatus === 'Done' ? updatedUrlCsv : existingUrl,
                             taskId: finalStatus === 'Done' ? '' : undefined
                         }
                     });
+
                     updateCount++;
 
                 } else {
                     // --- CLIP UPDATE ---
                     let thumbnailPath = undefined;
-                    let finalUrl = finalResult;
-
-                    // Fetch existing clip to preserve history (Prepend new URL)
-                    const existingClip = await db.clip.findUnique({
-                        where: { id: idInt },
-                        select: { resultUrl: true }
-                    });
-                    const existingResultUrl = existingClip?.resultUrl || '';
 
                     if (status === 'Done' && finalResult) {
                         try {
                             const { localPath, thumbnailPath: thumb } = await persistClipMedia(finalResult, idInt.toString());
-
-                            finalUrl = localPath;
                             thumbnailPath = thumb;
+
+                            // FALCON REFACTOR: Use MediaService (Dual-Write)
+                            // This updates both the legacy CSV and the new Media table.
+                            const fileType = localPath.endsWith('.mp4') ? 'VIDEO' : 'IMAGE';
+                            await MediaService.addResult(idInt, localPath, fileType, localPath);
+
+                            // Update Status & Thumbnail (Service doesn't handle Status)
+                            await db.clip.update({
+                                where: { id: idInt },
+                                data: {
+                                    status: 'Done',
+                                    ...(thumbnailPath ? { thumbnailPath } : {})
+                                }
+                            });
+
+                            updateCount++;
 
                         } catch (e) {
                             console.error(`Persistence failed for Clip ${taskId}:`, e);
@@ -209,41 +221,19 @@ export async function POST(req: Request) {
                                 if (path) thumbnailPath = path;
                             } catch (thErr) { console.error('Thumbnail fallback failed', thErr); }
                         }
+                    } else if (status === 'Error' || status === 'Generating') {
+                        // For non-Done states, we just update status/error message
+                        // Legacy: Error message usually goes into resultUrl?
+                        const data: any = { status: finalStatus };
+                        if (status === 'Error') data.resultUrl = finalResult; // Keep error msg in URL field for now
+
+                        await db.clip.update({
+                            where: { id: idInt },
+                            data: data
+                        });
+                        updateCount++;
                     }
-
-                    // Logic:
-                    // If Done: Prepend new URL to history: "new, old1, old2"
-                    // If Generating/Error: Overwrite/Set status (Likely usually just status update, but for Error we might want to keep history? User didn't specify, but Error usually replaces)
-                    // ACTUALLY: If Error, we usually want to see the error.
-                    // But if Generating, we might just be updating status.
-                    // For now, let's strictly prepend ONLY if status is DONE.
-
-                    let urlToSave = finalUrl;
-                    if (status === 'Done') {
-                        // ROBUST PREPEND Logic (Array-based)
-                        const rawExisting = existingResultUrl || '';
-                        const urls = rawExisting.split(',').map(u => u.trim()).filter(Boolean);
-
-                        // If the newest result is NOT at the top, prepend it.
-                        // (We allow duplicates in history if they are not immediate neighbors, assuming re-roll of same seed?)
-                        // Actually, let's just ensure the First item matches new URL.
-                        if (urls.length === 0 || urls[0] !== finalUrl) {
-                            urls.unshift(finalUrl);
-                        }
-                        urlToSave = urls.join(',');
-                    }
-
-                    await db.clip.update({
-                        where: { id: idInt },
-                        data: {
-                            status: finalStatus,
-                            resultUrl: urlToSave,
-                            ...(thumbnailPath ? { thumbnailPath } : {})
-                        }
-                    });
-                    updateCount++;
                 }
-
             } catch (err: any) {
                 console.error(`[Poll] Error checking ${taskId}:`, err);
 

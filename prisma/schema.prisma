@@ -62,6 +62,36 @@ model StudioItem {
   // Relations
   seriesId    String
   series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  
+  // Media Relation
+  media       Media[]  @relation("StudioMedia")
+}
+
+// The "Media" Table (Normalized storage)
+model Media {
+  id        String   @id @default(uuid())
+  url       String   // Remote URL or Local Proxy Path
+  localPath String?  // Absolute local storage path (if downloaded)
+  
+  type      String   // "IMAGE" | "VIDEO"
+  category  String   // "REFERENCE" | "RESULT" | "STUDIO_UPLOAD"
+  
+  mimeType  String?
+  size      Int?
+  width     Int?
+  height    Int?
+  
+  createdAt DateTime @default(now())
+
+  // Relations
+  referenceForClipId Int?
+  referenceForClip   Clip? @relation("ClipReferences", fields: [referenceForClipId], references: [id], onDelete: Cascade)
+
+  resultForClipId    Int?
+  resultForClip      Clip? @relation("ClipResults", fields: [resultForClipId], references: [id], onDelete: Cascade)
+  
+  studioItemId       Int?
+  studioItem         StudioItem? @relation("StudioMedia", fields: [studioItemId], references: [id], onDelete: Cascade)
 }
 
 // The "Clips" Table
@@ -96,4 +126,9 @@ model Clip {
   // Relations
   episodeId       String
   episode         Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  // Media Relations (Future Truth)
+  // These will eventually replace refImageUrls and the CSV behavior of resultUrl.
+  mediaReferences Media[]  @relation("ClipReferences")
+  mediaResults    Media[]  @relation("ClipResults")
 }

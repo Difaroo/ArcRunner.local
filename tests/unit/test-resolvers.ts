@@ -9,7 +9,7 @@ const mockLibrary = {
     'villain': 'http://lib/villain.jpg',
     'home': 'http://lib/home.jpg'
 };
-const findLib = (name: string) => mockLibrary[name.toLowerCase()] || undefined;
+const findLib = (name: string) => (mockLibrary as any)[name.toLowerCase()] || undefined;
 
 // Test 1: explicitRefUrls takes precedence
 {

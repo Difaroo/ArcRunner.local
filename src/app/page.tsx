@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useTheme } from "@/components/theme-provider"
+import { MainHeader } from '@/components/MainHeader';
 
 import { ClipTable } from "@/components/clips/ClipTable"
 import { EpisodeTabs } from "@/components/clips/EpisodeTabs"
@@ -24,6 +25,7 @@ import { ActionToolbar } from "@/components/clips/ActionToolbar"
 import { LibraryActionToolbar } from "@/components/library/LibraryActionToolbar"
 import { SeriesPage } from "@/components/series/SeriesPage"
 import { SettingsPage } from "@/components/settings/SettingsPage"
+import { NavBar, ViewType } from "@/components/NavBar" // IMPORT ADDED
 import { DEFAULT_VIDEO_PROMPT, DEFAULT_IMAGE_PROMPT } from "@/lib/defaults"
 
 import { PageHeader } from "@/components/PageHeader"
@@ -33,7 +35,7 @@ import { LibraryTable } from "@/components/library/LibraryTable"
 import { StoryboardView } from "@/components/storyboard/StoryboardView"
 
 // Modular Components
-import { VideoPlayerOverlay } from "@/components/player/VideoPlayerOverlay";
+import { UniversalMediaViewer } from "@/components/media/UniversalMediaViewer";
 import { AddSeriesDialog } from "@/components/dialogs/series/AddSeriesDialog";
 import { NewEpisodeDialog } from "@/components/dialogs/episodes/NewEpisodeDialog";
 import { StudioConfirmDialog } from "@/components/dialogs/generation/StudioConfirmDialog";
@@ -70,6 +72,15 @@ export default function Home() {
       refreshData();
     }
   }, [refreshData]);
+
+  // Handle URL View Param on Mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    if (view && ['series', 'script', 'library', 'clips', 'settings', 'storyboard'].includes(view)) {
+      setCurrentView(view as any);
+    }
+  }, []);
 
 
 
@@ -488,10 +499,22 @@ export default function Home() {
     setPlayingVideoUrl
   });
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setEditingId(null);
     setEditValues({});
-  };
+  }, []);
+
+  // Global ESC Handler for inline editing
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editingId) {
+        handleCancelEdit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingId, handleCancelEdit]);
+
   // --- Episode Logic ---
   // Group clips by their explicit 'episode' field.
   const episodes: Clip[][] = [];
@@ -1260,162 +1283,138 @@ export default function Home() {
     <div className="flex h-screen w-full flex-col bg-background font-display text-foreground">
       {/* Custom Video Player Modal */}
       {/* Custom Video Player Modal */}
-      <VideoPlayerOverlay
-        url={playingVideoUrl}
+      <UniversalMediaViewer
+        isOpen={!!playingVideoUrl}
         onClose={() => { setPlayingVideoUrl(null); setPlaylist([]); }}
-        playlist={playlist}
         initialIndex={currentPlayIndex}
-        clips={clips}
-        archiveMedia={archiveMedia}
-        isArchiving={isArchiving}
-        libraryItems={libraryItems}
-        onUpdateClip={handleSave}
-        onUpdateLibrary={handleLibrarySave}
+        playlist={playlist.map(url => {
+          // Resolve Context - Robust Search
+          const clip = clips.find(c =>
+            (c.resultUrl === url) ||
+            ((c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url))
+          );
+
+          const lib = !clip ? libraryItems.find(i => (i.refImageUrl || '').includes(url)) : undefined;
+
+          // Determine if it is a Reference (i.e. not the main Result)
+          const isReference = clip ? (clip.resultUrl !== url) : (lib ? false : false); // Library items are roots? Or refs? Usually roots.
+
+          // Type Detection
+          const isImageExt = url.match(/\.(png|jpg|jpeg|webp|gif|bmp)($|\?)/i);
+          const isVideoExt = url.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+          const isImageModel = clip?.model?.toLowerCase().includes('flux') || clip?.model?.toLowerCase().includes('dalle');
+
+          // Default to Video unless proven Image
+          const type = (isImageExt || isImageModel) ? 'image' : 'video';
+
+          // Namespace IDs
+          const uniqueId = clip ? `clip-${clip.id}` : (lib ? `lib-${lib.id}` : `url-${url}`);
+
+          // Title Logic
+          let displayTitle = 'Media';
+          if (lib) {
+            displayTitle = lib.name;
+          } else if (clip) {
+            // For Refs, maybe show "Ref: [Scene]"? Or just same title?
+            // User asked for "[SCENE] [CLIP NAME] [VERSION]"
+            let ver = 'v1';
+            const status = clip.status || '';
+            const match = status.match(/Saved \[(\d+)\]/);
+            if (status === 'Saved') ver = 'v1';
+            if (match) ver = `v${match[1]}`;
+
+            displayTitle = `${clip.scene} ${clip.title || 'Untitled'} ${ver}`;
+            if (isReference) displayTitle += ' (Ref)';
+          }
+
+          return {
+            id: uniqueId,
+            url: url,
+            type: type,
+            title: displayTitle,
+            action: clip?.action,
+            description: lib?.description,
+            canDelete: true, // Controlled by isReference check in Viewer
+            isReference: isReference
+          };
+        })}
+        onUpdate={async (uniqueId, updates) => {
+          if (uniqueId.startsWith('clip-')) {
+            await handleSave(uniqueId.replace('clip-', ''), updates);
+          } else if (uniqueId.startsWith('lib-')) {
+            await handleLibrarySave(uniqueId.replace('lib-', ''), updates);
+          }
+        }}
+        onDelete={async (uniqueId) => {
+          if (uniqueId.startsWith('clip-')) {
+            const id = uniqueId.replace('clip-', '');
+            markClipDeleted(id);
+            setPlayingVideoUrl(null); // Close player
+            await fetch('/api/clips', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+          } else if (uniqueId.startsWith('lib-')) {
+            const id = uniqueId.replace('lib-', '');
+            markLibraryItemDeleted(id);
+            setPlayingVideoUrl(null); // Close player
+            await fetch('/api/library', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+          }
+        }}
+        onSideload={async (url) => {
+          // Re-find owner to sideload
+          const clip = clips.find(c => (c.resultUrl || '').includes(url));
+          if (clip) {
+            const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (!currentRefs.includes(url)) {
+              const next = [...currentRefs, url].join(',');
+              await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
+            } else {
+              alert("Already a reference.");
+            }
+          }
+        }}
+        onUnlink={async (url) => {
+          // Find owner of this reference URL
+          const clip = clips.find(c =>
+            (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url)
+          );
+          if (clip) {
+            const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+            const next = currentRefs.filter(r => r !== url).join(',');
+            await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
+          }
+        }}
       />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary">0.17.0 Falcon</span>
+      {/* Header */}
+      <MainHeader
+        currentView={currentView}
+        loading={loading}
+        error={error}
+        onViewChange={(view: string) => {
+          if (view === 'settings') {
+            const savedVideo = localStorage.getItem("videoPromptTemplate")
+            const savedImage = localStorage.getItem("imagePromptTemplate")
+            setVideoPromptTemplate(savedVideo || DEFAULT_VIDEO_PROMPT)
+            setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
+          }
 
-          <div className="h-6 w-px bg-border/40 mx-2"></div>
+          // Handle 'media' specially -> Navigate away
+          if (view === 'media') {
+            window.location.href = '/media';
+          } else {
+            handleViewChange(view as any);
+          }
+        }}
+      />
 
-          <nav className="flex items-center gap-1">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={currentView === 'series' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleViewChange('series')}
-                    className={`text-xs ${currentView === 'series' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
-                  >
-                    Series
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View Series list</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={currentView === 'script' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleViewChange('script')}
-                    className={`text-xs ${currentView === 'script' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
-                  >
-                    Script
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View Script ingestion</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={currentView === 'library' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleViewChange('library')}
-                    className={`text-xs ${currentView === 'library' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
-                  >
-                    Studio
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View Studio Assets</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={currentView === 'clips' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleViewChange('clips')}
-                    className={`text-xs ${currentView === 'clips' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
-                  >
-                    Episode
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View Episode Clips</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-
-            {/* Storyboard Button moved here */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={currentView === 'storyboard' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleViewChange('storyboard')}
-                    className={`text-xs ${currentView === 'storyboard' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
-                  >
-                    Storyboard
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View Storyboard</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={currentView === 'settings' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleViewChange('settings')}
-                    className={`text-xs ${currentView === 'settings' ? 'bg-stone-800 text-white' : 'text-stone-500'}`}
-                  >
-                    Settings
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View Settings</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </nav>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Status</span>
-            <div className={`w-2 h-2 rounded-full ${loading ? 'bg-yellow-500 animate-pulse' : error ? 'bg-destructive' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}></div>
-            <span className="font-medium text-foreground">{loading ? 'Syncing...' : error ? 'Error' : 'Connected'}</span>
-          </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => window.location.reload()}
-                  className="h-8 w-8 text-primary hover:text-primary/80"
-                >
-                  <span className="material-symbols-outlined !text-lg">refresh</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Refresh Data</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      </header >
 
 
       {/* Navigation & Toolbar */}
@@ -1769,10 +1768,15 @@ export default function Home() {
                 onSelectAll={toggleLibrarySelectAll}
                 onGenerate={handleLibraryGenerate}
                 isGenerating={(id) => generatingLibraryItems.has(id)}
-                onPlay={(url) => {
+                onPlay={(url, contextPlaylist) => {
                   setPlayingVideoUrl(url);
-                  setPlaylist([url]);
-                  setCurrentPlayIndex(0);
+                  if (contextPlaylist && contextPlaylist.length > 0) {
+                    setPlaylist(contextPlaylist);
+                    setCurrentPlayIndex(contextPlaylist.indexOf(url));
+                  } else {
+                    setPlaylist([url]);
+                    setCurrentPlayIndex(0);
+                  }
                 }}
                 onDelete={handleDeleteLibraryItem}
                 onDuplicate={handleDuplicateLibraryItem}

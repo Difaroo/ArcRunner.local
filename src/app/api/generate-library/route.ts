@@ -97,7 +97,7 @@ export async function POST(req: Request) {
 
         // 2. Prepare Payload via Builder Factory
         // Combine Item Ref + Style Ref
-        const rawUrls = [];
+        const rawUrls: string[] = [];
         if (item.refImageUrl && !item.refImageUrl.startsWith('TASK:')) {
             // Handle comma-separated input if user uploaded multiple
             item.refImageUrl.split(',').forEach((u: string) => rawUrls.push(u.trim()));
@@ -159,7 +159,10 @@ export async function POST(req: Request) {
         // Build Payload
         const payload = builder.build({
             input: builderInput,
-            publicImageUrls
+            publicImageUrls,
+            characterImages: [], characterAssets: [],
+            locationImages: [], locationAsset: undefined,
+            explicitImages: [], styleImage: null
         }); // as FluxPayload
 
         // 3. Call Kie.ai via Standard Client

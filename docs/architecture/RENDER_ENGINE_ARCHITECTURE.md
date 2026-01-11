@@ -1,209 +1,52 @@
-# Render Engine Architecture
+# ArcRunner Render Engine Architecture (v0.17.1)
 
-## Overview
-This document details the architectural flow of the ArcRunner Render Engine, tracing the lifecycle of a generation request from user interaction to file persistence. It is intended for architects and developers requiring a deep understanding of component logic, state management, and data transformation.
+## Architecture Overview
+The ArcRunner Render Engine is a high-availability polling infrastructure designed to bridge the gap between a stateful React UI and the asynchronous Kie.ai Generation API. It prioritizes **Data Integrity**, **Self-Healing**, and **User Visibility**.
 
-## Component Flow Diagram
+### Core Flow
+1.  **Trigger**: User initiates generation via UI (Episode or Studio).
+2.  **Payload Construction**: The `GenerateManager` selects the appropriate Strategy (`Flux`, `Veo`, `Nano`, `Kling`) based on inputs (Text, Image count).
+3.  **Submission**: A `POST` request is sent to Kie.ai.
+4.  **Task Tracking**: The Task ID (`taskId`) and initial inputs are persisted immediately to the Database (`Clip` or `StudioItem`).
+5.  **Polling Loop**: The frontend `usePolling` hook (or centralized Polling Service) queries the status of active tasks.
+6.  **Resolution**: Upon completion (`Done`), the result URL is secured (downloaded/proxied) and the DB is updated.
 
-```mermaid
-graph TD
-    %% Touchpoints
-    User([User Action]) -->|Click Play/Generate| UI[ClipTable / Studio]
-    
-    %% Backend Entry
-    UI -->|POST /api/generate| API[API Route]
-    API -->|Input Data| GM[GenerateManager]
-    
-    %% Generate Manager Logic
-    subgraph "Generate Manager (Orchestrator)"
-        GM -->|1. Strategy| Strat{Model Config}
-        GM -->|2. Resolution| Resolver[Asset Resolver]
-        Resolver -->|Fetch URLs| DB[(Database)]
-        GM -->|3. Assemble| Context[Build Context]
-    end
-    
-    %% Render Core
-    subgraph "Render Core (Factory Pattern)"
-        GM -->|Get Builder| Factory[Builder Factory]
-        Factory -->|Select| Builder[Payload Builder]
-        
-        Builder -->|Construct Prompt| PC[Prompt Constructor]
-        
-        %% Prompt Constructor Internal Logic
-        subgraph "Prompt Constructor Logic"
-            PC -->|1. Select Schema| Selector{Model Type?}
-            Selector -->|Nano/Banana| NS[NanoSchema]
-            Selector -->|Veo/Standard| SS[StandardSchema]
-            Selector -->|Flux| LS[LegacySchema]
-            
-            NS -->|Format| P_Nano[Strict Structure]
-            SS -->|Format| P_Std[Narrative Structure]
-        end
-        
-        PC -->|Return| Prompt[Constructed Prompt + Image List]
-        Builder -->|Assemble| Payload[JSON Payload]
-    end
-    
-    %% Service Layer
-    Builder -->|Payload| Service[Kie Service]
-    Service -->|POST| Cluster[Kie AI Cluster]
-    Cluster -->|Task ID| Service
-    
-    %% Feedback Loop
-    subgraph "Feedback & Persistence"
-        Cron[Polling Cron] -->|POST /api/poll| Poll[Poll Function]
-        Poll -->|Query Status| Cluster
-        Cluster -->|Result URL| Poll
-        
-        Poll -->|Download| Persist[Media Persistence]
-        Persist -->|Save File| PO[Public/Media]
-        Persist -->|Update Path| DB
+## Key Components
 
-        %% Protection Layer
-        API_Edit[API Edit] -->|Block ResultUrl| Firewall{API Firewall}
-        Firewall -->|Approved| DB
-        Firewall -->|Rejected| Err[Error]
-    end
-```
+### 1. Payload Builders (`src/lib/builders/*`)
+Each model family has a dedicated builder ensuring strict adherence to API schemas.
+-   **Flux**: Handles Style Injection, Strength mapping (UI 1-10 -> API 1.5-10.0), and Aspect Ratio.
+-   **Veo**: Manages complex `IMAGE_TO_VIDEO` (S2E), `TEXT_2_VIDEO`, and `REFERENCE_2_VIDEO` tasks with automatic fallback logic.
+-   **Kling**: Enforces strict "Single Explicit Reference" priority (v0.17.1 update) to prevent style bleeding.
+-   **Nano**: Specialized builder for banana-pro pipelines.
 
-## 1. Touchpoints
-### Overview
-The entry point for all generation.
-*   **Clip Table**: Invoked via Play icon (Single) or Toolbar (Batch). Compiles the current UI state (Edit Mode values override saved DB values).
-*   **Studio**: Generates Reference Images for Characters/Locations.
+### 2. Polling Infrastructure (`src/app/api/poll/route.ts`)
+The heartbeat of the engine.
+-   **Zombie Killer**: Automatically marks tasks as `Error` if they remain in "Generating" state without a valid remote ID for > 45s (upload timeout).
+-   **Smart Merge (v0.16.2)**: Intelligently merges polling results with local optimistic state to prevent UI flicker.
+-   **Result Ordering**: Ensures the newest result is always prepended to the CSV list.
 
-### Internal Logic
-The frontend performs minimal validation. It packages the raw `Clip` object (including unsaved edits) and sends it to `/api/generate`. This ensures "What you see is what you get," even if changes aren't committed to the database yet.
+### 3. Data Integrity Firewall (v0.16.5)
+A critical defensive layer ensuring UI edits do not corrupt generation data.
+-   **Frontend**: `ClipRow` ignores system fields (`resultUrl`, `status`) during text edits.
+-   **Backend**: API Route (`/update_clip`) rejects any payload attempting to overwrite protected fields during a "Generation" cycle.
 
----
+### 4. Universal Media Viewer (v0.17.1)
+The centralized display engine.
+-   **Hybrid Playlist**: Constructs a unified playlist of [Result URL, Explicit Refs, Auto-Resolved Refs] for comprehensive review.
+-   **Smart Actions**: "Sideload" and "Unlink" actions now correctly append/remove URLs from the persistence layer without overwriting existing data.
+-   **Z-Index Layout**: High-priority overlay (`z-[9999]`), but strictly below Critical Alerts (`z-[10000]`).
 
-## 2. Generate Manager
-**Location**: `src/lib/generate-manager.ts`
+## Reference Logic (Evolution)
+-   **v0.1**: Single URL.
+-   **v0.10**: Comma-Separated String (`url1,url2`).
+-   **v0.16**: "Hybrid" Logic:
+    -   `explicitRefUrls`: User-added images (Always Shown).
+    -   `refImageUrls`: Legacy/Resolved images (Filtered if duplicates).
+-   **v0.17**: **Unified Sync**: Edit Mode now writes to BOTH fields to ensure backward compatibility while preserving explicit user intent.
 
-### Internal Logic & Flow
-The `GenerateManager` acts as the **Orchestrator**. It creates the deterministic environment for generation.
-
-1.  **Strategy Selection**:
-    *   Determines the `effectiveModelId`. It checks the `Input Override` first, then falls back to the `Episode` model.
-    *   Retrieves `ModelConfig` to determine the `apiStrategy` (e.g., 'veo', 'nano') and `builderId`.
-
-2.  **Asset Resolution (The Data Layer)**:
-    *   Parses the prompt text for entity names (e.g., "Location: Bar").
-    *   Queries `db.studioItem` for matching assets.
-    *   **Crucial Step**: It resolves the *Image Mode*.
-        *   **Nano/Veo**: Resolves *all* asset images (Location Image + Character Images) for composite prompting.
-        *   **Flux (Legacy)**: May resolve only a single reference image depending on the mode.
-
-3.  **Context Assembly**:
-    *   Constructs a `GenerationContext` object. This is a rich standardized object containing:
-        *   `input`: Raw user options.
-        *   `locationAsset`, `characterAssets`: Full rich objects (Names, Descriptions, Negatives).
-        *   `publicImageUrls`: The resolved, accessible URLs for the AI.
-
----
-
-## 3. Prompt Constructor
-**Location**: `src/lib/builders/PromptConstructor.ts`
-
-### Architectural Role
-This component creates the **Semantic Interface** between our structured data and the AI's natural language understanding. It uses the **Factory Pattern** combined with the **Strategy Pattern**.
-
-### Internal Logic & Flow
-The `construct(context)` method executes in three distinct phases:
-
-#### Phase 1: Logic (Image Manifest)
-*   **Component**: `PromptSelector.select(context)`
-*   **Purpose**: Determines *which* images are chemically active for the generation.
-*   **Logic**:
-    *   Slot 0: Location Image (Always, if present).
-    *   Slot 1..N: Character Images.
-    *   Slot N+1: Style Reference Image (if `Style` asset has an image).
-*   **Output**: An `ImageManifest` mapping slots to URLs.
-
-#### Phase 2: Factory (Schema Selection)
-*   **Purpose**: Selects the linguistic structure based on the Model ID.
-*   **Logic**:
-    *   **If** `model.includes('nano')` OR `model.includes('banana')` -> **Select `NanoSchema`**.
-    *   **If** `model.includes('flux')` -> **Select `LegacySchema`**.
-    *   **Else** (Veo, Kling) -> **Select `StandardSchema`**.
-
-#### Phase 3: Presentation (Formatting)
-The selected Schema's `format()` method is called.
-
-*   **`NanoSchema` Logic (`src/lib/builders/prompt/schemas/NanoSchema.ts`)**:
-    *   **Priority Rule**: Enforces checking if a **Style Image** exists. If so, it injects a generic "System Priority Rule" to `IGNORE` the subject of the Style Image.
-    *   **Structure**:
-        1.  **Header**: Style definition.
-        2.  **SETUP / REFERENCE**: Iterates through Location and Characters, appending their specific `descriptions` and `negatives`.
-        3.  **ACTION**: Combines the `Action` text with the `Dialog` (formatted as `\n\nDialog`).
-        4.  **Footer**: Appends the explicit `Clip Negative Prompt` (`NO: [...]`).
-    *   **Optimization**: Removes redundant global summaries ("OUTPUT SUBJECT") to reduce token usage and confusion.
-
-*   **`StandardSchema` Logic**:
-    *   Uses a "Narrative" approach suitable for Veo/Sora class models.
-    *   Weaves metadata into a flowing paragraph structure rather than strict JSON-like blocks.
-
----
-
-## 4. Payload Builders
-**Location**: `src/lib/builders/`
-
-### Internal Logic & Flow
-Each model application (Veo, Nano) has a specific `PayloadBuilder` implementation (e.g., `PayloadBuilderVeo`).
-
-1.  **Validation**: `validate(context)` enforces hard constraints.
-    *   *Example*: `PayloadBuilderVeo` checks if S2E (Start-to-End) is requested. If fewer than 2 images exist, it *downgrades* the request to `Reference-to-Video` and logs a warning.
-
-2.  **Build**: `build(context)`
-    *   Calls `PromptConstructor` to get the final text.
-    *   Maps internal types to external API fields.
-    *   **Aspect Ratio Handling**:
-        *   Nano: Enforces strict aspect ratios.
-        *   Flux: May inject dummy placeholder images (`empty.png`) if the API requires an image input but none provided (Text-to-Image patch).
-
----
-
-## 5. Service Layer (Kie API)
-**Location**: `src/lib/kie.ts`
-
-### Internal Logic
-*   **Abstraction**: Wraps the raw Axios/Fetch calls.
-*   **Error Handling**: Standardizes HTTP errors (401, 500) into application-level exceptions.
-*   **Return Type**: Returns a `KieTask` object containing `{ taskId, status }`.
-
----
-
-## 6. Feedback Loop (Polling & Persistence)
-**Location**: `src/app/api/poll/route.ts`
-
-### Architectural Role
-Decouples the long-running generation process from the user interface.
-
-### Internal Logic
-1.  **Cron / Hook**: The frontend hook `usePolling` triggers the `/api/poll` route.
-2.  **Status Check**: Iterates through active Task IDs.
-3.  **Completion Handling (The "Done" State)**:
-    *   **Detection**: If Kie API returns `status: 'Done'` with a `resultUrl`.
-    *   **Persistence Action**: Invokes `persistClipMedia(remoteUrl)`.
-        *   Downloads the file stream.
-        *   Saves to `public/media/generations/clip_{id}_{timestamp}.mp4`.
-    *   **Result Ordering**: New `resultUrl` is prepended to the CSV list to preserve history.
-
-## 7. Data Integrity & Protection (v0.16.5)
-
-To prevent "Race Conditions" where stale frontend state (e.g., during text editing) accidentally overwrites a fresh background generation result, a **Double-Lock Mechanism** is enforced:
-
-### Lock 1: Frontend Whitelist (ClipRow.tsx)
-The UI editor employs a **Strict Whitelist**. When saving a row, only specific user-editable fields (`action`, `dialog`, `negativePrompt`, `explicitRefUrls`) are included in the payload. System fields (`resultUrl`, `status`, `taskId`) are **banned** from the outgoing JSON.
-
-### Lock 2: Backend Firewall (API)
-The `/api/update_clip` endpoint enforces an **API Firewall**. Any incoming request attempting to write to `resultUrl` or `status` is actively sanitized, with those keys removed before database submission. Only the internal `GenerateManager` and `Poll Function` hold the keys to update these critical fields.
-
-## 8. Kling Logic Strategy (v0.16.8)
-Kling 2.6 employs an **Explicit Override** strategy:
--   **Default**: Uses Location -> Character image.
--   **Override**: If `explicitRefUrls` contains any image, `PayloadBuilderKling` discards all other bios and uses `explicitRefUrls[0]` exclusively. This allows temporary "shot-specific" overrides without degrading the metadata for other models.
-        *   Generates a Thumbnail.
-    *   **Atomic Data Update**: performing a DB Update only *after* successful persistence. 
-        *   **History Preservation**: The new local path is *prepended* to the existing `resultUrl` CSV list (handled robustly as an array). This ensures the user always sees the latest generation first, while maintaining a history of previous attempts.
-    *   *Why?*: This ensures we never depend on the ephemeral remote URL provided by the AI vendor. The asset is now owned by the system.
+## Download Strategy (v0.17.1)
+-   **Format**: `[SCENE] [TITLE] [VER].ext` (e.g., `3.1 Explosion v1.mp4`).
+-   **Mechanism**:
+    -   **Local**: Direct `<a>` download.
+    -   **Remote**: Proxy Route (`/api/proxy-download`) with aggressive header sanitization and enforced "New Tab" (`_blank`) delivery to prevent UI blocking.

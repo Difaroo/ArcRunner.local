@@ -1,6 +1,27 @@
 # Project History & Architecture Log
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
+## 2026-01-11: v0.17.1 - Falcon (Media Viewer & Interaction Polish)
+
+### Context
+A targeted polish release focusing on the "Universal Media Viewer" and editing workflows. Users reported issues with download filenames, reference image visibility in Edit Mode, and z-index conflicts obscuring dialogs. This release resolves these interaction friction points.
+
+### Changes
+- **Universal Media Viewer**:
+    - **Navigation**: Fixed playlist logic to strictly include ALL reference images (Explicit + Auto-Resolved + Legacy), ensuring navigation arrows appear correctly even for "1 Result + 1 Ref" scenarios.
+    - **Z-Index Hardening**: Boosted `AlertDialog` (Delete Confirmation) to `z-[10000]` to ensure it always renders above the high-z `UniversalMediaViewer` (`z-[9999]`).
+    - **Sideload Safety**: Fixed logic to correctly **append** Sideloaded references to the existing list instead of overwriting them.
+- **Data Integrity & Editing**:
+    - **Ref Image Editing**: Fixed bug where Edit Mode ("thumbs") appeared empty. The editor now correctly initializes with the full "Hybrid" list of references seen in Display Mode.
+    - **Delete Sync**: Deleting a reference thumbnail in Edit Mode now correctly syncs the removal to both `explicitRefUrls` and `refImageUrls` persistence fields.
+- **Downloads**:
+    - **Filenames**: Enforced strict `[SCENE] [TITLE] [VER].ext` naming convention for downloaded clips.
+    - **Robustness**: Added auto-extension detection (e.g., adding `.mp4` if missing) and relaxed sanitization to allow spaces and brackets, fixing "Missing Filename" bugs.
+    - **Browser Safety**: Forced downloads to open in a `_blank` new tab to prevent main window freezing.
+- **Version Bump**: 0.17.0 -> 0.17.1.
+
+---
+
 ## 2026-01-11: v0.17.0 - Falcon (Stability & Precision)
 
 ### Context
@@ -217,7 +238,7 @@ This major release focuses on workflow velocity and visual refinement. Users nee
     - **New Scene**: Added top-level "Add" button for quick scene creation.
     - **New Studio Item**: Added "New Item" button to the Library view.
 - **Tombstone Deletion**:
-    - Implemented client-side "Tombstones" for instant visual removal of deleted items.
+    - **Clips**: Implemented client-side "Tombstones" for instant visual removal of deleted items. This makes the UI feel 10x faster even while the API delete runs in background.
 
 ### UI & Architecture Refinements
 - **Global Z-Index Hardening**: Lifted `PageHeader` and `RowActions` (`z-50`) to prevent overlay blocking.
@@ -420,7 +441,7 @@ Major refinement of the Flux generation payload to strictly control style transf
 
 ### Features
 - **Payload Optimization**: 
-    - Integrated "Negatives" support in both Style and Subject prompt blocks.
+    - **Integrated "Negatives" support in both Style and Subject prompt blocks.
     - Implemented authoritative "ABSOLUTE STYLE SOURCE" system headers.
     - Hardcoded "Facial proportions: 200%" into the instruction footer.
 - **UI Polish**:
@@ -460,4 +481,3 @@ Fixed a critical logic bug where Veo generations were silently clamped to a sing
 - **Download Filenames**: Enforced `[SERIES].[EP] [NAME] [VERSION]` format for all clip downloads.
 - **Robustness**: Added automatic URL encoding in `GenerateManager` to handle filenames with spaces.
 - **Version Bump**: 0.14.1 -> 0.14.2.
-

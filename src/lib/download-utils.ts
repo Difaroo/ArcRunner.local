@@ -1,5 +1,5 @@
 
-import { Clip } from '@/app/api/clips/route';
+import { Clip } from '@/types';
 
 /**
  * Generates the standard filename for a clip.
@@ -58,14 +58,23 @@ export async function downloadFile(url: string, filename: string): Promise<boole
         const effectiveUrl = url.split(',')[0].trim();
         if (!effectiveUrl) return false;
 
-        // Sanitize filename
-        const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+        // Ensure Extension
+        let finalFilename = filename;
+        const ext = effectiveUrl.split('.').pop()?.split('?')[0] || '';
+        // Only append if filename doesn't already have an extension, AND we found one.
+        // Also check if filename ends with extension-like pattern
+        if (ext && !finalFilename.toLowerCase().endsWith('.' + ext.toLowerCase())) {
+            finalFilename += `.${ext}`;
+        }
+
+        // Sanitize filename (Allow spaces, parens, brackets)
+        const safeFilename = finalFilename.replace(/[^a-zA-Z0-9._\-\(\) \[\]]/g, '_');
 
         // Check if Local
         const isLocal = effectiveUrl.startsWith('/') || effectiveUrl.startsWith(window.location.origin);
 
         if (isLocal) {
-            console.log(`[Download] Handling Local File: ${effectiveUrl}`);
+            console.log(`[Download] Handling Local File: ${effectiveUrl} -> ${safeFilename}`);
 
             // Direct Link Method for Same-Origin
             const a = document.createElement('a');
@@ -82,17 +91,19 @@ export async function downloadFile(url: string, filename: string): Promise<boole
         }
 
         // Remote (Cross-Origin) - Needs Proxy
-        console.log(`[Download] Handling Remote File via Proxy: ${effectiveUrl}`);
+        console.log(`[Download] Handling Remote File via Proxy: ${effectiveUrl} -> ${safeFilename}`);
         const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(effectiveUrl)}&filename=${encodeURIComponent(safeFilename)}`;
 
         const a = document.createElement('a');
         a.href = proxyUrl;
+        a.target = '_blank'; // Force new tab to prevent main window freeze/nav
+        a.rel = 'noopener noreferrer';
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
 
-        // Cleanup with delay
-        setTimeout(() => document.body.removeChild(a), 100);
+        // Cleanup with delay (longer for new tab trigger?)
+        setTimeout(() => document.body.removeChild(a), 500);
         return true;
 
     } catch (error) {

@@ -15,7 +15,7 @@ interface LibraryTableProps {
     onSelectAll: () => void;
     onGenerate?: (item: LibraryItem) => void;
     isGenerating?: (id: string) => boolean;
-    onPlay?: (url: string) => void;
+    onPlay?: (url: string, contextPlaylist?: string[]) => void;
     onDelete?: (id: string) => void;
     onDuplicate?: (id: string) => void;
     onArchive?: (url: string) => void;

@@ -342,6 +342,13 @@ export function LibraryRow({
                                     // onPlay={onPlay || (() => { })} // Removed
                                     className="w-full h-full"
                                     onSave={onArchive}
+                                    onUpdate={async (id, updates) => {
+                                        // LibraryRow item.id is the rowIndex
+                                        if (onSave) await onSave(item.id, updates);
+                                    }}
+                                    onDelete={async (id) => {
+                                        if (onDelete) onDelete(item.id);
+                                    }}
                                 />
                             </div>
                         )

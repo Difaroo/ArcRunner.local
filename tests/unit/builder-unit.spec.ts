@@ -31,7 +31,7 @@ test.describe('Payload Builders Unit Tests', () => {
             publicImageUrls: [],
             characterImages: [], characterAssets: [],
             locationImages: [], locationAsset: undefined,
-            explicitImages: [], styleImage: undefined
+            explicitImages: [], styleImage: null
         };
         const payloadLow = builder.build(ctxLow);
         expect(payloadLow.input.guidance).toBe(1.5);
@@ -42,7 +42,7 @@ test.describe('Payload Builders Unit Tests', () => {
             publicImageUrls: [],
             characterImages: [], characterAssets: [],
             locationImages: [], locationAsset: undefined,
-            explicitImages: [], styleImage: undefined
+            explicitImages: [], styleImage: null
         };
         const payloadMid = builder.build(ctxMid);
         expect(payloadMid.input.guidance).toBeGreaterThan(5);
@@ -116,7 +116,7 @@ test.describe('Payload Builders Unit Tests', () => {
             characterImages: [], characterAssets: [],
             locationImages: [], locationAsset: undefined,
             explicitImages: ['http://start.jpg', 'http://end.jpg'],
-            styleImage: undefined
+            styleImage: null
         };
         const payloadS2E = builder.build(ctxS2E);
         expect(payloadS2E.generationType).toBe('IMAGE_TO_VIDEO');
@@ -129,7 +129,7 @@ test.describe('Payload Builders Unit Tests', () => {
             characterImages: [], characterAssets: [],
             locationImages: [], locationAsset: undefined,
             explicitImages: ['http://start.jpg'],
-            styleImage: undefined
+            styleImage: null
         };
         const payloadRef = builder.build(ctxRef);
         expect(payloadRef.generationType).toBe('REFERENCE_2_VIDEO');
@@ -140,7 +140,7 @@ test.describe('Payload Builders Unit Tests', () => {
             publicImageUrls: [],
             characterImages: [], characterAssets: [],
             locationImages: [], locationAsset: undefined,
-            explicitImages: [], styleImage: undefined
+            explicitImages: [], styleImage: null
         };
         const payloadText = builder.build(ctxText);
         expect(payloadText.generationType).toBe('TEXT_2_VIDEO');

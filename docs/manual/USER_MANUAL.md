@@ -3,20 +3,30 @@
 ## Overview
 ArcRunner is a dual-intelligence system for generating video and image content. This manual details the system's behaviors, controls, and best practices.
 
-## Media Player Controls
-The global **Video Player / Media Viewer** (accessible via thumbnails) supports keyboard navigation for efficient review:
+## Universal Media Viewer (v0.17.1)
+The unified **Universal Media Viewer** allows for checking references, reviewing generated clips, and editing metadata with speed and precision. Now supports optimized downloads and robust playlist navigation.
 
-| Key | Action |
-| :--- | :--- |
-| **Arrow Right** | Next item in playlist |
-| **Arrow Left** | Previous item in playlist |
-| **Escape** | Close viewer |
+### Controls & Shortcuts
+The viewer is designed for **keyboard-first** navigation.
 
-### Video Overlay Controls
-- **Edit**: Modify Clip Action or Library Description directly while viewing.
-- **Save / Download**: The Green "Floppy disk" button (and the Orange Download icon) both perform a direct **Save to Computer** action.
-- **Edit Save**: The smaller Green "Check" button commits text edits (Description/Action) to the database.
-- **Ref Image**: "Save Reference Image" button captures the current frame/image for the library.
+| Shortcut | Action | Note |
+| :--- | :--- | :--- |
+| **Esc** | **Close** | Closes viewer without saving changes. |
+| **Arrow Right / Left** | **Navigate** | Move to next/previous item in the playlist. |
+| **Space** | **Play / Pause** | Toggles playback for Videos. |
+| **d** | **Download** | Downloads the current file with its semantic filename. |
+| **Delete / Backspace** | **Delete / Unlink** | Trashes root assets (with confirmation) or unlinks Reference images. |
+| **Cmd+S** / **Cmd+Enter** | **Save Edits** | Commits changes to the Description or Action text. |
+
+*Global Shortcuts*:
+- **Esc** (in Tables): Instantly cancels Edit Mode for any row in Studio or Clips view.
+
+### Display Logic
+- **Aspect Ratio**: Locked to **16:9** for consistent review.
+- **Titles**:
+    - **Studio**: Displays `[ASSET NAME]` (e.g., "Cyberpunk Alley").
+    - **Episode**: Displays `[SCENE #] [CLIP NAME]` (e.g., "3.1 Neon Rain"). This allows for easy correlation with your script.
+- **Editing**: The text box at the bottom allows you to instantly edit the `Action` (for Clips) or `Description` (for Library Items). Use `Cmd+S` to save.
 
 ## Generation Workflows
 

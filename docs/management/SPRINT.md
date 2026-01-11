@@ -1,19 +1,9 @@
-# Sprint v0.18.0: [TBD]
+# SPRINT BACKLOG
 
-## Goal
-[Define Goal Here]
+## Current High Priority (v0.18.0)
+- [ ] **Drag & Drop Reordering**: Implement DnD for Clips.
+- [ ] **Agentic Tests**: Expand `AgentMigrationTest` coverage.
 
-## Active Tasks
-- [ ] **Planning**
-    - [ ] Define scope for v0.18.0.
-
-## Status: PLANNING
-**Version**: v0.18.0 (Upcoming)
-
----
-
-## Past Sprints
-### v0.17.0 (Released Jan 11) - Falcon
-- **Focus**: Stability & Precision.
-- **Outcome**: Resolved all known disappearance/overwrite bugs.
-
+## Backlog
+- [ ] **Mobile View**: Responsive polish for tablet usage.
+- [ ] **Prompt Playground**: dedicated sandbox for testing prompt structures.

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { PlayCircle, Eye, Maximize2 } from "lucide-react"
-import { MediaPreviewModal } from "./MediaPreviewModal"
+import { UniversalMediaViewer } from "./UniversalMediaViewer"
 
 interface MediaDisplayProps {
     url: string // The source to display (thumbnail or direct)
@@ -12,6 +12,9 @@ interface MediaDisplayProps {
     contentType?: 'video' | 'image' | 'auto' // Explicit type override
     className?: string
     onSave?: (url: string) => void
+    onUseAsRef?: (url: string) => void
+    onUpdate?: (id: string, updates: any) => Promise<void> | void
+    onDelete?: (id: string) => Promise<void> | void
 }
 
 export function MediaDisplay({
@@ -23,7 +26,10 @@ export function MediaDisplay({
     isThumbnail,
     contentType = 'auto',
     className,
-    onSave
+    onSave,
+    onUseAsRef, // Destructure new prop
+    onUpdate,
+    onDelete
 }: MediaDisplayProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -129,13 +135,20 @@ export function MediaDisplay({
                 </div>
             </div>
 
-            <MediaPreviewModal
+            <UniversalMediaViewer
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                url={effectiveOriginalUrl}
-                urls={allUrls}
-                type={type}
-                title={title || model || 'Media Preview'}
+                playlist={allUrls.map(u => ({
+                    id: effectiveOriginalUrl || u,
+                    url: u,
+                    type: u.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image', // Robust check per item
+                    title: title || model || 'Media Preview',
+                    isReference: true
+                }))}
+                initialIndex={allUrls.indexOf(effectiveOriginalUrl || '')}
+                onSideload={onUseAsRef ? async (url) => onUseAsRef(url) : undefined}
+                onUpdate={onUpdate ? async (id, updates) => { await onUpdate(id, updates); } : undefined}
+                onDelete={onDelete ? async (id) => { await onDelete(id); } : undefined}
             />
         </>
     )

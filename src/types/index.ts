@@ -23,6 +23,19 @@ export interface Clip {
     isHiddenInStoryboard?: boolean;
     thumbnailPath?: string;
     negativePrompt?: string | null;
+    mediaReferences?: Media[]; // Phase 4: Normalized Relations
+}
+
+export interface Media {
+    id: string;
+    url: string;
+    type: string; // "IMAGE" | "VIDEO"
+    category: string; // "REFERENCE" | "RESULT"
+    mimeType?: string;
+    size?: number;
+    width?: number;
+    height?: number;
+    createdAt?: string | Date;
 }
 
 export interface Series {

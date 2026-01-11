@@ -46,7 +46,7 @@ interface ClipRowProps {
     onSave: (id: string, values: Partial<Clip>) => void
     onCancelEdit: () => void
     onGenerate: (clip: Clip) => void
-    onPlay: (url: string) => void
+    onPlay: (url: string, contextPlaylist?: string[]) => void
     saving: boolean
     uniqueValues: {
         characters: string[]
@@ -107,13 +107,17 @@ export function ClipRow({
     // 1. If we have 'explicitRefUrls' (Manual inputs), we SHOW EVERYTHING in it. The user added it, they want to see it.
     // 2. If we fallback to 'refImageUrls' (Legacy DB), we FILTER out Auto-Resolved images to prevent duplicates.
     const getCleanExplicitRefs = () => {
+        // Phase 4: Use Native Array (Priority)
+        if (clip.mediaReferences && clip.mediaReferences.length > 0) {
+            return clip.mediaReferences.map(m => m.url);
+        }
+
+        // Legacy Fallback (String parsing)
         const hasExplicit = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null;
 
         if (hasExplicit) {
-            // New Data: Show exactly what is explicit (even if duplicate)
             return (clip.explicitRefUrls || '').split(',').map(s => s.trim()).filter(Boolean);
         } else {
-            // Legacy Fallback: Filter out duplicates
             const rawUrls = (clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
             const autoImages = new Set([
                 ...(clip.characterImageUrls || []),
@@ -135,14 +139,16 @@ export function ClipRow({
         setEditValues({
             ...clip,
             negativePrompt: clip.negativePrompt || '',
-            refImageUrls: clip.explicitRefUrls || ''
+            refImageUrls: getCleanExplicitRefs().join(',')
         })
         onEdit(clip)
     }
 
     const handleSaveAndDownload = () => {
         if (clip.resultUrl) {
-            onPlay(clip.resultUrl)
+            const allRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+            const fullPlaylist = [clip.resultUrl, ...allRefs];
+            onPlay(clip.resultUrl, fullPlaylist);
             setDownloadCount(prev => prev + 1)
             onSave(clip.id, { status: 'Saved' })
         }
@@ -242,7 +248,14 @@ export function ClipRow({
             let originalVal;
             // Explicitly map refImageUrls key back to the 'explicitRefUrls' source of truth
             if (key === 'refImageUrls') {
-                originalVal = clip.explicitRefUrls;
+                originalVal = clip.explicitRefUrls || clip.refImageUrls;
+
+                // If Ref Images changed, update both legacy and explicit fields to keep them in sync
+                if (String(currentVal) !== String(originalVal)) {
+                    updates.explicitRefUrls = String(currentVal);
+                    updates.refImageUrls = String(currentVal);
+                }
+                return;
             } else {
                 originalVal = clip[key];
             }
@@ -615,8 +628,22 @@ export function ClipRow({
                             originalUrl={clip.resultUrl}
                             model={clip.model}
                             title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
-                            onPlay={onPlay}
+                            onPlay={(url) => {
+                                const allRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+                                const fullPlaylist = [url, ...allRefs];
+                                onPlay(url, fullPlaylist);
+                            }}
                             className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
+                            onUseAsRef={(url) => {
+                                // Sideload Logic: Append current Result URL to Ref Headers
+                                const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+                                if (!currentRefs.includes(url)) {
+                                    const next = [...currentRefs, url].join(',');
+                                    onSave(clip.id, { refImageUrls: next, explicitRefUrls: next }); // Save new Explicit List
+                                } else {
+                                    alert("This image is already a reference.");
+                                }
+                            }}
                         />
                     </div>
                 )}

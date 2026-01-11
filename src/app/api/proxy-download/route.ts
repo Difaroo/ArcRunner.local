@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const rawFilename = request.nextUrl.searchParams.get('filename') || 'download.mp4';
     // Use path.basename to strip any directory components, then sanitize characters
     const safeBasename = path.basename(rawFilename);
-    const filename = safeBasename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filename = safeBasename.replace(/[^a-zA-Z0-9._\-\(\) \[\]]/g, '_');
 
     if (!url) return new NextResponse('Missing URL', { status: 400 });
 
