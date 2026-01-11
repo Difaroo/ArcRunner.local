@@ -58,6 +58,11 @@ graph TD
         Poll -->|Download| Persist[Media Persistence]
         Persist -->|Save File| PO[Public/Media]
         Persist -->|Update Path| DB
+
+        %% Protection Layer
+        API_Edit[API Edit] -->|Block ResultUrl| Firewall{API Firewall}
+        Firewall -->|Approved| DB
+        Firewall -->|Rejected| Err[Error]
     end
 ```
 
@@ -182,6 +187,22 @@ Decouples the long-running generation process from the user interface.
     *   **Persistence Action**: Invokes `persistClipMedia(remoteUrl)`.
         *   Downloads the file stream.
         *   Saves to `public/media/generations/clip_{id}_{timestamp}.mp4`.
+    *   **Result Ordering**: New `resultUrl` is prepended to the CSV list to preserve history.
+
+## 7. Data Integrity & Protection (v0.16.5)
+
+To prevent "Race Conditions" where stale frontend state (e.g., during text editing) accidentally overwrites a fresh background generation result, a **Double-Lock Mechanism** is enforced:
+
+### Lock 1: Frontend Whitelist (ClipRow.tsx)
+The UI editor employs a **Strict Whitelist**. When saving a row, only specific user-editable fields (`action`, `dialog`, `negativePrompt`, `explicitRefUrls`) are included in the payload. System fields (`resultUrl`, `status`, `taskId`) are **banned** from the outgoing JSON.
+
+### Lock 2: Backend Firewall (API)
+The `/api/update_clip` endpoint enforces an **API Firewall**. Any incoming request attempting to write to `resultUrl` or `status` is actively sanitized, with those keys removed before database submission. Only the internal `GenerateManager` and `Poll Function` hold the keys to update these critical fields.
+
+## 8. Kling Logic Strategy (v0.16.8)
+Kling 2.6 employs an **Explicit Override** strategy:
+-   **Default**: Uses Location -> Character image.
+-   **Override**: If `explicitRefUrls` contains any image, `PayloadBuilderKling` discards all other bios and uses `explicitRefUrls[0]` exclusively. This allows temporary "shot-specific" overrides without degrading the metadata for other models.
         *   Generates a Thumbnail.
     *   **Atomic Data Update**: performing a DB Update only *after* successful persistence. 
         *   **History Preservation**: The new local path is *prepended* to the existing `resultUrl` CSV list (handled robustly as an array). This ensures the user always sees the latest generation first, while maintaining a history of previous attempts.

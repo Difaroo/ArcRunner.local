@@ -69,6 +69,16 @@ When resolving multiple images (e.g., Location + Characters), the system fills s
 - Uses "Hardcoded Pro" template similar to Flux but optimized for self-hosting speed.
 - Enforces strict aspect ratio handling.
 
+### Kling 2.6
+- **Explicit Override**: Kling strictly uses a Single Reference Image.
+- **Priority**: If you provide a **Manual Reference Image** (Explicit), Kling will use THAT image and ignore any Character/Location bios.
+- **Fallback**: If no manual ref is provided, it falls back to Location -> Character image.
+
+## Reference Image Visibility (v0.16.7 Hybrid Logic)
+The "Ref Images" column in the Clip Table uses a smart hybrid logic:
+1.  **Manual Adds**: Any URL you explicitly add/paste is **ALWAYS SHOWN**, even if it duplicates a Character thumb. This ensures you can verify your input.
+2.  **Legacy Data**: For older clips where data was merged, the system hides duplicates to keep the interface clean.
+
 ## Render Engine Architecture
 For a deep dive into the technical "under-the-hood" flow of the generating engine (from UI to Payload to Persistence), please refer to the [Render Engine Architecture Guide](../architecture/RENDER_ENGINE_ARCHITECTURE.md).
 
