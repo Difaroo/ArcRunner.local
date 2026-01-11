@@ -99,17 +99,12 @@ export function ClipRow({
     }
 
     // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
+    // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
+    // UPDATE: User feedback indicates this hides images they just added if they match a character.
+    // Decision: SHOW ALL IMAGES. Duplicates are better than disappearing data.
     const getCleanExplicitRefs = () => {
-        const rawExplicit = clip.explicitRefUrls || clip.refImageUrls || ''; // Fallback to refImageUrls if explicit missing
-        const urls = rawExplicit.split(',').map(s => s.trim()).filter(Boolean);
-
-        // Block List: Character and Location Images
-        const autoImages = new Set([
-            ...(clip.characterImageUrls || []),
-            ...(clip.locationImageUrls || [])
-        ]);
-
-        return urls.filter(u => !autoImages.has(u));
+        const rawExplicit = clip.explicitRefUrls || clip.refImageUrls || '';
+        return rawExplicit.split(',').map(s => s.trim()).filter(Boolean);
     };
 
     const handleStartEdit = () => {
