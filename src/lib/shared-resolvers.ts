@@ -37,11 +37,8 @@ export function resolveClipImages(
     mode: 'single' | 'all' = 'single'
 ): ResolverResult {
     // 1. Parse Explicit URLs
-    // We prefer 'explicitRefUrls' if it exists (Client editing state), 
-    // otherwise fallback to 'refImageUrls' (DB state, assuming it might only contain explicit ones on raw read, 
-    // OR we act defensively and assume we want to preserve whatever was considered "Explicit" manual entry).
-
-    // NOTE: The convention is that `explicitRefUrls` holds the manually entered ones.
+    // We strictly prefer 'explicitRefUrls' (client state).
+    // If fallback to 'refImageUrls' (DB state) is required, we must be careful.
     const explicitStr = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null
         ? clip.explicitRefUrls
         : (clip.refImageUrls || '');
@@ -55,15 +52,17 @@ export function resolveClipImages(
     // Helper to ensure uniqueness
     const addUrl = (url: string, targetArray?: string[]) => {
         if (!url) return;
-        // Don't add if already in explicit (explicit overrides library? Or just merge?)
-        // Usually we want ALL valid refs. 
-        // But if I manually added a URL that is ALSO in library, do I want it twice? No.
+
+        // Check if this URL is already considered "Explicit"
         const isExplicit = explicitRefUrls.includes(url);
         const isAlreadyLib = libraryRefUrls.includes(url);
 
         if (targetArray && !targetArray.includes(url)) {
             targetArray.push(url);
         }
+
+        // We do NOT remove from explicitRefUrls even if found in library, 
+        // because explicit list defines user intent.
 
         if (!isExplicit && !isAlreadyLib) {
             libraryRefUrls.push(url);
@@ -84,7 +83,6 @@ export function resolveClipImages(
 
     // 2. Character Lookup
     if (clip.character) {
-        // Split by comma, trim
         const names = clip.character.split(',');
         names.forEach(name => {
             const cleanName = name.trim();
@@ -99,7 +97,6 @@ export function resolveClipImages(
 
     // 3. Location Lookup
     if (clip.location) {
-        // usually single location, but treat safe
         const cleanName = clip.location.trim();
         if (cleanName) {
             const urlOrUrls = findLibraryUrl(cleanName);

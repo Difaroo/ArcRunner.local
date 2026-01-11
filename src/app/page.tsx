@@ -458,12 +458,14 @@ export default function Home() {
             return item?.refImageUrl;
           };
 
-          const { fullRefs } = resolveClipImages(clip, findUrl);
 
-          // Optimization: Only log if we found a match? No, relying on visual verification is enough.
+          const { fullRefs, explicitRefs } = resolveClipImages(clip, findUrl);
 
-
-          return { ...clip, refImageUrls: fullRefs };
+          return {
+            ...clip,
+            refImageUrls: fullRefs,
+            explicitRefUrls: explicitRefs // CRITICAL: Propagate explicit refs to prevent data loss
+          };
         }));
       }
 
