@@ -1,6 +1,24 @@
 # Project History & Architecture Log
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
+## 2026-01-12: v0.17.2 - Falcon (Studio Alignment & Integrity)
+
+### Context
+A robust "Stability & Alignment" release verifying the integrity of Reference Images in both Episode and Studio workflows. Critical bugs involving "ghost deletions" (thumbs reappearing) and "invisible edits" (missing thumbs in Edit Mode) were resolved. We also aligned the Studio Toolbar with the Episode UI for consistency.
+
+### Changes
+- **Reference Image Integrity**:
+    - **Dual-Write Architecture**: Restored "Dual-Write" logic in `MediaService` (`syncReferences` and `syncStudioReferences`) to explicitly sync the Legacy `refImageUrls` CSV column with the new `Media` table. This fixes the "reappearing thumb" glitch where the API returned stale data after deletion.
+    - **Studio Sync**: Wired up the same robust sync logic for Studio Assets (`db.studioItem`), ensuring Library reliability.
+- **Edit Mode Logic**:
+    - **Location Thumbs**: Fixed regression where Location thumbnails disappeared in Edit Mode. Added logic to render the underlying `onResolveImage` preview for the Location field.
+- **UI Refinements**:
+    - **Toolbar Consistency**: Removed redundant "Chevron" icons from all Dropdowns in Episode and Studio toolbars for a cleaner, flatter aesthetic.
+    - **Studio Styling**: Updated Studio Toolbar "Style" control width to 150px to match the Episode screen.
+- **Version Bump**: 0.17.1 -> 0.17.2.
+
+---
+
 ## 2026-01-11: v0.17.1 - Falcon (Media Viewer & Interaction Polish)
 
 ### Context

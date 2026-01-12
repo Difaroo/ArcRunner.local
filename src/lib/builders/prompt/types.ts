@@ -28,9 +28,18 @@ export interface ImageManifest {
  * Strategy Interface for formatting the final text prompt.
  * Presentation Layer.
  */
+/**
+ * Structured return type for the Prompt formatting.
+ * Allows separating the main positive prompt from the negative prompt.
+ */
+export interface PromptResult {
+    prompt: string;
+    negativePrompt?: string;
+}
+
 export interface PromptSchema {
     /**
      * Formats the prompt based on the context and the selected image manifest.
      */
-    format(context: GenerationContext, manifest: ImageManifest): string;
+    format(context: GenerationContext, manifest: ImageManifest): PromptResult;
 }

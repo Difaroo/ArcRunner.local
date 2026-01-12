@@ -3,8 +3,10 @@
 ## Overview
 ArcRunner is a dual-intelligence system for generating video and image content. This manual details the system's behaviors, controls, and best practices.
 
-## Universal Media Viewer (v0.17.1)
+## Universal Media Viewer & Studio (v0.17.2)
 The unified **Universal Media Viewer** allows for checking references, reviewing generated clips, and editing metadata with speed and precision. Now supports optimized downloads and robust playlist navigation.
+
+**v0.17.2 Note**: Studio References now behave identically to Clip References. Deleting an image is permanent (Dual-Write Protection).
 
 ### Controls & Shortcuts
 The viewer is designed for **keyboard-first** navigation.

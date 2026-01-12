@@ -1,9 +1,9 @@
 import { GenerationContext } from '../../PayloadBuilder';
-import { ImageManifest, PromptSchema } from '../types';
+import { ImageManifest, PromptSchema, PromptResult } from '../types';
 
 export class StandardSchema implements PromptSchema {
 
-    format(context: GenerationContext, manifest: ImageManifest): string {
+    format(context: GenerationContext, manifest: ImageManifest): PromptResult {
         const { input, locationAsset, characterAssets, styleAsset, cameraAsset } = context;
         const blocks: string[] = [];
 
@@ -155,6 +155,8 @@ export class StandardSchema implements PromptSchema {
             blocks.push(`[OUTPUT: Render ACTION with strict adherence to STYLE REFERENCE.]`);
         }
 
-        return blocks.join('\n\n');
+        return {
+            prompt: blocks.join('\n\n')
+        };
     }
 }

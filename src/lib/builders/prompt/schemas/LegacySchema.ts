@@ -1,9 +1,9 @@
 import { GenerationContext } from '../../PayloadBuilder';
-import { ImageManifest, PromptSchema } from '../types';
+import { ImageManifest, PromptSchema, PromptResult } from '../types';
 
 export class LegacySchema implements PromptSchema {
 
-    format(context: GenerationContext, manifest: ImageManifest): string {
+    format(context: GenerationContext, manifest: ImageManifest): PromptResult {
         const { input } = context;
 
         // Legacy "Flat" prompt used for Flux or simple models.
@@ -20,6 +20,8 @@ export class LegacySchema implements PromptSchema {
         const subject = input.subjectDescription || input.clip.prompt || "";
         const style = input.styleDescription || input.styleName || "Cinematic";
 
-        return `${style}. ${subject}.`;
+        return {
+            prompt: `${style}. ${subject}.`
+        };
     }
 }

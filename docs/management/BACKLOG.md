@@ -9,6 +9,12 @@
 - [ ] **Extended Edit Mode**: Expose other fields + controls in the inline edit view.
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
+## 🚀 Released v0.17.2 (Studio Alignment & Integrity)
+- [x] **Ref Integrity**: Fixed "Reappearing Thumb" bug via Dual-Write restoration.
+- [x] **Studio Sync**: Aligned Studio Item reference logic with Clips.
+- [x] **Edit Mode**: Fixed Location Thumbnail disappearance.
+- [x] **UI Polish**: Removed Chevrons, aligned Studio Toolbar width.
+
 ## 🚀 Released v0.17.0 (Falcon)
 - [x] **Data Integrity Firewall**: Whitelist/Sanitization to prevent result overwrites.
 - [x] **Kling Priority**: Explicit override logic.

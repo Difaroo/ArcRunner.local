@@ -30,14 +30,13 @@ export class MediaService {
         // 2. Perform Transactional Write
         // We update the Clip CSV and create the Media record in one atomic go.
         return await db.$transaction(async (tx) => {
-            // A. Legacy Update (STOPPED - Phase 3)
-            // We no longer write to the legacy CSV column.
-            /*
+            // A. Legacy Update (RESTORED - Fix Stale State Bug)
+            // We MUST write to legacy CSV because /api/update_clip returns the raw Clip record,
+            // and if this is stale, the frontend reverts the preview image on Save.
             await tx.clip.update({
                 where: { id: clipId },
                 data: { resultUrl: newCsv }
             });
-            */
 
             // B. New Media Record
             const media = await tx.media.create({
@@ -157,12 +156,12 @@ export class MediaService {
 
         // 4. Perform Transaction
         return await db.$transaction(async (tx) => {
-            // A. Update Legacy CSV -> CLEAR IT (Phase 3)
-            // We clear the legacy column to ensure readers strictly prefer the Media table
-            // and don't fallback to stale data if Media is empty (e.g. user cleared refs).
+            // A. Update Legacy CSV -> RESTORED (Dual-Write)
+            // We write the new CSV to the legacy column to ensure the API returns the correct state
+            // to the frontend, preventing "revert" glitches on save.
             await tx.clip.update({
                 where: { id: clipId },
-                data: { refImageUrls: '' }
+                data: { refImageUrls: csvUrls }
             });
 
             // B. Delete Removed
@@ -209,13 +208,11 @@ export class MediaService {
         }
 
         return await db.$transaction(async (tx) => {
-            // A. Legacy Update (STOPPED - Phase 3)
-            /*
+            // A. Legacy Update (RESTORED - Fix Stale State Bug)
             await tx.studioItem.update({
                 where: { id: studioItemId },
                 data: { refImageUrl: newCsv }
             });
-            */
 
             const media = await tx.media.create({
                 data: {
@@ -228,6 +225,67 @@ export class MediaService {
             });
 
             return media;
+        });
+    }
+
+
+    /**
+     * Synchronizes Studio Item Reference Images with the Media table.
+     * Enforces Dual-Write:
+     * 1. Updates Media table (Adds/Removes records)
+     * 2. Updates Legacy `refImageUrl` column with the new CSV
+     */
+    static async syncStudioReferences(studioItemId: number, csvUrls: string) {
+        // 1. Parse Input
+        const newUrls = csvUrls.split(',').map(u => u.trim()).filter(u => u.length > 0);
+        const newUrlSet = new Set(newUrls);
+
+        // 2. Fetch Existing Media References
+        const existingMedia = await db.media.findMany({
+            where: {
+                studioItemId: studioItemId,
+                category: 'STUDIO_UPLOAD'
+            }
+        });
+
+        const existingUrlSet = new Set(existingMedia.map(m => m.url));
+
+        // 3. Determine Deltas
+        const toAdd = newUrls.filter(url => !existingUrlSet.has(url));
+        const toRemove = existingMedia.filter(m => !newUrlSet.has(m.url));
+
+        console.log(`[MediaService] Sync Studio References for Item ${studioItemId}: +${toAdd.length} / -${toRemove.length}`);
+
+        // 4. Perform Transaction
+        return await db.$transaction(async (tx) => {
+            // A. Update Legacy CSV -> RESTORED (Dual-Write)
+            await tx.studioItem.update({
+                where: { id: studioItemId },
+                data: { refImageUrl: csvUrls }
+            });
+
+            // B. Delete Removed
+            if (toRemove.length > 0) {
+                await tx.media.deleteMany({
+                    where: {
+                        id: { in: toRemove.map(m => m.id) }
+                    }
+                });
+            }
+
+            // C. Create Added
+            if (toAdd.length > 0) {
+                for (const url of toAdd) {
+                    await tx.media.create({
+                        data: {
+                            url: url,
+                            type: 'IMAGE',
+                            category: 'STUDIO_UPLOAD',
+                            studioItemId: studioItemId
+                        }
+                    });
+                }
+            }
         });
     }
 }

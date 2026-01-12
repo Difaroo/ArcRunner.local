@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useTransition } from 'react';
+import React, { useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { NavBar } from "@/components/NavBar";
 import { MainHeader } from "@/components/MainHeader";
 import { PageHeader } from '@/components/PageHeader';
 import { MediaGrid } from '@/components/media/MediaGrid';
+import { UniversalMediaViewer } from "@/components/media/UniversalMediaViewer";
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -120,6 +121,30 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
         ? episodeList.find(e => e.id === initialFilter.episodeId)?.number
         : 0;
 
+    // --- Viewer Logic ---
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerPlaylist, setViewerPlaylist] = useState<any[]>([]);
+    const [viewerIndex, setViewerIndex] = useState(0);
+
+    const handleSelect = (media: any) => {
+        // Construct full playlist from initialItems
+        // We map ALL items to UniversalMediaItem format
+        const playlist = initialItems.map(item => ({
+            id: item.id,
+            url: item.localPath || item.url || '', // Prefer local path
+            type: item.type === 'VIDEO' ? 'video' : 'image',
+            title: item.resultForClip ? `Scene ${item.resultForClip.scene}` : (item.studioItem ? item.studioItem.name : 'Media'),
+            canDelete: true, // Allow deletion from viewer
+            isReference: false // In Gallery, all are "roots"
+        })).filter(u => u.url); // filter invalid
+
+        const index = playlist.findIndex(p => p.id === media.id);
+
+        setViewerPlaylist(playlist);
+        setViewerIndex(index >= 0 ? index : 0);
+        setViewerOpen(true);
+    };
+
     return (
         <div className="flex h-screen flex-col bg-background">
             {/* 1. ArcRunner Branding Header */}
@@ -129,14 +154,7 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
             }} />
 
             {/* 2. Global Navigation (Standard) */}
-            <NavBar
-                currentView="media"
-                onViewChange={(view) => {
-                    if (view === 'media') return;
-                    // Standard routing for other views
-                    window.location.href = '/?view=' + view;
-                }}
-            />
+            {/* NavBar Removed - MainHeader handles Global Nav */}
 
             {/* 2. Navigation Toolbar (Standard Tabs) */}
             <div className="flex flex-col border-b border-border/40 bg-background/50 backdrop-blur-sm print:hidden">
@@ -154,7 +172,6 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                 </div>
             </div>
 
-            {/* 2. Page Header (Context + Actions) */}
             {/* 2. Page Header (Context + Actions) */}
             <PageHeader title={
                 <div className="flex items-center justify-start gap-2 w-fit whitespace-nowrap">
@@ -192,8 +209,6 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                             ))}
                         </DropdownMenuContent>
                     </DropdownMenu>
-
-
 
                     <Separator orientation="vertical" className="h-6" />
 
@@ -261,7 +276,11 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
 
             {/* 3. Grid Content */}
             <div className="flex-1 overflow-y-auto p-6">
-                <MediaGrid items={initialItems} onDelete={handleDelete} />
+                <MediaGrid
+                    items={initialItems}
+                    onDelete={handleDelete}
+                    onSelect={handleSelect} // Pass usage logic
+                />
 
                 {initialItems.length === 0 && (
                     <div className="mt-10 text-center">
@@ -270,6 +289,15 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                     </div>
                 )}
             </div>
+
+            {/* Viewer */}
+            <UniversalMediaViewer
+                isOpen={viewerOpen}
+                onClose={() => setViewerOpen(false)}
+                playlist={viewerPlaylist}
+                initialIndex={viewerIndex}
+                onDelete={handleDelete} // Re-use delete logic
+            />
         </div>
     );
 }

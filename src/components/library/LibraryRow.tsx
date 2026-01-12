@@ -339,7 +339,9 @@ export function LibraryRow({
                                     originalUrl={item.refImageUrl}
                                     title={item.name}
                                     isThumbnail={!!item.thumbnailPath}
-                                    // onPlay={onPlay || (() => { })} // Removed
+                                    onPlay={(url) => {
+                                        if (onPlay) onPlay(url);
+                                    }}
                                     className="w-full h-full"
                                     onSave={onArchive}
                                     onUpdate={async (id, updates) => {

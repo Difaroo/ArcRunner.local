@@ -76,7 +76,6 @@ export function LibraryActionToolbar({
                                     <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white mr-2">
                                         <span className="text-zinc-500 mr-2 font-semibold">VIEW</span>
                                         <span className="truncate inline-block align-bottom">{aspectRatio || '16:9'}</span>
-                                        <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                     </Button>
                                 </DropdownMenuTrigger>
                             </TooltipTrigger>
@@ -107,8 +106,7 @@ export function LibraryActionToolbar({
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
                                         <span className="text-zinc-500 mr-2 font-semibold">STYLE</span>
-                                        <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
-                                        <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
+                                        <span className="truncate max-w-[150px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
                                     </Button>
                                 </DropdownMenuTrigger>
                             </TooltipTrigger>
@@ -143,7 +141,6 @@ export function LibraryActionToolbar({
                                     <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
                                         <span className="text-zinc-500 mr-2 font-semibold">STRENGTH</span>
                                         <span className="truncate inline-block align-bottom">{styleStrength}</span>
-                                        <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                     </Button>
                                 </DropdownMenuTrigger>
                             </TooltipTrigger>
@@ -233,7 +230,6 @@ export function LibraryActionToolbar({
                                         <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white mr-2">
                                             <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
                                             {modelConfig?.label || "Select..."}
-                                            <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                         </Button>
                                     </DropdownMenuTrigger>
                                 </TooltipTrigger>

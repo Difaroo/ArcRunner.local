@@ -459,6 +459,25 @@ export function ClipRow({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             )}
+                            {/* Edit Mode Preview (Added for consistency) */}
+                            {isEditing && onResolveImage && (editValues.location || "").trim().length > 0 && (
+                                <div className="absolute top-full left-0 mt-1 z-10">
+                                    {(() => {
+                                        const locName = (editValues.location || "").trim();
+                                        const url = onResolveImage(locName);
+                                        if (!url) return null;
+                                        return (
+                                            <img
+                                                src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                                alt={locName}
+                                                className="w-[32px] h-[32px] object-cover rounded border border-white/10 shadow-sm opacity-50"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                title={locName}
+                                            />
+                                        );
+                                    })()}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="flex flex-col gap-2">

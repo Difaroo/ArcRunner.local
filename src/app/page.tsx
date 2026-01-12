@@ -1800,7 +1800,7 @@ export default function Home() {
                 onSave={handleSave}
                 onCancelEdit={handleCancelEdit}
                 onGenerate={(clip) => handleGenerate(clip, clips.findIndex(c => c.id === clip.id))}
-                onPlay={(url) => {
+                onPlay={(url, contextPlaylist) => {
                   if (!url) {
                     console.log('Play clicked but no URL');
                     return;
@@ -1808,8 +1808,13 @@ export default function Home() {
                   console.log('Play clicked with URL:', url);
 
                   setPlayingVideoUrl(url);
-                  setPlaylist([url]);
-                  setCurrentPlayIndex(0);
+                  if (contextPlaylist && contextPlaylist.length > 0) {
+                    setPlaylist(contextPlaylist);
+                    setCurrentPlayIndex(contextPlaylist.indexOf(url));
+                  } else {
+                    setPlaylist([url]);
+                    setCurrentPlayIndex(0);
+                  }
                 }}
                 uniqueValues={uniqueValues}
                 onDelete={handleDeleteClip}

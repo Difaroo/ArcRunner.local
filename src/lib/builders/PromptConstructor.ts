@@ -8,6 +8,7 @@ import { NanoSchema } from './prompt/schemas/NanoSchema';
 
 export interface ConstructedPrompt {
     prompt: string;
+    negativePrompt?: string;
     imageUrls: string[];
     warnings: string[];
 }
@@ -49,8 +50,11 @@ export class PromptConstructor {
 
         // 3. Presentation Phase: Format Text
         let finalPrompt = "";
+        let finalNegative = "";
         try {
-            finalPrompt = schema.format(context, manifest);
+            const result = schema.format(context, manifest);
+            finalPrompt = result.prompt;
+            finalNegative = result.negativePrompt || "";
         } catch (err) {
             console.error('[PromptConstructor] Schema Format Failed:', err);
             warnings.push(`Schema Error: ${err}`);
@@ -63,6 +67,7 @@ export class PromptConstructor {
 
         return {
             prompt: finalPrompt,
+            negativePrompt: finalNegative,
             imageUrls: manifest.selectedUrls,
             warnings
         };

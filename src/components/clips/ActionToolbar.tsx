@@ -171,7 +171,6 @@ export function ActionToolbar({
                                             <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
 
                                             {modelConfig.label}
-                                            <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                         </Button>
                                     </DropdownMenuTrigger>
                                 </TooltipTrigger>
@@ -288,7 +287,6 @@ export function ActionToolbar({
                                                 <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
                                                     <span className="text-zinc-500 mr-2 font-semibold">LEN</span>
                                                     {duration}s
-                                                    <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                                 </Button>
                                             </DropdownMenuTrigger>
                                         </TooltipTrigger>
@@ -321,7 +319,6 @@ export function ActionToolbar({
                                         <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
                                             <span className="text-zinc-500 mr-2 font-semibold">VIEW</span>
                                             {aspectRatio}
-                                            <span className="material-symbols-outlined !text-sm ml-2">expand_more</span>
                                         </Button>
                                     </DropdownMenuTrigger>
                                 </TooltipTrigger>
@@ -347,7 +344,7 @@ export function ActionToolbar({
                     <div className="relative group">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-2 pr-8">
+                                <Button variant="outline" size="sm" className={`h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-2 ${currentStyle ? 'pr-7' : ''}`}>
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -358,8 +355,7 @@ export function ActionToolbar({
                                             </TooltipContent>
                                         </Tooltip>
                                     </TooltipProvider>
-                                    <span className="truncate max-w-[100px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
-                                    <span className="material-symbols-outlined !text-sm text-zinc-500">expand_more</span>
+                                    <span className="truncate max-w-[150px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">

@@ -1,6 +1,6 @@
 
 import { GenerationContext } from '../../PayloadBuilder';
-import { PromptSchema, ImageManifest } from '../types';
+import { PromptSchema, ImageManifest, PromptResult } from '../types';
 
 /**
  * Nano Schema - Implements strict "Image N+1" style referencing.
@@ -12,8 +12,33 @@ import { PromptSchema, ImageManifest } from '../types';
  */
 export class NanoSchema implements PromptSchema {
 
-    format(context: GenerationContext, manifest: ImageManifest): string {
+    format(context: GenerationContext, manifest: ImageManifest): PromptResult {
         const { input, locationAsset, characterAssets, styleAsset, cameraAsset } = context;
+
+        // --- 0. Collection of Negatives ---
+        const negativeBlocks: string[] = [];
+
+        // Style Negatives
+        const styleNegs = styleAsset?.negatives || input.styleNegatives || "";
+        if (styleNegs) negativeBlocks.push(styleNegs);
+
+        // Location Negatives
+        if (locationAsset?.negatives) negativeBlocks.push(locationAsset.negatives);
+
+        // Character Negatives
+        characterAssets.forEach(char => {
+            if (char.negatives) negativeBlocks.push(char.negatives);
+        });
+
+        // Clip Negatives (Manual Override)
+        const clipNegatives = input.clip.negativePrompt || "";
+        if (clipNegatives) negativeBlocks.push(clipNegatives);
+
+        // Default / Base Negatives (Safeguard)
+        // negativeBlocks.push("low quality", "blurry", "bad anatomy"); // Optional: Add defaults here if desired?
+
+        const finalNegativePrompt = negativeBlocks.join(', ');
+
 
         // --- 1. Header & Priority Rule ---
         let prompt = ``;
@@ -29,11 +54,10 @@ export class NanoSchema implements PromptSchema {
             prompt += `]\n\n`;
 
             const styleDesc = styleAsset?.description || input.styleDescription || "Cinematic";
-            const styleNegs = styleAsset?.negatives || input.styleNegatives || "";
+            // Removed inline negatives
 
             prompt += `STYLE: High fidelity Image ${styleImageIndex} STYLE:\n\n`;
             prompt += `[${styleDesc}]\n`;
-            if (styleNegs) prompt += `[${styleNegs}]\n`;
             prompt += `\n`;
         } else {
             // Fallback if no style image but style description exists
@@ -69,9 +93,8 @@ export class NanoSchema implements PromptSchema {
         if (locationAsset) {
             const locIndex = manifest.slots.location;
             const imgRef = locIndex > 0 ? `: IMAGE ${locIndex}` : "";
-            prompt += `LOCATION: ${locationAsset.name}${imgRef}: [${locationAsset.description}].\n`;
-            if (locationAsset.negatives) prompt += `NO: [${locationAsset.negatives}]\n`;
-            prompt += `\n`;
+            // Removed inline negatives
+            prompt += `LOCATION: ${locationAsset.name}${imgRef}: [${locationAsset.description}].\n\n`;
         } else if (input.clip.location) {
             prompt += `LOCATION: ${input.clip.location}: [${input.clip.location}].\n\n`;
         }
@@ -79,20 +102,12 @@ export class NanoSchema implements PromptSchema {
         // Characters
         characterAssets.forEach((char, i) => {
             const charIndex = manifest.slots.characters[i];
+            const charLinePrefix = charIndex > 0
+                ? `CHARACTER: ${char.name}: ESSENTIAL: IMAGE ${charIndex}`
+                : `CHARACTER: ${char.name}`;
 
-            // Refined Logic based on User Request:
-            // "CHARACTER: Name: ESSENTIAL: IMAGE X: [Description]."
-
-            let charLinePrefix = `CHARACTER: ${char.name}`;
-
-            if (charIndex > 0) {
-                charLinePrefix += `: ESSENTIAL: IMAGE ${charIndex}`;
-            }
-
-            prompt += `${charLinePrefix}: [${char.description}].\n`;
-
-            if (char.negatives) prompt += `NO: [${char.negatives}].\n`;
-            prompt += `\n`;
+            // Removed inline negatives
+            prompt += `${charLinePrefix}: [${char.description}].\n\n`;
         });
 
         prompt += `]\n\n`;
@@ -110,8 +125,6 @@ export class NanoSchema implements PromptSchema {
         characterAssets.forEach((char, i) => {
             const charIndex = manifest.slots.characters[i];
             if (charIndex > 0 && char.name) {
-                // Regex to replace Name with Name (IMAGE X)
-                // Case insensitive, matching word boundary
                 const regex = new RegExp(`\\b${char.name}\\b`, 'gi');
                 unifiedAction = unifiedAction.replace(regex, `${char.name} (IMAGE ${charIndex})`);
             }
@@ -120,17 +133,14 @@ export class NanoSchema implements PromptSchema {
         prompt += `ACTION: [${unifiedAction}]\n`;
         prompt += `shot.\n`;
 
-        // --- 5. Clip Negatives ---
-        const clipNegatives = input.clip.negativePrompt || "";
-        if (clipNegatives) {
-            prompt += `NO: [${clipNegatives}].\n`;
-        }
-
         // --- 6. Footer ---
         if (hasStyleImage) {
             prompt += `\n[OUTPUT: Render ACTION with strict adherence to STYLE REFERENCE.]`;
         }
 
-        return prompt;
+        return {
+            prompt,
+            negativePrompt: finalNegativePrompt
+        };
     }
 }

@@ -1,9 +1,9 @@
 import { GenerationContext } from '../../PayloadBuilder';
-import { ImageManifest, PromptSchema } from '../types';
+import { ImageManifest, PromptSchema, PromptResult } from '../types';
 
 export class TransitionSchema implements PromptSchema {
 
-    format(context: GenerationContext, manifest: ImageManifest): string {
+    format(context: GenerationContext, manifest: ImageManifest): PromptResult {
         const { input } = context;
 
         // S2E Template
@@ -22,6 +22,8 @@ export class TransitionSchema implements PromptSchema {
         const body = `ACTION: ${actionText}`;
         const negs = subNegs ? `\nNO: [${subNegs}]` : "";
 
-        return `${instruction}\n\n${body}${negs}`;
+        return {
+            prompt: `${instruction}\n\n${body}${negs}`
+        };
     }
 }
