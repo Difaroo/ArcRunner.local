@@ -1,6 +1,23 @@
 # Project History & Architecture Log
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
+## 2026-01-12: v0.18.0 - Falcon (Legacy Deprecation)
+
+### Context
+A major architectural milestone deprecating the legacy CSV-based data storage for media references. The system has moved to a strict "Media-First" relational architecture, ensuring data integrity and enabling advanced features like Drag & Drop reordering and Sideloading. Legacy columns are now read-only fallbacks.
+
+### Changes
+- **Architecture**:
+    - **Deprecation**: The legacy `Clip.refImageUrls` and `Clip.resultUrl` CSV columns are no longer written to.
+    - **Media-First**: All frontend components (`ClipRow`) and backend services (`MediaService`, `api/clips`) now use the `Media` table as the single source of truth.
+- **Features**:
+    - **Drag & Drop Sideloading**: Users can now drag a **Result** image onto the **Reference** area to instantly sideload it as a reference for the next generation.
+    - **Drag Sorting**: Reference thumbnails can be reordered or moved between clips via drag and drop.
+    - **Optimistic UI**: Implemented instant UI updates (0ms latency) for these actions, with automatic rollback if the background API call fails.
+- **Version Bump**: 0.17.2 -> 0.18.0.
+
+---
+
 ## 2026-01-12: v0.17.2 - Falcon (Studio Alignment & Integrity)
 
 ### Context

@@ -9,6 +9,9 @@ export interface ModelConfig {
     internalId?: string;     // Override for backend API (e.g. 'flux-2/flex-image-to-image')
     description?: string;    // Tooltip description
     hasAudio?: boolean;      // If true, shows Audio Toggle in UI
+    validation?: {
+        explicitReference?: boolean; // Requires at least 1 explicit reference image
+    };
 }
 
 export const MODELS: Record<string, ModelConfig> = {
@@ -47,7 +50,10 @@ export const MODELS: Record<string, ModelConfig> = {
         isImage: false,
         internalId: 'kling-2.6/image-to-video',
         description: 'Kling audio-visual generation',
-        hasAudio: true
+        hasAudio: true,
+        validation: {
+            explicitReference: true
+        }
     },
     'flux-pro': {
         id: 'flux-pro',

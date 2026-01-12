@@ -27,7 +27,7 @@ interface ClipTableProps {
     onSelectAll: () => void
     onSelect: (id: string) => void
     onEdit: (clip: Clip) => void
-    onSave: (id: string, values: Partial<Clip>) => void
+    onSave: (id: string, values: Partial<Clip>) => void | Promise<void>
     onCancelEdit: () => void
     onGenerate: (clip: Clip) => void
     onPlay: (url: string, contextPlaylist?: string[]) => void

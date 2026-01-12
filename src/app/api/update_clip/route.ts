@@ -117,21 +117,34 @@ export async function POST(request: Request) {
                 .catch(err => console.error('Thumbnail generation failed:', err));
         }
 
-        // Fetch Episode Number for the response to match Frontend 'Clip' type
-        const clipWithEpisode = await db.clip.findUnique({
+        // Fetch Episode Number and Media Refs
+        // FORCE 'any' cast to bypass stale Prisma Client definition in IDE
+        const clipWithContext = await db.clip.findUnique({
             where: { id: updatedClip.id },
-            select: { episode: { select: { number: true } } }
-        });
+            select: {
+                episode: { select: { number: true } },
+                mediaReferences: { orderBy: { createdAt: 'asc' } }
+            }
+        }) as any;
 
-        const epNum = clipWithEpisode?.episode?.number.toString() || '1';
+        const epNum = clipWithContext?.episode?.number.toString() || '1';
+
+        let finalExplicitRefs = '';
+        if (isRefUpdate) {
+            finalExplicitRefs = refUrlUpdate || '';
+        } else if (clipWithContext?.mediaReferences && clipWithContext.mediaReferences.length > 0) {
+            finalExplicitRefs = clipWithContext.mediaReferences.map((m: any) => m.url).join(',');
+        } else {
+            finalExplicitRefs = updatedClip.refImageUrls || '';
+        }
 
         // Transform to match Frontend Interface
         const formattedClip = {
             ...updatedClip,
             id: updatedClip.id.toString(), // CRITICAL: Frontend expects String ID
             episode: epNum,                // CRITICAL: Frontend expects Episode Number
-            // Ensure explicitRefUrls is passed back so UI updates immediately
-            explicitRefUrls: updatedClip.refImageUrls
+            // Ensure explicitRefUrls is passed back so UI updates immediately.
+            explicitRefUrls: finalExplicitRefs
         };
 
         return NextResponse.json({ success: true, clip: formattedClip });

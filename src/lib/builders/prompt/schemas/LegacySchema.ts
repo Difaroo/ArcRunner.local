@@ -20,8 +20,16 @@ export class LegacySchema implements PromptSchema {
         const subject = input.subjectDescription || input.clip.prompt || "";
         const style = input.styleDescription || input.styleName || "Cinematic";
 
+        // Collect negatives from input context (populated by GenerateManager)
+        const negativeBlocks = [
+            input.clip.negativePrompt,
+            input.styleNegatives,
+            input.subjectNegatives
+        ].filter(Boolean);
+
         return {
-            prompt: `${style}. ${subject}.`
+            prompt: `${style}. ${subject}.`,
+            negativePrompt: negativeBlocks.join(', ')
         };
     }
 }

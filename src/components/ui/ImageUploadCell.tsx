@@ -87,9 +87,47 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
     // But for editing, we show all clip images
     const imageUrl = imageUrls.length > 0 ? imageUrls[0] : null;
 
+    const [isDragOver, setIsDragOver] = useState(false);
+
+    // Drop Handlers
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!isDragOver) setIsDragOver(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+
+        const droppedUrl = e.dataTransfer.getData('text/plain');
+        if (droppedUrl) {
+            console.log('Dropped URL:', droppedUrl);
+            const currentUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean) : [];
+
+            // Avoid duplicates
+            if (!currentUrls.includes(droppedUrl)) {
+                const newUrls = [...currentUrls, droppedUrl]; // Append
+                onChange(newUrls.join(','));
+            }
+        }
+    };
+
     if (isEditing) {
         return (
-            <div className="flex flex-row items-center gap-2">
+            <div
+                className={`flex flex-row items-center gap-2 min-h-[40px] transition-colors rounded ${isDragOver ? 'bg-stone-800 ring-2 ring-stone-600' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+            >
                 <div className="flex items-center gap-2">
                     <input
                         ref={fileInputRef}
@@ -113,7 +151,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>Upload Image</p>
+                                <p>Upload Image or Drop Result Here</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
@@ -125,8 +163,17 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                         const isError = lower.includes('error');
 
                         return (
-                            <div key={idx} className="relative group" title={url}>
-                                <div className={`w-10 h-10 rounded overflow-hidden border ${isError ? 'border-red-500 bg-red-900/20' : 'border-stone-700 bg-stone-900'} flex items-center justify-center`}>
+                            <div
+                                key={idx}
+                                className="relative group"
+                                title={url}
+                                draggable="true"
+                                onDragStart={(e) => {
+                                    e.dataTransfer.setData('text/plain', url);
+                                    e.dataTransfer.effectAllowed = 'copy';
+                                }}
+                            >
+                                <div className={`w-10 h-10 rounded overflow-hidden border ${isError ? 'border-red-500 bg-red-900/20' : 'border-stone-700 bg-stone-900'} flex items-center justify-center cursor-move`}>
                                     {isStatus ? (
                                         <Loader2 className="h-5 w-5 animate-spin text-stone-500" />
                                     ) : isError ? (

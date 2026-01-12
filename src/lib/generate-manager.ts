@@ -15,6 +15,7 @@ export interface GenerateTaskInput {
     model?: string;
     aspectRatio?: string;
     sound?: boolean; // NEW: Audio Toggle
+    startFrame?: boolean; // NEW: Start Frame Toggle
 
     // Provided overrides
     prompt?: string; // If we build prompt here, or pass it in? 
@@ -76,15 +77,70 @@ export class GenerateManager {
 
         const config = getModelConfig(effectiveModelId);
 
-        console.log(`[GenerateManager Debug] Input Model: '${input.model}' -> Config ID: '${config.id}' (Strategy: ${config.apiStrategy})`);
+        // console.log(`[GenerateManager Debug] Input Model: '${input.model}' -> Config ID: '${config.id}' (Strategy: ${config.apiStrategy})`);
+        const apiType = config.apiStrategy;
 
-        const apiType = config.apiStrategy; // 'veo' | 'flux' | 'nano'
-        const builderId = config.builderId; // 'veo' | 'flux' | 'nano'
+        // DEBUG: Verify Model Resolution
+        try {
+            const logPath = path.join(process.cwd(), 'debug_gen.log');
+            fs.appendFileSync(logPath, `[${new Date().toISOString()}] StartTask: Model='${input.model}' -> ApiStrategy='${apiType}' -> ConfigID='${config.id}'\n`);
+        } catch (e) { }
+
+        const builderId = config.builderId;
+        const builder = BuilderFactory.getBuilder(builderId); // 'veo' | 'flux' | 'nano'
 
         // Legacy variable for BuilderFactory calls
         const model = builderId;
 
         // 2. Resolve Library References (Server-Side)
+        // --- START FRAME LOGIC MOVED UP ----
+        // We must process Start Frame filtering BEFORE resolving images so that
+        // filtered-out characters do not have their images resolved.
+        const isImageModel = (apiType === 'flux' || apiType === 'nano');
+
+        if (isImageModel) {
+            // Force disable dialogue
+            if (input.clip.dialog) {
+                console.log('[GenerateManager] Image Model detected: Suppressing Dialogue field.');
+                input.clip.dialog = ""; // Clean input
+            }
+
+            // Start Frame (First Sentence Only)
+            if (input.startFrame) {
+                const originalAction = input.clip.action || "";
+                // Regex to capture first sentence (ending in . ! ?)
+                // Fallback to full string if no punctuation found.
+                const sentences = originalAction.match(/[^.!?]+[.!?]+/g);
+                if (sentences && sentences.length > 0) {
+                    const firstSentence = sentences[0].trim();
+                    console.log(`[GenerateManager] Start Frame Active: Truncating Action. \nOriginal: "${originalAction}" \nResult: "${firstSentence}"`);
+                    input.clip.action = firstSentence;
+
+                    // CHARACTER INTELLIGENCE: Filter Characters based on First Sentence
+                    // Goal: Prevent "Character Bleeding" (e.g. Character mentioned later in action appearing in start frame)
+                    if (input.clip.character) {
+                        const originalChars = input.clip.character.split(',').map(s => s.trim()).filter(Boolean);
+                        const filteredChars = originalChars.filter(charName => {
+                            // Strict Case-Insensitive Check
+                            // We use word boundary check logic roughly by checking inclusion.
+                            // Ideally regex \bName\b but names can be complex. simpler includes() is safer for now.
+                            return firstSentence.toLowerCase().includes(charName.toLowerCase());
+                        });
+
+                        // Rule: If we filtered everything out, should we keep NONE? Yes.
+                        // If the action is "The fire burns.", we don't want Afsaar just because she's in the scene metadata.
+
+                        console.log(`[GenerateManager] Start Frame Intelligence: Filtering Characters.\nOriginal: ${originalChars.join(', ')}\nFiltered: ${filteredChars.join(', ')}`);
+                        input.clip.character = filteredChars.join(', ');
+                    }
+
+                } else {
+                    // No punctuation? Use whole string but log it
+                    console.log('[GenerateManager] Start Frame Active but no sentence boundary found. Using full text.');
+                }
+            }
+        }
+
         const libraryItems = await db.studioItem.findMany({
             where: { seriesId: input.seriesId }
         });
@@ -109,6 +165,7 @@ export class GenerateManager {
         if (!input.dryRun) {
             await this.updateStatus(input.clipId, 'Generating');
         }
+
 
         try {
             let result;
@@ -317,6 +374,10 @@ export class GenerateManager {
                 } catch (e) { }
             } else if (apiType === 'kling') {
                 console.log(`[GenerateManager] Sending to Kie (Kling)...`, JSON.stringify(payload, null, 2));
+                try {
+                    const logPath = path.join(process.cwd(), 'debug_gen.log');
+                    fs.appendFileSync(logPath, `[${new Date().toISOString()}] Sending Kling Task for ${input.clipId}...\nPayload: ${JSON.stringify(payload)}\n`);
+                } catch (e) { }
                 result = await createKlingTask(payload as KlingPayload);
             } else {
                 console.log(`[GenerateManager] Sending to Kie (Flux)...`, JSON.stringify(payload, null, 2));
@@ -453,6 +514,10 @@ export class GenerateManager {
             // Fix: Map /media/library to public/media/library
             const filename = url.replace('/media/library/', '');
             filePath = path.join(process.cwd(), 'public/media/library', filename);
+        } else if (url.startsWith('/media/clips/')) {
+            // Fix: Map /media/clips to public/media/clips (Legacy/Generated paths)
+            const filename = url.replace('/media/clips/', '');
+            filePath = path.join(process.cwd(), 'public/media/clips', filename);
         }
 
         if (filePath && fs.existsSync(filePath)) {
@@ -482,6 +547,10 @@ export class GenerateManager {
         } else if (url.startsWith('/') && !url.startsWith('http')) {
             // Catch-all for other local paths to warn/error
             console.warn(`[GenerateManager] Local file not found for URL: ${url}`);
+            try {
+                const logPath = path.join(process.cwd(), 'debug_gen.log');
+                fs.appendFileSync(logPath, `[${new Date().toISOString()}] ERROR: File Not Found for URL: '${url}' (Path resolved to: '${filePath}')\n`);
+            } catch (e) { }
             throw new Error(`File Not Found: ${path.basename(url)}`);
         }
 

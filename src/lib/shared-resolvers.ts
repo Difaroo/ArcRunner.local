@@ -1,3 +1,6 @@
+import { parseStringList, joinStringList } from './utils/string-helpers';
+import { Media } from '@/types';
+
 /**
  * Pure functions for resolving Clip properties.
  * Intended to be shared between Server (API) and Client (React).
@@ -7,11 +10,9 @@
 export interface ClipReferenceSource {
     character?: string | null;
     location?: string | null;
-    refImageUrls?: string | null; // The combined string in some contexts, or explicit in others.
-    // In our DB, 'refImageUrls' column traditionally held the EXPLICIT ones.
-    // But the API RE-WRITES it to be ALL.
-    // So we usually look at 'explicitRefUrls' if available, or fall back.
-    explicitRefUrls?: string | null;
+    refImageUrls?: string | null; // Legacy CSV
+    explicitRefUrls?: string | null; // Legacy CSV (Explicit)
+    mediaReferences?: Media[]; // New Source of Truth
 }
 
 export interface ResolverResult {
@@ -23,7 +24,7 @@ export interface ResolverResult {
 
 /**
  * Resolves all reference images for a clip by combining:
- * 1. Explicit URLs (manually entered/pasted)
+ * 1. Explicit URLs (manually entered/pasted or from Media Table)
  * 2. Character Library Images (looked up by name)
  * 3. Location Library Images (looked up by name)
  * 
@@ -37,13 +38,20 @@ export function resolveClipImages(
     mode: 'single' | 'all' = 'single'
 ): ResolverResult {
     // 1. Parse Explicit URLs
-    // We strictly prefer 'explicitRefUrls' (client state).
-    // If fallback to 'refImageUrls' (DB state) is required, we must be careful.
-    const explicitStr = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null
-        ? clip.explicitRefUrls
-        : (clip.refImageUrls || '');
+    // Priority: Media Table > Explicit String > Legacy Ref String
+    let explicitRefUrls: string[] = [];
 
-    const explicitRefUrls = explicitStr.split(',').map(u => u.trim()).filter(Boolean);
+    if (clip.mediaReferences && clip.mediaReferences.length > 0) {
+        explicitRefUrls = clip.mediaReferences.map(m => m.url);
+    } else {
+        const explicitStr = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null
+            ? clip.explicitRefUrls
+            : (clip.refImageUrls || '');
+        explicitRefUrls = parseStringList(explicitStr);
+    }
+
+    // For return value, we reconstruct the string (backward compat)
+    const explicitStr = joinStringList(explicitRefUrls);
 
     const libraryRefUrls: string[] = [];
     const characterImageUrls: string[] = [];
@@ -71,7 +79,7 @@ export function resolveClipImages(
 
     // Helper to extract correct URLs based on mode
     const processLibraryRef = (str: string, targetArray: string[]) => {
-        const rawUrls = str.split(',').map(u => u.trim()).filter(Boolean);
+        const rawUrls = parseStringList(str);
         if (rawUrls.length === 0) return;
 
         if (mode === 'single') {
@@ -83,7 +91,7 @@ export function resolveClipImages(
 
     // 2. Character Lookup
     if (clip.character) {
-        const names = clip.character.split(',');
+        const names = parseStringList(clip.character);
         names.forEach(name => {
             const cleanName = name.trim();
             if (cleanName) {
@@ -107,7 +115,7 @@ export function resolveClipImages(
     }
 
     // 4. Combine
-    const allRefs = [...libraryRefUrls, ...explicitRefUrls].join(',');
+    const allRefs = joinStringList([...libraryRefUrls, ...explicitRefUrls]);
 
     return {
         fullRefs: allRefs,

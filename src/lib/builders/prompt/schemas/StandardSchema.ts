@@ -40,7 +40,7 @@ export class StandardSchema implements PromptSchema {
                 styleBlock += `STYLE: \n\n`;
             }
             styleBlock += `[${styleDesc}]`;
-            if (styleNegs) styleBlock += `\n[${styleNegs}]`;
+            // Removed inline [styleNegs] from prompt. It's collected now.
 
             blocks.push(styleBlock);
         }
@@ -102,6 +102,10 @@ export class StandardSchema implements PromptSchema {
 
         // --- 5. Setup / Reference Block ---
         const setupLines: string[] = [];
+        const negativeBlocks: string[] = [];
+
+        // Collect Style Negatives
+        if (styleNegs) negativeBlocks.push(styleNegs);
 
         // Camera
         const camDesc = cameraAsset?.description || input.clip.camera;
@@ -110,11 +114,13 @@ export class StandardSchema implements PromptSchema {
         // Location
         const locName = locationAsset?.name || input.clip.location || "Location";
         const locDesc = locationAsset?.description || "";
-        const locNegs = locationAsset?.negatives ? `\nNO: [${locationAsset.negatives}]` : "";
+        // Removed Inline NO:
+        if (locationAsset?.negatives) negativeBlocks.push(locationAsset.negatives);
+
         const locImgIdx = manifest.slots.location;
         const locImgTag = locImgIdx > 0 ? `IMAGE ${locImgIdx}: ` : "";
 
-        setupLines.push(`LOCATION: ${locName}: ${locImgTag}[${locDesc || locName}].${locNegs}`);
+        setupLines.push(`LOCATION: ${locName}: ${locImgTag}[${locDesc || locName}].`);
 
         // Characters
         const charNames = input.clip.character ? input.clip.character.split(',').map(s => s.trim()) : [];
@@ -124,11 +130,14 @@ export class StandardSchema implements PromptSchema {
             const asset = characterAssets[i];
             const name = asset?.name || charNames[i] || `Character ${i + 1}`;
             const desc = asset?.description || name;
-            const negs = asset?.negatives ? `\nNO: [${asset.negatives}]` : "";
+
+            // Removed Inline NO:
+            if (asset?.negatives) negativeBlocks.push(asset.negatives);
+
             const imgIdx = manifest.slots.characters[i] || 0;
             const imgTag = imgIdx > 0 ? `IMAGE ${imgIdx}: ` : "";
 
-            setupLines.push(`CHARACTER: ${name}: ${imgTag}[${desc}].${negs}`);
+            setupLines.push(`CHARACTER: ${name}: ${imgTag}[${desc}].`);
         }
 
         // Explicit Refs
@@ -144,11 +153,18 @@ export class StandardSchema implements PromptSchema {
         const actionText = input.clip.action || "";
         const dialogText = input.clip.dialog ? ` Character says: "${input.clip.dialog}"` : "";
         const clipNegs = input.subjectNegatives || "";
+        // Note: input.subjectNegatives already aggregates char/loc negatives in GenerateManager, 
+        // but StandardSchema rebuilds it granularity. 
+        // We should add clip-specific negatives here.
+        if (input.clip.negativePrompt) negativeBlocks.push(input.clip.negativePrompt);
+
+        // input.subjectNegatives is likely redundant if we pulled from assets above? 
+        // GenerateManager puts them there for LegacySchema. 
+        // StandardSchema iterates assets itself. 
+        // So we just need clip.negativePrompt and maybe a manual check on subjectNegatives?
 
         blocks.push(`ACTION: [${actionText}]. [${dialogText}]\nshot.`);
-        if (clipNegs) {
-            blocks.push(`NO: [${clipNegs}].`);
-        }
+        // Removed footer NO: block
 
         // --- 7. Footer ---
         if (hasStyle) {
@@ -156,7 +172,8 @@ export class StandardSchema implements PromptSchema {
         }
 
         return {
-            prompt: blocks.join('\n\n')
+            prompt: blocks.join('\n\n'),
+            negativePrompt: negativeBlocks.join(', ')
         };
     }
 }

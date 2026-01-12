@@ -17,7 +17,13 @@ export class PayloadBuilderVeo implements PayloadBuilder {
 
         // 1. Centralized Prompt & Image Selection
         const constructed = PromptConstructor.construct(context);
-        const { prompt, imageUrls, warnings } = constructed;
+        const { prompt, negativePrompt, imageUrls, warnings } = constructed;
+
+        // Re-inject Negatives inline for Veo (not supported in payload)
+        let finalPrompt = prompt;
+        if (negativePrompt) {
+            finalPrompt += `\n\nNO: [${negativePrompt}].`;
+        }
 
         if (warnings.length > 0) {
             console.warn('[PayloadBuilderVeo] Warnings:', warnings);
@@ -73,7 +79,7 @@ export class PayloadBuilderVeo implements PayloadBuilder {
             taskType: generationType,
             generationType: generationType, // Add matching interface key
             model: apiModelId,
-            prompt: prompt, // Use the constructed prompt
+            prompt: finalPrompt, // Use the constructed prompt with re-injected negatives
             imageUrls: imageUrls, // Use the selected images
             aspectRatio: input.aspectRatio || "16:9",
             durationType: (input.clip.duration && input.clip.duration === '10s') ? '10' : '5',

@@ -427,7 +427,9 @@ export default function Home() {
 
     } catch (err: any) {
       console.error('Save error:', err);
-      alert(`Failed to save changes: ${err.message || err}`);
+      // alert(`Failed to save changes: ${err.message || err}`); // Let the caller handle alerts if needed, or keep it.
+      // Re-throw so components can revert optimistic updates
+      throw err;
     } finally {
       setSaving(false);
     }
@@ -659,13 +661,41 @@ export default function Home() {
   }, [currentSeriesId, setSelectedIds, setSelectedLibraryIds]);
 
   const [generatingLibraryItems, setGeneratingLibraryItems] = useState<Set<string>>(new Set());
+  // Store extras (like startFrame) pending confirmation
+  const [pendingGenerateExtras, setPendingGenerateExtras] = useState<any>(null);
 
 
   // --- Actions ---
-  const handleGenerateSelected = async () => {
+  const handleGenerateSelected = async (extras?: any) => {
     // Check if any selected
     const toGen = activeClips.filter(c => selectedIds.has(c.id));
     if (toGen.length === 0) return;
+
+    // --- Validation (v0.17.4) ---
+    // Check Model Requirements driven by `models.ts`
+    const config = getModelConfig(selectedModel);
+    if (config?.validation?.explicitReference) {
+      // Find invalid clips
+      const invalidClips = toGen.filter(c => {
+        // Logic must match 'resolveClipImages': Check Explicit first, strictly.
+        // If explicitRefUrls IS defined (even empty), use it. Else fallback to refImageUrls.
+        const explicitStr = (c.explicitRefUrls !== undefined && c.explicitRefUrls !== null)
+          ? c.explicitRefUrls
+          : (c.refImageUrls || '');
+
+        return explicitStr.trim().length === 0;
+      });
+
+      if (invalidClips.length > 0) {
+        const names = invalidClips.map(c => `${c.scene} ${c.title || 'Untitled'}`).slice(0, 5).join('\n');
+        const suffix = invalidClips.length > 5 ? `\n...and ${invalidClips.length - 5} more` : '';
+        alert(`Validation Error: The selected model '${config.label}' requires a Manual Reference Image for every clip.\n\nThe following clips are missing a reference:\n\n${names}${suffix}\n\nPlease sideload or paste an image URL for these clips.`);
+        return;
+      }
+    }
+
+    // Store extras for execution
+    setPendingGenerateExtras(extras);
 
     // Show Confirmation Dialog (Restored)
     setShowClipConfirm(true);
@@ -679,11 +709,14 @@ export default function Home() {
     setCopyMessage(`Generating ${toGen.length} clips...`);
     setTimeout(() => setCopyMessage(null), 3000);
 
+    const extras = pendingGenerateExtras; // Snap current state
+
     for (const clip of toGen) {
       // Find original index in full list for API
       const index = clips.findIndex(c => c.id === clip.id);
-      await handleGenerate(clip, index);
+      await handleGenerate(clip, index, extras);
     }
+    setPendingGenerateExtras(null); // Cleanup
   };
 
   const handleDownloadSelected = async () => {
@@ -1172,7 +1205,7 @@ export default function Home() {
     }
   };
 
-  const handleGenerate = async (clip: Clip, index: number) => {
+  const handleGenerate = async (clip: Clip, index: number, extras?: any) => {
     try {
       // Optimistic update
       const newClips = [...clips];
@@ -1187,9 +1220,9 @@ export default function Home() {
       // We no longer fallback to clip.style to prevent confusion with old sheet data.
       const styleToUse = currentStyle || "";
 
-      // Default to Image (Flux) if not explicitly Video (Veo) to prevent accidental cost
-      const isVideo = selectedModel.startsWith('veo');
-      const endpoint = isVideo ? '/api/generate' : '/api/generate-image';
+      // UNIFIED ENDPOINT: Use /api/generate for ALL models (Flux, Nano, Veo, Kling).
+      // The backend GenerateManager handles dispatch logic.
+      const endpoint = '/api/generate';
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -1201,6 +1234,7 @@ export default function Home() {
           aspectRatio: aspectRatio, // Pass Aspect Ratio
           sound: audioEnabled, // Pass Audio Toggle
           seed: currentSeed ?? undefined, // Pass Persistent Seed
+          startFrame: extras?.startFrame, // Pass Start Frame Toggle
           rowIndex: parseInt(clip.id) // Use immutable ID (Sheet Row Index)
         }),
       });
@@ -1370,7 +1404,15 @@ export default function Home() {
           // Re-find owner to sideload
           const clip = clips.find(c => (c.resultUrl || '').includes(url));
           if (clip) {
-            const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+            // Fix: Filter out auto-resolved Studio images to prevent "baking them in" to Explicit Refs
+            const autoImages = new Set([
+              ...(clip.characterImageUrls || []),
+              ...(clip.locationImageUrls || [])
+            ]);
+
+            const rawRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+            const currentRefs = rawRefs.filter(u => !autoImages.has(u));
+
             if (!currentRefs.includes(url)) {
               const next = [...currentRefs, url].join(',');
               await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });

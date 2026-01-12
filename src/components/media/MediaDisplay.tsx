@@ -92,12 +92,21 @@ export function MediaDisplay({
             <div
                 className={`relative group cursor-pointer w-full h-full ${className || ''}`}
                 onClick={handleClick}
+                draggable="true"
+                onDragStart={(e) => {
+                    const dragUrl = effectiveOriginalUrl || effectiveUrl;
+                    if (dragUrl) {
+                        e.dataTransfer.setData('text/plain', dragUrl);
+                        e.dataTransfer.effectAllowed = 'copy';
+                        console.log('Drag Start (Result):', dragUrl);
+                    }
+                }}
             >
                 {/* Visual Representation */}
                 {isImageDisplay ? (
                     <img
                         src={getSrc(effectiveUrl, 'image')}
-                        className="w-full h-full object-cover rounded border border-stone-800 shadow-sm transition-opacity group-hover:opacity-90"
+                        className="w-full h-full object-cover rounded border border-stone-800 shadow-sm transition-opacity group-hover:opacity-90 active:cursor-grabbing"
                         alt="Preview"
                         loading="lazy"
                         onError={(e) => {

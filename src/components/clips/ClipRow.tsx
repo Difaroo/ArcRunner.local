@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Clip } from "@/types"
-import { useState, useEffect } from "react"
+import { useState, useRef, useEffect } from 'react'
+import { parseStringList, joinStringList } from '@/lib/utils/string-helpers'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -43,7 +44,7 @@ interface ClipRowProps {
     isEditing: boolean
     onSelect: (id: string) => void
     onEdit: (clip: Clip) => void
-    onSave: (id: string, values: Partial<Clip>) => void
+    onSave: (id: string, values: Partial<Clip>) => void | Promise<void>
     onCancelEdit: () => void
     onGenerate: (clip: Clip) => void
     onPlay: (url: string, contextPlaylist?: string[]) => void
@@ -80,7 +81,80 @@ export function ClipRow({
     const [editValues, setEditValues] = useState<Partial<Clip>>({})
     const [downloadCount, setDownloadCount] = useState(0)
     const [showEditGuard, setShowEditGuard] = useState(false)
-    const [autoOpenUpload, setAutoOpenUpload] = useState(false)
+    const [autoOpenUpload, setAutoOpenUpload] = useState(false);
+    const [isRefDragOver, setIsRefDragOver] = useState(false);
+
+    // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
+    // UPDATE v0.16.7: Hybrid Approach
+    const getCleanExplicitRefs = () => {
+        // Phase 4: Use Native Array (Priority)
+        if (clip.mediaReferences && clip.mediaReferences.length > 0) {
+            return clip.mediaReferences.map(m => m.url);
+        }
+
+        // Legacy Fallback (String parsing)
+        const hasExplicit = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null;
+
+        if (hasExplicit) {
+            return parseStringList(clip.explicitRefUrls);
+        } else {
+            const rawUrls = parseStringList(clip.refImageUrls);
+            const autoImages = new Set([
+                ...(clip.characterImageUrls || []),
+                ...(clip.locationImageUrls || [])
+            ]);
+            return rawUrls.filter(u => !autoImages.has(u));
+        }
+    };
+
+    // Optimistic UI for References
+    const [optimisticRefs, setOptimisticRefs] = useState<string[] | null>(null);
+
+    // Sync Optimistic State with Props when they update (e.g. after successful save)
+    useEffect(() => {
+        setOptimisticRefs(null);
+    }, [clip.explicitRefUrls, clip.refImageUrls]);
+
+    // Helper to get current refs (Optimistic > Explicit > Legacy)
+    // We only use Optimistic if it's not null.
+    const getEffectiveRefs = () => {
+        if (optimisticRefs !== null) return optimisticRefs;
+        return getCleanExplicitRefs();
+    }
+
+    // --- DRAG & DROP HANDLERS (Display Mode) ---
+    const handleRefDropRef = async (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsRefDragOver(false);
+
+        const droppedUrl = e.dataTransfer.getData('text/plain');
+        if (droppedUrl) {
+            const currentUrls = getEffectiveRefs();
+            if (!currentUrls.includes(droppedUrl)) {
+                console.log('Dropped on Display Row:', droppedUrl);
+                const newUrls = [...currentUrls, droppedUrl];
+                const newUrlsStr = joinStringList(newUrls);
+
+                // 1. Optimistic Update
+                setOptimisticRefs(newUrls);
+
+                // 2. Persist with Error Handling
+                try {
+                    await onSave(clip.id, {
+                        explicitRefUrls: newUrlsStr,
+                        refImageUrls: newUrlsStr
+                    });
+                } catch (err) {
+                    console.error("Save Failed, Reverting Optimistic UI", err);
+                    setOptimisticRefs(null); // Revert to Props
+                    alert("Failed to save reference. Please try again.");
+                }
+            }
+        }
+    };
+
+    const renderedRefs = getEffectiveRefs();
 
     const {
         attributes,
@@ -97,35 +171,6 @@ export function ClipRow({
         zIndex: isDragging ? 50 : 'auto',
         position: isDragging ? 'relative' as const : undefined,
     }
-
-    // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
-    // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
-    // UPDATE: User feedback indicates this hides images they just added if they match a character.
-    // Decision: SHOW ALL IMAGES. Duplicates are better than disappearing data.
-    // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
-    // UPDATE v0.16.7: Hybrid Approach
-    // 1. If we have 'explicitRefUrls' (Manual inputs), we SHOW EVERYTHING in it. The user added it, they want to see it.
-    // 2. If we fallback to 'refImageUrls' (Legacy DB), we FILTER out Auto-Resolved images to prevent duplicates.
-    const getCleanExplicitRefs = () => {
-        // Phase 4: Use Native Array (Priority)
-        if (clip.mediaReferences && clip.mediaReferences.length > 0) {
-            return clip.mediaReferences.map(m => m.url);
-        }
-
-        // Legacy Fallback (String parsing)
-        const hasExplicit = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null;
-
-        if (hasExplicit) {
-            return (clip.explicitRefUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-        } else {
-            const rawUrls = (clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-            const autoImages = new Set([
-                ...(clip.characterImageUrls || []),
-                ...(clip.locationImageUrls || [])
-            ]);
-            return rawUrls.filter(u => !autoImages.has(u));
-        }
-    };
 
     const handleStartEdit = () => {
         // removed blocking guard for 'Done' clips as per user feedback
@@ -146,7 +191,7 @@ export function ClipRow({
 
     const handleSaveAndDownload = () => {
         if (clip.resultUrl) {
-            const allRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+            const allRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);
             const fullPlaylist = [clip.resultUrl, ...allRefs];
             onPlay(clip.resultUrl, fullPlaylist);
             setDownloadCount(prev => prev + 1)
@@ -278,7 +323,7 @@ export function ClipRow({
     }
 
     const toggleCharacter = (char: string) => {
-        const current = (editValues.character || "").split(',').map(c => c.trim()).filter(Boolean);
+        const current = parseStringList(editValues.character || "");
         let next: string[];
         if (current.includes(char)) {
             next = current.filter(c => c !== char);
@@ -358,7 +403,7 @@ export function ClipRow({
                                         {uniqueValues.characters.map((char) => (
                                             <DropdownMenuCheckboxItem
                                                 key={char}
-                                                checked={(editValues.character || "").split(',').map(c => c.trim()).includes(char)}
+                                                checked={parseStringList(editValues.character || "").includes(char)}
                                                 onCheckedChange={() => toggleCharacter(char)}
                                                 onSelect={(e) => e.preventDefault()}
                                                 className="focus:bg-stone-800 focus:text-white"
@@ -372,7 +417,7 @@ export function ClipRow({
                             {/* Edit Mode Preview */}
                             {isEditing && onResolveImage ? (
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                    {(editValues.character || "").split(',').map(c => c.trim()).filter(Boolean).map((char, i) => {
+                                    {parseStringList(editValues.character || "").map((char, i) => {
                                         const url = onResolveImage(char);
                                         if (!url) return null;
                                         return (
@@ -585,88 +630,79 @@ export function ClipRow({
                         />
                     </div>
                 ) : (
-                    (() => {
-                        const urls = getCleanExplicitRefs();
-                        return urls.length > 0 ? (
-                            <div className="flex gap-1 justify-end" onClick={handleStartEdit}>
-                                {urls.slice(0, 3).map((url, i) => (
-                                    <img
-                                        key={i}
-                                        src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                        alt={`Ref ${i + 1}`}
-                                        className="w-[24px] h-[24px] object-cover rounded border border-stone-600 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = 'none';
-                                        }}
-                                    />
-                                ))}
-                            </div>
+                    <div
+                        className={`flex gap-1 justify-end min-h-[30px] items-center rounded transition-colors ${isRefDragOver ? 'bg-stone-800 ring-2 ring-stone-600' : ''}`}
+                        onClick={handleStartEdit}
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(true); }}
+                        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(false); }}
+                        onDrop={handleRefDropRef}
+                    >
+                        {renderedRefs.length > 0 ? (
+                            renderedRefs.slice(0, 3).map((url, i) => (
+                                <img
+                                    key={i}
+                                    src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                    alt={`Ref ${i + 1}`}
+                                    className="w-[24px] h-[24px] object-cover rounded border border-stone-600 shadow-sm cursor-pointer hover:opacity-80 transition-opacity active:cursor-grabbing"
+                                    draggable="true"
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.setData('text/plain', url);
+                                        e.dataTransfer.effectAllowed = 'copy';
+                                        console.log('Drag Start (Display Ref):', url);
+                                    }}
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                />
+                            ))
                         ) : (
-                            <div className="w-full flex justify-end">
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setAutoOpenUpload(true);
-                                                    handleStartEdit();
-                                                }}
-                                                className="btn-icon-action w-[24px] h-[24px] p-0 opacity-50 hover:opacity-100 border-dashed border-stone-700"
-                                            >
-                                                <span className="material-symbols-outlined !text-lg text-primary">add</span>
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Add Reference Image</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                            <div className="w-full h-full flex items-center justify-end text-stone-600 text-[10px] px-2 opacity-50 group-hover:opacity-100">
+                                Drop Refs
                             </div>
-                        );
-                    })()
+                        )}
+                    </div>
                 )}
-            </TableCell>
+            </TableCell >
 
             {/* --- REFACTOR START: SHARED COMPONENTS --- */}
 
-            <TableCell className="align-top py-3 w-[80px] text-left">
+            < TableCell className="align-top py-3 w-[80px] text-left" >
                 {/* RESULT Column using MediaDisplay */}
-                {(clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status?.startsWith('Error')) && clip.resultUrl && (
-                    <div className={`flex justify-start relative ${clip.status?.startsWith('Error') ? 'opacity-50 grayscale border-red-500 border-2 rounded-md' : ''}`}>
-                        {/* Visual Warning for Stale/Error State */}
-                        {clip.status?.startsWith('Error') && (
-                            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                                <span className="material-symbols-outlined text-red-500 bg-black/50 rounded-full p-1">warning</span>
-                            </div>
-                        )}
-                        <MediaDisplay
-                            url={clip.resultUrl}
-                            originalUrl={clip.resultUrl}
-                            model={clip.model}
-                            title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
-                            onPlay={(url) => {
-                                const allRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-                                const fullPlaylist = [url, ...allRefs];
-                                onPlay(url, fullPlaylist);
-                            }}
-                            className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
-                            onUseAsRef={(url) => {
-                                // Sideload Logic: Append current Result URL to Ref Headers
-                                const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-                                if (!currentRefs.includes(url)) {
-                                    const next = [...currentRefs, url].join(',');
-                                    onSave(clip.id, { refImageUrls: next, explicitRefUrls: next }); // Save new Explicit List
-                                } else {
-                                    alert("This image is already a reference.");
-                                }
-                            }}
-                        />
-                    </div>
-                )}
-            </TableCell>
+                {
+                    (clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status?.startsWith('Error')) && clip.resultUrl && (
+                        <div className={`flex justify-start relative ${clip.status?.startsWith('Error') ? 'opacity-50 grayscale border-red-500 border-2 rounded-md' : ''}`}>
+                            {/* Visual Warning for Stale/Error State */}
+                            {clip.status?.startsWith('Error') && (
+                                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                    <span className="material-symbols-outlined text-red-500 bg-black/50 rounded-full p-1">warning</span>
+                                </div>
+                            )}
+                            <MediaDisplay
+                                url={clip.resultUrl}
+                                originalUrl={clip.resultUrl}
+                                model={clip.model}
+                                title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
+                                onPlay={(url) => {
+                                    const allRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);
+                                    const fullPlaylist = [url, ...allRefs];
+                                    onPlay(url, fullPlaylist);
+                                }}
+                                className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
+                                onUseAsRef={(url) => {
+                                    // Sideload Logic: Append current Result URL to Ref Headers
+                                    const currentRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);
+                                    if (!currentRefs.includes(url)) {
+                                        const next = [...currentRefs, url].join(',');
+                                        onSave(clip.id, { refImageUrls: next, explicitRefUrls: next }); // Save new Explicit List
+                                    } else {
+                                        alert("This image is already a reference.");
+                                    }
+                                }}
+                            />
+                        </div>
+                    )
+                }
+            </TableCell >
 
             <TableCell className="align-top text-left py-3 w-[40px] px-1">
                 {/* ACTION Column using RowActions */}

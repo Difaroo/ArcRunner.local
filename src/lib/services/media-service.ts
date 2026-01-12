@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { Media } from '@prisma/client';
+import { parseStringList, joinStringList } from '../utils/string-helpers';
 
 /**
  * MediaService (The "Falcon" Shim)
@@ -30,15 +31,11 @@ export class MediaService {
         // 2. Perform Transactional Write
         // We update the Clip CSV and create the Media record in one atomic go.
         return await db.$transaction(async (tx) => {
-            // A. Legacy Update (RESTORED - Fix Stale State Bug)
-            // We MUST write to legacy CSV because /api/update_clip returns the raw Clip record,
-            // and if this is stale, the frontend reverts the preview image on Save.
-            await tx.clip.update({
-                where: { id: clipId },
-                data: { resultUrl: newCsv }
-            });
+            // A. Legacy Update (REMOVED - Migrated to Media Table)
+
 
             // B. New Media Record
+            // @ts-ignore: Prisma Client Stale
             const media = await tx.media.create({
                 data: {
                     url: url,
@@ -103,29 +100,7 @@ export class MediaService {
             return dbResults;
         }
 
-        // 2. Fallback to Legacy CSV
-        const clip = await db.clip.findUnique({ where: { id: clipId }, select: { resultUrl: true } });
-        if (!clip || !clip.resultUrl) return [];
-
-        const urls = clip.resultUrl.split(',').map((u: string) => u.trim()).filter((u: string) => u.length > 0);
-
-        // Map to "Virtual" Media Objects
-        // We fake the IDs and Timestamps since they don't exist in the CSV.
-        return urls.map((url: string, index: number) => ({
-            id: `legacy_res_${clipId}_${index}`,
-            url: url,
-            type: url.endsWith('.mp4') ? 'VIDEO' : 'IMAGE',
-            category: 'RESULT',
-            localPath: null,
-            mimeType: null,
-            size: null,
-            width: null,
-            height: null,
-            createdAt: new Date(), // Unknown date
-            referenceForClipId: null,
-            resultForClipId: clipId,
-            studioItemId: null
-        }) as Media);
+        return [];
     }
 
     /**
@@ -135,7 +110,7 @@ export class MediaService {
      */
     static async syncReferences(clipId: number, csvUrls: string) {
         // 1. Parse Input
-        const newUrls = csvUrls.split(',').map(u => u.trim()).filter(u => u.length > 0);
+        const newUrls = parseStringList(csvUrls);
         const newUrlSet = new Set(newUrls);
 
         // 2. Fetch Existing Media References
@@ -156,13 +131,8 @@ export class MediaService {
 
         // 4. Perform Transaction
         return await db.$transaction(async (tx) => {
-            // A. Update Legacy CSV -> RESTORED (Dual-Write)
-            // We write the new CSV to the legacy column to ensure the API returns the correct state
-            // to the frontend, preventing "revert" glitches on save.
-            await tx.clip.update({
-                where: { id: clipId },
-                data: { refImageUrls: csvUrls }
-            });
+            // A. Update Legacy CSV -> REMOVED
+
 
             // B. Delete Removed
             if (toRemove.length > 0) {
@@ -175,19 +145,15 @@ export class MediaService {
 
             // C. Create Added
             if (toAdd.length > 0) {
-                // Bulk create not supported for 'data' array in SQLite with simplistic approach, 
-                // but createMany is supported in recent prisma if enabled.
-                // Fallback to Promise.all for safety/compatibility.
-                for (const url of toAdd) {
-                    await tx.media.create({
-                        data: {
-                            url: url,
-                            type: 'IMAGE',
-                            category: 'REFERENCE',
-                            referenceForClipId: clipId
-                        }
-                    });
-                }
+                // Optimized Parallel Creation
+                await Promise.all(toAdd.map(url => tx.media.create({
+                    data: {
+                        url: url,
+                        type: 'IMAGE',
+                        category: 'REFERENCE',
+                        referenceForClipId: clipId
+                    }
+                })));
             }
         });
     }
@@ -208,11 +174,8 @@ export class MediaService {
         }
 
         return await db.$transaction(async (tx) => {
-            // A. Legacy Update (RESTORED - Fix Stale State Bug)
-            await tx.studioItem.update({
-                where: { id: studioItemId },
-                data: { refImageUrl: newCsv }
-            });
+            // A. Legacy Update (REMOVED)
+
 
             const media = await tx.media.create({
                 data: {
@@ -237,7 +200,7 @@ export class MediaService {
      */
     static async syncStudioReferences(studioItemId: number, csvUrls: string) {
         // 1. Parse Input
-        const newUrls = csvUrls.split(',').map(u => u.trim()).filter(u => u.length > 0);
+        const newUrls = parseStringList(csvUrls);
         const newUrlSet = new Set(newUrls);
 
         // 2. Fetch Existing Media References
@@ -258,11 +221,8 @@ export class MediaService {
 
         // 4. Perform Transaction
         return await db.$transaction(async (tx) => {
-            // A. Update Legacy CSV -> RESTORED (Dual-Write)
-            await tx.studioItem.update({
-                where: { id: studioItemId },
-                data: { refImageUrl: csvUrls }
-            });
+            // A. Update Legacy CSV -> REMOVED
+
 
             // B. Delete Removed
             if (toRemove.length > 0) {
@@ -275,16 +235,15 @@ export class MediaService {
 
             // C. Create Added
             if (toAdd.length > 0) {
-                for (const url of toAdd) {
-                    await tx.media.create({
-                        data: {
-                            url: url,
-                            type: 'IMAGE',
-                            category: 'STUDIO_UPLOAD',
-                            studioItemId: studioItemId
-                        }
-                    });
-                }
+                // Optimized Parallel Creation
+                await Promise.all(toAdd.map(url => tx.media.create({
+                    data: {
+                        url: url,
+                        type: 'IMAGE',
+                        category: 'STUDIO_UPLOAD',
+                        studioItemId: studioItemId
+                    }
+                })));
             }
         });
     }

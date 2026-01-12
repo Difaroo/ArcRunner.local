@@ -19,30 +19,43 @@ export class PayloadBuilderKling implements PayloadBuilder {
         // 1. Centralized Prompt & Image Selection
         // Kling 2.6 accepts 1 image.
         const constructed = PromptConstructor.construct(context);
-        const { prompt, imageUrls, warnings } = constructed;
+        const { prompt, negativePrompt, imageUrls, warnings } = constructed;
+
+        // Re-inject Negatives inline for Kling (not supported in payload)
+        let finalPrompt = prompt;
+        if (negativePrompt) {
+            finalPrompt += `\n\nNO: [${negativePrompt}].`;
+        }
 
         if (warnings.length > 0) {
             console.warn('[PayloadBuilderKling] Warnings:', warnings);
         }
 
         // 2. Image Handling
-        const selectedImages = [...imageUrls];
+        // STRICT REQUIREMENT: Kling only uses EXPLICIT Reference Images.
+        // It does NOT use implied Character/Location images from the Studio.
+        const selectedImages: string[] = [];
 
-        // OVERRIDE: Prioritize Explicit Images for Kling if present
         // User Request: "I don't want to remove chars and location... bc I may need to rerender in nano again."
         // Solution: If an Explicit Image (Ref Image) exists, force Kling to use THAT instead of the Character/Location image.
-        if (context.explicitImages && context.explicitImages.length > 0) {
-            console.log(`[PayloadBuilderKling] Explicit Priority Override: using ${context.explicitImages[0]}`);
-            // Clearing the array and adding just the explicit one ensures it's the only one used.
-            selectedImages.length = 0;
-            selectedImages.push(context.explicitImages[0]);
+
+        // Robustness: Filter out empty strings that might creep in from "zombie" references or UI artifacts
+        const validExplicit = (context.explicitImages || [])
+            .filter(u => u && u.trim().length > 0);
+
+        if (validExplicit.length > 0) {
+            console.log(`[PayloadBuilderKling] Using Explicit Reference: ${validExplicit[0]}`);
+            selectedImages.push(validExplicit[0]);
+        } else {
+            // If no explicit image, we CANNOT proceed.
+            console.warn('[PayloadBuilderKling] No Explicit Reference Image found (filtered empty).');
+            throw new Error('Kling requires a Manual Reference Image (Sideload/Paste). Studio Defaults (Characters/Locations) are not supported for this model.');
         }
 
+        // Just sanity check, though logic above guarantees 1
         if (selectedImages.length > 1) {
-            console.warn(`[PayloadBuilderKling] Model requires exactly 1 image, but ${selectedImages.length} found. Using the first one.`);
-            selectedImages.splice(1); // Keep only first
-        } else if (selectedImages.length === 0) {
-            console.warn('[PayloadBuilderKling] No input images found. Ensure this is intended for Text-to-Video fallback.');
+            console.warn(`[PayloadBuilderKling] Multiple explicit images found? Using first only.`);
+            selectedImages.splice(1);
         }
 
         // 3. Duration Logic
@@ -62,24 +75,35 @@ export class PayloadBuilderKling implements PayloadBuilder {
         // Kling 2.6 has a strict limit (approx 2000-2500 chars).
         // StandardSchema can be very verbose (Bios + Style + Instructions).
         // We truncate to 2000 to be safe.
-        let finalPrompt = prompt;
+        // We truncate to 2000 to be safe.
         const MAX_KLING_CHARS = 2000;
         if (finalPrompt.length > MAX_KLING_CHARS) {
-            console.warn(`[PayloadBuilderKling] Prompt too long (${finalPrompt.length} chars). Truncating to ${MAX_KLING_CHARS}.`);
-            // Truncate logic: simple slice.
-            // Ideally we'd keep the ACTION (end) and truncate the middle (Bio), but that's complex text processsing.
-            // For now, simple truncation prevents the 500 Error.
-            finalPrompt = finalPrompt.slice(0, MAX_KLING_CHARS);
+            console.warn(`[PayloadBuilderKling] Prompt too long (${finalPrompt.length} chars). Performing Smart Truncation.`);
+
+            // Smart Truncate: Preserve HEAD (Style/Subject) and TAIL (Action). Squeeze the Middle (Bios).
+            const HEAD_SIZE = 1200; // Style + Subject + Location
+            const TAIL_SIZE = 500;  // Action + Footer
+
+            if (finalPrompt.length > (HEAD_SIZE + TAIL_SIZE)) {
+                const head = finalPrompt.slice(0, HEAD_SIZE);
+                const tail = finalPrompt.slice(finalPrompt.length - TAIL_SIZE);
+                finalPrompt = `${head}\n... [TRUNCATED CONTEXT] ...\n${tail}`;
+            } else {
+                // Fallback if slightly over but within squeeze range (unlikely given math above)
+                finalPrompt = finalPrompt.slice(0, MAX_KLING_CHARS);
+            }
         }
 
-        return {
+        const payload = {
             model: model,
             input: {
-                prompt: finalPrompt,
+                prompt: finalPrompt || "Video", // Fallback
                 image_urls: selectedImages,
                 sound: sound,
                 duration: duration
             }
         };
+        console.log('[PayloadBuilderKling] Final Payload:', JSON.stringify(payload, null, 2));
+        return payload;
     }
 }

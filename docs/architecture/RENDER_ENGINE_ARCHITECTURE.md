@@ -5,7 +5,8 @@ The ArcRunner Render Engine is a high-availability polling infrastructure design
 
 ### Core Flow
 1.  **Trigger**: User initiates generation via UI (Episode or Studio).
-2.  **Payload Construction**: The `GenerateManager` selects the appropriate Strategy (`Flux`, `Veo`, `Nano`, `Kling`) based on inputs (Text, Image count).
+2.  **Payload Construction**: The `GenerateManager` selects the appropriate Strategy (`Flux`, `Veo`, `Nano`, `Kling`) based on inputs.
+    *   **Start Frame Intelligence (Image Models Only)**: If active (and model is Nano/Flux), the system truncates the Action to the first sentence and *filters* character metadata to only include those explicitly named in that sentence. Video models bypass this to preserve full temporal context.
 3.  **Submission**: A `POST` request is sent to Kie.ai.
 4.  **Task Tracking**: The Task ID (`taskId`) and initial inputs are persisted immediately to the Database (`Clip` or `StudioItem`).
 5.  **Polling Loop**: The frontend `usePolling` hook (or centralized Polling Service) queries the status of active tasks.
@@ -17,7 +18,10 @@ The ArcRunner Render Engine is a high-availability polling infrastructure design
 Each model family has a dedicated builder ensuring strict adherence to API schemas.
 -   **Flux**: Handles Style Injection, Strength mapping (UI 1-10 -> API 1.5-10.0), and Aspect Ratio.
 -   **Veo**: Manages complex `IMAGE_TO_VIDEO` (S2E), `TEXT_2_VIDEO`, and `REFERENCE_2_VIDEO` tasks with automatic fallback logic.
--   **Kling**: Enforces strict "Single Explicit Reference" priority (v0.17.1 update) to prevent style bleeding.
+-   **Kling (Minimalist Schema)**: 
+    -   **Strategy**: Uses a dedicated `KlingSchema` that STRIPS all Character and Location text descriptions.
+    -   **Rational**: Relies 100% on Reference Images for visual consistency, using text only for `Action` and `Camera` instructions. This resolves token limits and preventing conflicts.
+    -   **Path Resolution**: `GenerateManager` now correctly maps local `/media/clips/` paths to physical files for upload.
 -   **Nano**: Specialized builder for banana-pro pipelines.
 
 ### 2. Polling Infrastructure (`src/app/api/poll/route.ts`)
@@ -25,6 +29,11 @@ The heartbeat of the engine.
 -   **Zombie Killer**: Automatically marks tasks as `Error` if they remain in "Generating" state without a valid remote ID for > 45s (upload timeout).
 -   **Smart Merge (v0.16.2)**: Intelligently merges polling results with local optimistic state to prevent UI flicker.
 -   **Result Ordering**: Ensures the newest result is always prepended to the CSV list.
+-   **Unified Route**: `api/generate` now handles all models, ensuring consistent features (like Start Frame logic) across Flux, Nano, and Video models.
+
+### 5. Persistence Model (Phase 3 Migration Protection)
+Since the system is in a "Dual-Write / Kill-Switch" phase where legacy columns may not be perfectly synced:
+-   **Authoritative Response**: The `api/update_clip` route returns the *intended* state of reference columns based on `MediaService` transactions, rather than blindly returning potentially stale DB columns. This prevents "Zombie Images" on the frontend.
 
 ### 3. Data Integrity Firewall (v0.16.5)
 A critical defensive layer ensuring UI edits do not corrupt generation data.
@@ -35,6 +44,7 @@ A critical defensive layer ensuring UI edits do not corrupt generation data.
 The centralized display engine.
 -   **Hybrid Playlist**: Constructs a unified playlist of [Result URL, Explicit Refs, Auto-Resolved Refs] for comprehensive review.
 -   **Smart Actions**: "Sideload" and "Unlink" actions now correctly append/remove URLs from the persistence layer without overwriting existing data.
+    *   **Sideload Purity**: When sideloading (using "Airplay" icon), the system filters out auto-resolved Studio images (Characters/Locations) from the snapshot, preventing "Studio Defaults" from being baked into the explicit reference list.
 -   **Z-Index Layout**: High-priority overlay (`z-[9999]`), but strictly below Critical Alerts (`z-[10000]`).
 
 ## Reference Logic (Evolution)

@@ -3,10 +3,10 @@
 ## Overview
 ArcRunner is a dual-intelligence system for generating video and image content. This manual details the system's behaviors, controls, and best practices.
 
-## Universal Media Viewer & Studio (v0.17.2)
+## Universal Media Viewer & Studio (v0.18.0)
 The unified **Universal Media Viewer** allows for checking references, reviewing generated clips, and editing metadata with speed and precision. Now supports optimized downloads and robust playlist navigation.
 
-**v0.17.2 Note**: Studio References now behave identically to Clip References. Deleting an image is permanent (Dual-Write Protection).
+**v0.18.0 Note**: Studio References now behave identically to Clip References. The system uses a strict **Media-First** architecture, meaning `Media` table records are the single source of truth. Drag & Drop operations are fully atomic with optimistic rollback protection.
 
 ### Controls & Shortcuts
 The viewer is designed for **keyboard-first** navigation.
@@ -81,14 +81,23 @@ When resolving multiple images (e.g., Location + Characters), the system fills s
 - Uses "Hardcoded Pro" template similar to Flux but optimized for self-hosting speed.
 - Enforces strict aspect ratio handling.
 
-### Kling 2.6
-- **Explicit Override**: Kling strictly uses a Single Reference Image.
-- **Priority**: If you provide a **Manual Reference Image** (Explicit), Kling will use THAT image and ignore any Character/Location bios.
-- **Fallback**: If no manual ref is provided, it falls back to Location -> Character image.
+### Kling 2.6 (Video)
+-   **Minimalist Schema**: Kling uses a special "Minimalist" prompt structure.
+    -   **Content**: Only the `Action` and `Camera` instructions are sent as text.
+    -   **Visuals**: Visual details (Characters, Locations) are derived **100%** from the Reference Image. Text bios are omitted to prevent token bloat and hallucinations.
+    -   **Implication**: You MUST provide a Reference Image (or rely on the auto-resolved Location/Character images) for Kling to work correctly.
+-   **Explicit Resolution**: Fix applied (v0.17.4) allowing local "Generated Clips" (`/media/clips/`) to be used as Reference Images without error.
+
+### Start Frame Intelligence (v0.17.3 - Image Models Only)
+**Scope**: This feature only activates for **Image Models** (Nano, Flux) to generate clean "Start Frames". Video Models (Veo, Kling) bypass this logic to preserve full temporal instructions.
+
+When **Start Frame** is selected:
+1.  **Action Truncation**: Truncates Action to the **First Sentence**.
+2.  **Character Filtering**: Filters specific characters based on that sentence.
 
 ## Reference Image Visibility (v0.16.7 Hybrid Logic)
 The "Ref Images" column in the Clip Table uses a smart hybrid logic:
-1.  **Manual Adds**: Any URL you explicitly add/paste is **ALWAYS SHOWN**, even if it duplicates a Character thumb. This ensures you can verify your input.
+1.  **Manual Adds**: Any URL you explicitly add/paste is **ALWAYS SHOWN**.
 2.  **Legacy Data**: For older clips where data was merged, the system hides duplicates to keep the interface clean.
 
 ## Render Engine Architecture
@@ -96,4 +105,27 @@ For a deep dive into the technical "under-the-hood" flow of the generating engin
 
 ## Data Hygiene: Style Descriptions
 **Critical Note**: When using "Text Only" styles (State B or D), ensure your Style Asset's text description does NOT contain phrases like "Follow STYLE REFERENCE IMAGE". Using such text without an actual image attached may confuse the model or cause it to hallucinate an image source.
+
+## Visual Reference Management (v0.18.0)
+
+### Drag & Drop Workflow
+Refine your clips with seamless Drag & Drop actions directly in the standard view.
+
+1.  **Results to References (Sideloading)**:
+    -   Drag a generated image from the **RESULT** column.
+    -   Drop it onto the **REF IMAGES** column of the same row (or any other row).
+    -   **Result**: The image is instantly added as a reference.
+
+2.  **Display Mode Sorting**:
+    -   Drag any thumbnail within the **REF IMAGES** list to reorder or move it to another clip.
+    -   Ideal for quickly copying a "perfect style ref" across multiple scenes.
+
+3.  **Optimistic Error Handling**:
+    -   The UI updates **instantly** (0ms latency).
+    -   If the background save fails, the UI automatically **reverts** to prevent "ghost data".
+
+### Architecture Note: Media-First
+As of v0.18.0, the system stores all media links in a relational `Media` table. 
+-   **Legacy CSV columns** (`resultUrl`, `refImageUrls`) are **deprecated** and no longer written to.
+-   The Frontend and API automatically synchronize to ensure you always see the most up-to-date references.
 

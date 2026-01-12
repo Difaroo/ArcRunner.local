@@ -5,6 +5,7 @@ import { StandardSchema } from './prompt/schemas/StandardSchema';
 import { TransitionSchema } from './prompt/schemas/TransitionSchema';
 import { LegacySchema } from './prompt/schemas/LegacySchema';
 import { NanoSchema } from './prompt/schemas/NanoSchema';
+import { KlingSchema } from './prompt/schemas/KlingSchema';
 
 export interface ConstructedPrompt {
     prompt: string;
@@ -24,6 +25,7 @@ export class PromptConstructor {
     private static transitionSchema = new TransitionSchema();
     private static legacySchema = new LegacySchema();
     private static nanoSchema = new NanoSchema();
+    private static klingSchema = new KlingSchema();
 
     static construct(context: GenerationContext): ConstructedPrompt {
         const { input } = context;
@@ -43,6 +45,8 @@ export class PromptConstructor {
             schema = this.legacySchema;
         } else if (model.includes('nano') || model.includes('banana')) {
             schema = this.nanoSchema;
+        } else if (model.includes('kling')) {
+            schema = this.klingSchema;
         } else {
             // Default (Veo Standard, Veo Quality, Kling, etc.)
             schema = this.standardSchema;
@@ -54,7 +58,7 @@ export class PromptConstructor {
         try {
             const result = schema.format(context, manifest);
             finalPrompt = result.prompt;
-            finalNegative = result.negativePrompt || "";
+            finalNegative = result.negativePrompt || ""; // Capture logic output
         } catch (err) {
             console.error('[PromptConstructor] Schema Format Failed:', err);
             warnings.push(`Schema Error: ${err}`);
@@ -63,7 +67,7 @@ export class PromptConstructor {
         }
 
         // Logging for Debugging
-        console.log(`[PromptConstructor] Model=${model} -> Schema=${schema.constructor.name}. Selected Images=${manifest.selectedUrls.length}`);
+        console.log(`[PromptConstructor] Model=${model} -> Schema=${schema.constructor.name}. Selected Images=${manifest.selectedUrls.length}. Negatives=${finalNegative ? 'Yes' : 'No'}`);
 
         return {
             prompt: finalPrompt,

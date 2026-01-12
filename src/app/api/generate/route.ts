@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         // page.tsx sends: { clip, library, model, aspectRatio, rowIndex, seed }
-        const { clip, model, aspectRatio, seed } = body;
+        const { clip, model, aspectRatio, seed, startFrame } = body;
 
         // Validate inputs
         if (!clip || !clip.id) {
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
             model: model,
             aspectRatio: aspectRatio,
             seed: seed ? parseInt(String(seed)) : undefined,
+            startFrame: startFrame,
             clip: clip
         };
 

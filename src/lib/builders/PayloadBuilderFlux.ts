@@ -42,7 +42,10 @@ export class PayloadBuilderFlux implements PayloadBuilder {
                 // Pass selected images if any
                 ...(imageUrls.length > 0 ? { input_urls: imageUrls } : {}),
                 // Only pass seed if provided
-                ...(input.seed !== undefined && input.seed !== null ? { seed: Number(input.seed) } : {})
+                ...(input.seed !== undefined && input.seed !== null ? { seed: Number(input.seed) } : {}),
+
+                // New: Explicit Negative Prompt
+                ...(constructed.negativePrompt ? { negative_prompt: constructed.negativePrompt } : {})
             }
         };
     }

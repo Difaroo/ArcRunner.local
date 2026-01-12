@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
     DropdownMenu,
@@ -18,7 +19,7 @@ interface ActionToolbarProps {
     totalClips: number
     readyClips: number
     selectedCount: number
-    onGenerateSelected: () => void
+    onGenerateSelected: (extras?: { startFrame?: boolean }) => void
     onDownloadSelected: () => void
     selectedModel: string
     onModelChange: (model: string) => void
@@ -65,6 +66,8 @@ export function ActionToolbar({
 }: ActionToolbarProps) {
     const [showBatchDialog, setShowBatchDialog] = useState(false)
     const [isRenumbering, setIsRenumbering] = useState(false)
+    // New: Start Frame State (Default True)
+    const [startFrame, setStartFrame] = useState(true)
 
     // Determine config
     const modelConfig = getModelConfig(selectedModel)
@@ -200,6 +203,38 @@ export function ActionToolbar({
                             })}
                         </DropdownMenuContent>
                     </DropdownMenu>
+
+                    {/* START FRAME CHECKBOX (Image Models or Nano) */}
+                    {(isImageModel || selectedModel.includes('nano')) && (
+                        <div className="flex items-center gap-2 mr-2">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={`flex items-center gap-2 rounded border border-zinc-700 px-3 h-8 bg-background hover:bg-zinc-800/50 transition-colors cursor-pointer select-none group ${startFrame ? 'border-primary/50' : ''}`}
+                                            onClick={() => setStartFrame(!startFrame)}
+                                        >
+                                            <Checkbox
+                                                id="start-frame-mode"
+                                                checked={startFrame}
+                                                onCheckedChange={(checked) => setStartFrame(checked === true)}
+                                                className="border-zinc-500 data-[state=checked]:bg-primary data-[state=checked]:border-primary w-3 h-3 [&_svg]:w-2.5 [&_svg]:h-2.5"
+                                            />
+                                            <label
+                                                htmlFor="start-frame-mode"
+                                                className={`text-xs font-semibold cursor-pointer transition-colors ${startFrame ? 'text-primary' : 'text-zinc-500 group-hover:text-zinc-400'}`}
+                                            >
+                                                START FRAME
+                                            </label>
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Generate First Frame: Restricts prompt to standard 'First Sentence' logic and removes Dialogue.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                    )}
 
                     {/* SEED CONTROL */}
                     <TooltipProvider>
@@ -407,7 +442,7 @@ export function ActionToolbar({
                             <TooltipTrigger asChild>
                                 <Button
                                     size="icon"
-                                    onClick={onGenerateSelected}
+                                    onClick={() => onGenerateSelected({ startFrame } as any)}
                                     disabled={selectedCount === 0}
                                     className="h-8 w-8 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] transition-shadow"
                                     variant="default" // Using default (likely orange primary)
