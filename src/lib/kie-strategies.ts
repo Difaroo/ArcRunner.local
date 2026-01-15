@@ -241,6 +241,8 @@ export class VeoStrategy implements KieStrategy {
 }
 
 // --- NANO STRATEGY ---
+// CRITICAL: Nano (Banana) is an IMAGE GENERATOR by Google.
+// It should return PNGs, not Videos. Treat as Image Model.
 export class NanoStrategy implements KieStrategy {
     getType(): 'flux' | 'veo' | 'nano' { return 'nano'; }
 

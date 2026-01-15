@@ -140,6 +140,9 @@ export async function POST(req: Request) {
                 const winningStrategy = bestResult.strategy;
                 console.log(`[PollAPI] Strategy: ${winningStrategy} | Status: ${status} | Result: ${finalResult}`);
                 const isVideoModel = ['veo', 'kling'].some(s => winningStrategy.includes(s)) ||
+                    // CRITICAL: Nano is an IMAGE GENERATOR (Google). It should output PNGs.
+                    // However, we check for MP4 extension specifically here just in case a legacy/rogue video result exists.
+                    // If no extension match, it defaults to False (Image Mode), which triggers local persistence.
                     (winningStrategy === 'nano' && !!finalResult?.match(/\.(mp4|mov|webm)($|\?)/i));
                 const shouldPersistLocal = !isVideoModel; // Only Persist Images (Flux, Nano)
 

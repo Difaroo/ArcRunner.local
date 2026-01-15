@@ -36,7 +36,9 @@ export class PayloadBuilderNano implements PayloadBuilder {
                 image_input: imageUrls.length > 0 ? imageUrls : undefined,
                 aspect_ratio: input.aspectRatio || "16:9",
                 resolution: "2K",
-                output_format: "mp4",
+                // CRITICAL: Nano (Banana) is an IMAGE GENERATOR (Google).
+                // DO NOT CHANGE TO MP4. Default must be PNG.
+                output_format: "png",
                 seed: input.seed
             }
         };

@@ -79,6 +79,8 @@ When resolving multiple images (e.g., Location + Characters), the system fills s
 
 ### Nano (Experimental)
 - Uses "Hardcoded Pro" template similar to Flux but optimized for self-hosting speed.
+- **CRITICAL**: Nano (Banana) is an **IMAGE GENERATOR** (Google). It outputs PNGs. 
+- The system defaults to downloading these results locally (Media Persistence).
 - Enforces strict aspect ratio handling.
 
 ### Kling 2.6 (Video)
