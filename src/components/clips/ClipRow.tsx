@@ -684,7 +684,7 @@ export function ClipRow({
                                 </div>
                             )}
                             <MediaDisplay
-                                url={clip.resultUrl}
+                                url={clip.thumbnailPath || clip.resultUrl}
                                 originalUrl={clip.resultUrl}
                                 model={clip.model}
                                 title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}

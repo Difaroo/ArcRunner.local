@@ -139,7 +139,8 @@ export async function POST(req: Request) {
                 let finalResult = status === 'Done' ? (resultUrl || '') : (status === 'Generating' ? (bestResult.resultUrl || '') : (resultUrl || 'Error'));
                 const winningStrategy = bestResult.strategy;
                 console.log(`[PollAPI] Strategy: ${winningStrategy} | Status: ${status} | Result: ${finalResult}`);
-                const isVideoModel = ['veo', 'kling'].some(s => winningStrategy.includes(s));
+                const isVideoModel = ['veo', 'kling'].some(s => winningStrategy.includes(s)) ||
+                    (winningStrategy === 'nano' && !!finalResult?.match(/\.(mp4|mov|webm)($|\?)/i));
                 const shouldPersistLocal = !isVideoModel; // Only Persist Images (Flux, Nano)
 
 
