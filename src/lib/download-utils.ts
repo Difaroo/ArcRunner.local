@@ -6,32 +6,38 @@ import { Clip } from '@/types';
  * Format: "{Scene} - {Title} - v{Version}"
  */
 export function getClipFilename(clip: Clip, seriesTitle: string = 'Series'): string {
-    const safeTitle = (clip.title || 'Untitled').replace(/[^a-z0-9 ]/gi, '').trim();
-    const ep = (clip.episode || '0').trim();
-    // Use formatted scene (1.01) or just Title? User asked for [CLIP NAME].
-    // Format: [SERIES].[EPISODE] [CLIP NAME] [VERSION]
-    // Example: ArcRunner.05 Explosion v1
+    // 1. Scene Number (e.g. "1.1")
+    const sceneNum = (clip.scene || '').trim();
 
-    // Calculate Version from Status
+    // 2. Clip Name (Title)
+    const clipName = (clip.title || 'Untitled').replace(/[^a-z0-9 \-_]/gi, '').trim();
+
+    // 3. Version Logic
+    // Format: " 2" (no "v"), empty for v1
     let ver = 1;
     const status = clip.status || '';
     if (status.startsWith('Saved')) {
         const match = status.match(/Saved \[(\d+)\]/);
         if (match) {
-            ver = parseInt(match[1]) + 1;
+            ver = parseInt(match[1]);
         } else if (status === 'Saved') {
-            ver = 2; // If it was already saved once, this is v2
+            ver = 1; // Assume base version
         }
     }
 
-    const versionStr = `v${ver}`;
+    // Construct Filename: "[SCENE NUMBER] [CLIP NAME] [VERSION]"
+    // Example: "1.1 Roswell 2.png"
+    let filenameParts: string[] = [];
 
-    // Construct formatting
-    let filename = `${seriesTitle}.${ep.padStart(2, '0')} ${safeTitle} ${versionStr}`;
+    if (sceneNum) filenameParts.push(sceneNum);
+    filenameParts.push(clipName);
+    if (ver > 1) filenameParts.push(ver.toString());
+
+    let filename = filenameParts.join(' ');
 
     // Determine extension
     const ext = clip.resultUrl?.split('.').pop()?.split('?')[0] || 'mp4';
-    if (!filename.endsWith(`.${ext}`)) {
+    if (!filename.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) {
         filename += `.${ext}`;
     }
 

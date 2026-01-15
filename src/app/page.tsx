@@ -1360,17 +1360,13 @@ export default function Home() {
           if (lib) {
             displayTitle = lib.name;
           } else if (clip) {
-            // For Refs, maybe show "Ref: [Scene]"? Or just same title?
-            // User asked for "[SCENE] [CLIP NAME] [VERSION]"
-            let ver = 'v1';
-            const status = clip.status || '';
-            const match = status.match(/Saved \[(\d+)\]/);
-            if (status === 'Saved') ver = 'v1';
-            if (match) ver = `v${match[1]}`;
-
-            displayTitle = `${clip.scene} ${clip.title || 'Untitled'} ${ver}`;
-            if (isReference) displayTitle += ' (Ref)';
+            // Use Standardized Filename Logic
+            const seriesName = seriesList.find(s => s.id === currentSeriesId)?.title || 'Series';
+            displayTitle = getClipFilename(clip, seriesName).replace(/\.[^/.]+$/, "");
           }
+
+          if (isReference) displayTitle += ' (Ref)';
+
 
           return {
             id: uniqueId,

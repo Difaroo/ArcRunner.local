@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from 'lucide-react';
 
+import { getClipFilename } from '@/lib/download-utils';
+
 interface MediaGalleryClientProps {
     initialItems: any[];
     initialTotal: number;
@@ -129,14 +131,29 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
     const handleSelect = (media: any) => {
         // Construct full playlist from initialItems
         // We map ALL items to UniversalMediaItem format
-        const playlist = initialItems.map(item => ({
-            id: item.id,
-            url: item.localPath || item.url || '', // Prefer local path
-            type: item.type === 'VIDEO' ? 'video' : 'image',
-            title: item.resultForClip ? `Scene ${item.resultForClip.scene}` : (item.studioItem ? item.studioItem.name : 'Media'),
-            canDelete: true, // Allow deletion from viewer
-            isReference: false // In Gallery, all are "roots"
-        })).filter(u => u.url); // filter invalid
+        const playlist = initialItems.map(item => {
+            let itemTitle = 'Media';
+
+            if (item.resultForClip) {
+                // Try to resolve Series Name from SeriesList if possible
+                const seriesId = episodeList.find(e => e.id === item.resultForClip.episodeId)?.seriesId;
+                const sName = seriesList.find(s => s.id === seriesId)?.name || 'Series';
+
+                // Use Standardized Filename (strip extension for Display Title)
+                itemTitle = getClipFilename(item.resultForClip, sName).replace(/\.[^/.]+$/, "");
+            } else if (item.studioItem) {
+                itemTitle = item.studioItem.name;
+            }
+
+            return {
+                id: item.id,
+                url: item.localPath || item.url || '', // Prefer local path
+                type: item.type === 'VIDEO' ? 'video' : 'image',
+                title: itemTitle,
+                canDelete: true, // Allow deletion from viewer
+                isReference: false // In Gallery, all are "roots"
+            };
+        }).filter(u => u.url); // filter invalid
 
         const index = playlist.findIndex(p => p.id === media.id);
 

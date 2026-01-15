@@ -2,6 +2,20 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-15: v0.19.1 - Falcon (Download Standardization)
+
+### Context
+A targeted patch release addressing user feedback regarding inconsistent download filenames across the application. Previous implementations relied on context-dependent titles which caused confusion. This update enforces a strict naming convention globally.
+
+### Changes
+- **Download Logic**:
+    - **Standardization**: Updated `getClipFilename` to enforce `[SCENE] [CLIP] [VERSION]` format (e.g., `1.1 Roswell 2.png`).
+    - **Global Viewer**: Patched `page.tsx` to use the standardized filename generator instead of ad-hoc title construction.
+    - **Media Gallery**: Patched `/media/client.tsx` to resolve Series names dynamically and apply the same standardized filename logic to the Media Gallery viewer.
+- **Version Bump**: 0.19.0 -> 0.19.1.
+
+---
+
 ## 2026-01-14: v0.19.0 - Falcon (Studio Polish & Admin Tools)
 
 ### Context
