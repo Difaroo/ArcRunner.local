@@ -40,7 +40,15 @@ export async function generateThumbnail(videoUrl: string, clipId: string): Promi
         // Simple extension check (robust for standard URLs)
         const isImage = videoUrl.match(/\.(jpg|jpeg|png|webp|gif)($|\?)/i) || videoUrl.includes('flux');
 
-        const proc = ffmpeg(videoUrl);
+        // Handle comma-separated lists (take first)
+        let inputPath = videoUrl.split(',')[0].trim();
+
+        // Resolve local paths relative to public directory
+        if (inputPath.startsWith('/') && !inputPath.startsWith('http')) {
+            inputPath = path.join(process.cwd(), 'public', inputPath);
+        }
+
+        const proc = ffmpeg(inputPath);
 
         if (isImage) {
             // Processing for Static Images (Resize only, no seeking)

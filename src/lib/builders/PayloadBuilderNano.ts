@@ -36,7 +36,7 @@ export class PayloadBuilderNano implements PayloadBuilder {
                 image_input: imageUrls.length > 0 ? imageUrls : undefined,
                 aspect_ratio: input.aspectRatio || "16:9",
                 resolution: "2K",
-                output_format: "png",
+                output_format: "mp4",
                 seed: input.seed
             }
         };
