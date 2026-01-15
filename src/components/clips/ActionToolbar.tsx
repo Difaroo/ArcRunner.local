@@ -8,11 +8,12 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { BatchGenerationDialog } from "./BatchGenerationDialog"
+// import { BatchGenerationDialog } from "./BatchGenerationDialog" // Commented out in original
 import { useState, Fragment } from "react"
-import { ListOrdered, Download, Clapperboard, Image as ImageIcon, Loader2 } from "lucide-react"
+import { ListOrdered, Download, Clapperboard, Image as ImageIcon, Loader2, FolderInput } from "lucide-react"
 import { Clip } from "@/types"
 import { MODEL_LIST, getModelConfig } from "@/lib/models"
+import { MoveClipsDialog } from "./MoveClipsDialog"
 
 interface ActionToolbarProps {
     currentEpKey: string
@@ -21,6 +22,7 @@ interface ActionToolbarProps {
     selectedCount: number
     onGenerateSelected: (extras?: { startFrame?: boolean }) => void
     onDownloadSelected: () => void
+    onMoveSelected: (targetEp: number) => Promise<void> // NEW
     selectedModel: string
     onModelChange: (model: string) => void
     currentStyle: string
@@ -48,6 +50,7 @@ export function ActionToolbar({
     selectedCount,
     onGenerateSelected,
     onDownloadSelected,
+    onMoveSelected, // NEW
     selectedModel,
     onModelChange,
     currentStyle,
@@ -65,6 +68,7 @@ export function ActionToolbar({
     clips
 }: ActionToolbarProps) {
     const [showBatchDialog, setShowBatchDialog] = useState(false)
+    const [showMoveDialog, setShowMoveDialog] = useState(false) // NEW
     const [isRenumbering, setIsRenumbering] = useState(false)
     // New: Start Frame State (Default True)
     const [startFrame, setStartFrame] = useState(true)
@@ -136,11 +140,12 @@ export function ActionToolbar({
                     <span>{totalClips} Clips</span>
                 </div>
 
+                {/* RENUMBER BUTTON */}
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button
-                                variant="outline-primary" // User requested "Same style as New Row" (assumed custom variant or standard outline with primary colors)
+                                variant="outline-primary"
                                 size="icon"
                                 onClick={handleRenumber}
                                 disabled={isRenumbering || totalClips === 0}
@@ -158,6 +163,27 @@ export function ActionToolbar({
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
+
+                {/* START MOVE BUTTON */}
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="outline-primary"
+                                size="icon"
+                                onClick={() => setShowMoveDialog(true)}
+                                disabled={selectedCount === 0}
+                                className="h-8 w-8"
+                            >
+                                <FolderInput className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Move Selected Clips to another Episode</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+                {/* END MOVE BUTTON */}
 
                 <div className="h-4 w-px bg-zinc-700"></div>
 
@@ -506,18 +532,12 @@ export function ActionToolbar({
 
             </div >
 
-            {/* Internal Batch Dialog REMOVED to restore Page-level control */}
-            {/* 
-            <BatchGenerationDialog
-                open={showBatchDialog}
-                onOpenChange={setShowBatchDialog}
-                onConfirm={onGenerateSelected}
-                count={selectedCount}
-                model={selectedModel}
-                ratio={aspectRatio}
-                style={currentStyle}
-            /> 
-            */}
+            <MoveClipsDialog
+                open={showMoveDialog}
+                onOpenChange={setShowMoveDialog}
+                selectedCount={selectedCount}
+                onConfirm={onMoveSelected}
+            />
         </>
     )
 }

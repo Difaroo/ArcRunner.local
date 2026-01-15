@@ -1303,6 +1303,34 @@ export default function Home() {
     }
   };
 
+  const handleMoveSelected = async (targetEp: number) => {
+    try {
+      const clipIds = Array.from(selectedIds);
+      if (clipIds.length === 0) return;
+
+      const res = await fetch('/api/move-clips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clipIds,
+          targetEpisodeNumber: targetEp,
+          currentSeriesId
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Move failed');
+
+      // Refresh to reflect changes
+      window.location.reload();
+
+    } catch (e: any) {
+      console.error("Move Clips Error", e);
+      alert(`Failed to move clips: ${e.message}`);
+    }
+  };
+
+
   const handleIngest = async (json: string) => {
     // Resolve Default Model from Series
     const currentSeries = seriesList.find(s => s.id === currentSeriesId);
@@ -1628,6 +1656,7 @@ export default function Home() {
             {currentView === 'clips' && (
               <ActionToolbar
                 currentEpKey={currentEpKey}
+                onMoveSelected={handleMoveSelected}
                 totalClips={activeClips.length}
                 readyClips={activeClips.filter(c => c.status === 'Done').length}
                 selectedCount={activeClips.filter(c => selectedIds.has(c.id)).length}
