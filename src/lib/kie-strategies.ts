@@ -19,7 +19,11 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
     const url = endpoint.startsWith('http') ? endpoint : `${KIE_BASE_URL}${endpoint}`;
     console.log(`[KieFetch] ${method} ${url}`);
     if (body) {
-        console.log('[KieFetch] Request Body:', JSON.stringify(body, null, 2));
+        // Sanitize generic body logging to avoid massive Base64 dumps
+        const logBody = { ...body };
+        if (logBody.base64Data) logBody.base64Data = '[BASE64_DATA_TRUNCATED]';
+        if (logBody.image) logBody.image = '[BASE64_IMAGE_TRUNCATED]'; // Common field
+        console.log('[KieFetch] Request Body:', JSON.stringify(logBody, null, 2));
     }
 
     // Resilience: 15s Timeout
@@ -270,9 +274,19 @@ export class NanoStrategy implements KieStrategy {
     }
 
     async checkStatus(taskId: string): Promise<KieResult> {
+        console.log(`[NanoStrategy] Checking status for task: ${taskId}`);
+        const endpoint = `/jobs/recordInfo?taskId=${taskId}`;
+        console.log(`[NanoStrategy] Polling Endpoint: ${endpoint}`);
+
+        // LOG TO FILE FOR DEBUGGING
+        try {
+            const logPath = path.join(process.cwd(), 'debug_nano.log');
+            fs.appendFileSync(logPath, `[${new Date().toISOString()}] CHECK STATUS: ${endpoint}\n`);
+        } catch (e) { }
+
         try {
             // Nano uses Flux infrastructure
-            const res = await kieFetch<any>(`/jobs/recordInfo?taskId=${taskId}`, { method: 'GET' });
+            const res = await kieFetch<any>(endpoint, { method: 'GET' });
 
             // LOG TO FILE FOR DEBUGGING
             try {

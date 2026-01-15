@@ -129,6 +129,26 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                     </div>
                 )}
             </div>
+
+            {/* Database Admin Banner */}
+            <div className="px-6 pb-6 max-w-5xl mx-auto w-full mt-6">
+                <div className="border border-orange-500/50 bg-orange-600 rounded-lg px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-1">
+                            <h4 className="text-sm font-normal text-black">Database Admin</h4>
+                            <p className="text-xs text-black/70">Open Prisma Studio to inspect and manage the database directly</p>
+                        </div>
+                        <Button
+                            onClick={() => window.open('http://localhost:5555', '_blank')}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent border-2 border-black text-black hover:bg-black hover:text-white font-semibold transition-colors"
+                        >
+                            Open Prisma Studio
+                        </Button>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }

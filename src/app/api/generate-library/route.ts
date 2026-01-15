@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { createFluxTask, uploadFileBase64 } from '@/lib/kie';
+import { createFluxTask, createVeoTask, createNanoTask, createKlingTask, uploadFileBase64 } from '@/lib/kie';
 import { db } from '@/lib/db';
 import { BuilderFactory } from '@/lib/builders/BuilderFactory';
 import fs from 'fs';
@@ -62,7 +62,9 @@ async function ensurePublicUrl(url: string): Promise<string> {
 
 export async function POST(req: Request) {
     try {
-        const { item, rowIndex, style, styleStrength, refStrength, seed, aspectRatio, model } = await req.json();
+        const body = await req.json();
+        const { item, rowIndex, style, styleStrength, refStrength, seed, aspectRatio, model } = body;
+        console.log(`[LibraryGen] Request Received for ${item?.name || 'Unknown'} (Model: ${model})`);
 
         if (!item || typeof rowIndex !== 'number') {
             return NextResponse.json({ error: 'Missing item or rowIndex' }, { status: 400 });
@@ -134,6 +136,17 @@ export async function POST(req: Request) {
 
         const targetModel = model || 'flux-2/flex-image-to-image';
         console.log(`[LibraryGen] Using Model: ${targetModel}`);
+
+        // Validate image count against model limits
+        const isNanoModel = targetModel.includes('nano') || targetModel.includes('banana');
+        const modelLimit = isNanoModel ? 8 : 3;
+        let warningMessage = '';
+
+        if (publicImageUrls.length > modelLimit) {
+            warningMessage = `MAX ${modelLimit}`;
+            console.warn(`[LibraryGen] Image limit exceeded: ${publicImageUrls.length} provided, ${modelLimit} supported. Excess images ignored.`);
+        }
+
         const builder = BuilderFactory.getBuilder(targetModel);
         if (!builder) throw new Error('Flux Builder not found');
 
@@ -156,20 +169,52 @@ export async function POST(req: Request) {
             seed: seed || undefined // Pass through if present
         };
 
-        // Build Payload
+        // Identify Explicit Images (Non-Style)
+        // This ensures the PromptSelector logic picks them up.
+        // publicImageUrls contains ALL images (refs + style).
+        // WE must separate them.
+        let resolvedExplicitImages: string[] = [];
+        let resolvedStyleImage: string | null = null;
+
+        // Optimized: Reuse already-resolved publicImageUrls and rStyleIndex
+        // publicImageUrls was populated lines 108-133
+        if (rStyleIndex !== undefined && rStyleIndex >= 0 && rStyleIndex < publicImageUrls.length) {
+            resolvedStyleImage = publicImageUrls[rStyleIndex];
+            // Explicit images are everything ELSE
+            resolvedExplicitImages = publicImageUrls.filter((_, i) => i !== rStyleIndex);
+        } else {
+            // No style, or style failed. Everything is explicit.
+            resolvedExplicitImages = [...publicImageUrls];
+        }
+
+
         const payload = builder.build({
             input: builderInput,
-            publicImageUrls,
-            characterImages: [], characterAssets: [],
-            locationImages: [], locationAsset: undefined,
-            explicitImages: [], styleImage: null
+            publicImageUrls, // Legacy/Fallback (contains all)
+            characterImages: [],
+            characterAssets: [],
+            locationImages: [],
+            locationAsset: undefined,
+            explicitImages: resolvedExplicitImages,
+            styleImage: resolvedStyleImage
         }); // as FluxPayload
 
         // 3. Call Kie.ai via Standard Client
-        // Note: Builder returns Generic Payload, we cast or pass to specific create function.
-        // Since we know it's Flux:
-        console.log('[LibraryGen] Sending Payload Input to Kie:', JSON.stringify(payload.input, null, 2));
-        const kieRes = await createFluxTask(payload as any);
+        // Dynamic Strategy Dispatch
+        console.log(`[LibraryGen] Dispatching to Strategy: ${targetModel} (Payload ID: ${payload.model})`);
+
+        // Simple strategy detection (can also import getModelConfig from @/lib/models)
+        let kieRes;
+        if (targetModel.includes('nano') || targetModel.includes('banana')) {
+            kieRes = await createNanoTask(payload as any);
+        } else if (targetModel.includes('veo')) {
+            kieRes = await createVeoTask(payload as any);
+        } else if (targetModel.includes('kling')) {
+            kieRes = await createKlingTask(payload as any);
+        } else {
+            // Default to Flux
+            kieRes = await createFluxTask(payload as any);
+        }
 
         // Debug Metadata
         const debugMeta = {
@@ -215,12 +260,21 @@ export async function POST(req: Request) {
             where: { id: dbId },
             data: {
                 status: 'GENERATING',
-                taskId: taskId
+                taskId: taskId,
+                model: targetModel
             }
         });
 
         // We return 'generating' status to client so it can update local state immediately if desired
-        return NextResponse.json({ success: true, data: kieData, taskId, status: 'GENERATING', debug: debugMeta });
+        const response: any = {
+            success: true,
+            data: kieData,
+            taskId,
+            status: warningMessage || 'GENERATING',  // Use warning as status if present
+            debug: debugMeta
+        };
+
+        return NextResponse.json(response);
 
     } catch (error: any) {
         console.error('Library Generate Error:', error);

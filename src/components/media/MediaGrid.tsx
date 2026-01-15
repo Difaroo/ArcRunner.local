@@ -40,10 +40,21 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
     const isVideo = item.type === 'VIDEO';
 
     // Label Logic
+    // Label Logic
     let label = 'Unknown';
-    if (item.resultForClip) label = `Scene ${item.resultForClip.scene}`;
-    else if (item.referenceForClip) label = `Ref: Sc ${item.referenceForClip.scene}`;
-    else if (item.studioItem) label = item.studioItem.name;
+    if (item.resultForClip) {
+        const scene = item.resultForClip.scene || '??';
+        const title = item.resultForClip.title || 'Untitled';
+        label = `${scene} ${title}`;
+    }
+    else if (item.referenceForClip) {
+        const scene = item.referenceForClip.scene || '??';
+        const title = item.referenceForClip.title || 'Untitled';
+        label = `Ref: ${scene} ${title}`;
+    }
+    else if (item.studioItem) {
+        label = item.studioItem.name;
+    }
 
     return (
         <div className="group relative aspect-video w-full overflow-hidden rounded-md border bg-muted/50 transition-all hover:ring-2 hover:ring-primary/50">
@@ -106,22 +117,37 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
                 })()
             }
 
-            {/* Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 p-2 flex flex-col justify-end">
-                <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-white truncate max-w-[70%]">{label}</span>
-                    <div className="flex gap-1">
-                        {isVideo && <Play className="h-4 w-4 text-white" />}
-                        {!isVideo && <ImageIcon className="h-4 w-4 text-white" />}
-                    </div>
-                </div>
+            {/* Top Right Type Icon */}
+            <div className="absolute top-2 right-2 z-20">
+                {/* Float with no background */}
+                {isVideo && <Play className="h-4 w-4 text-white drop-shadow-md" />}
+                {!isVideo && <ImageIcon className="h-4 w-4 text-white drop-shadow-md" />}
+            </div>
 
-                <div className="mt-2 flex gap-2 justify-end">
-                    <Button size="icon" variant="destructive" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onDelete?.(item.id); }}>
-                        <Trash2 className="h-3 w-3" />
+            {/* Bottom Bar: Title & Controls */}
+            <div className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-between bg-gradient-to-t from-black/90 via-black/60 to-transparent p-3 pt-8 transition-all">
+                {/* Title (Always Visible) */}
+                <span className="text-xs font-normal text-white truncate max-w-[60%] select-none drop-shadow-md">
+                    {label}
+                </span>
+
+                {/* Controls (Hover Only) */}
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 bg-black/20 text-red-500 hover:bg-red-500 hover:text-white backdrop-blur-sm transition-colors"
+                        onClick={(e) => { e.stopPropagation(); onDelete?.(item.id); }}
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="icon" variant="secondary" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); window.open(item.url, '_blank'); }}>
-                        <Download className="h-3 w-3" />
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 bg-black/20 text-orange-500 hover:bg-orange-500 hover:text-white backdrop-blur-sm transition-colors"
+                        onClick={(e) => { e.stopPropagation(); window.open(item.url, '_blank'); }}
+                    >
+                        <Download className="h-3.5 w-3.5" />
                     </Button>
                 </div>
             </div>

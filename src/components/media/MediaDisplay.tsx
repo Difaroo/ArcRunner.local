@@ -15,6 +15,7 @@ interface MediaDisplayProps {
     onUseAsRef?: (url: string) => void
     onUpdate?: (id: string, updates: any) => Promise<void> | void
     onDelete?: (id: string) => Promise<void> | void
+    isReference?: boolean // Override context
 }
 
 export function MediaDisplay({
@@ -29,7 +30,8 @@ export function MediaDisplay({
     onSave,
     onUseAsRef, // Destructure new prop
     onUpdate,
-    onDelete
+    onDelete,
+    isReference = false // Default to false (Root Asset) unless specified
 }: MediaDisplayProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -150,14 +152,18 @@ export function MediaDisplay({
                 playlist={allUrls.map(u => ({
                     id: effectiveOriginalUrl || u,
                     url: u,
-                    type: u.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image', // Robust check per item
+                    type: u.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image',
                     title: title || model || 'Media Preview',
-                    isReference: true
+                    isReference: !!isReference // Respect prop
                 }))}
                 initialIndex={allUrls.indexOf(effectiveOriginalUrl || '')}
-                onSideload={onUseAsRef ? async (url) => onUseAsRef(url) : undefined}
+                onSideload={!isReference && onUseAsRef ? async (url: string) => onUseAsRef(url) : undefined}
                 onUpdate={onUpdate ? async (id, updates) => { await onUpdate(id, updates); } : undefined}
-                onDelete={onDelete ? async (id) => { await onDelete(id); } : undefined}
+                // Map Delete logic:
+                // If Reference: Pass Delete as Unlock (Minus Button)
+                // If Root: Pass Delete as Delete (Trash Button)
+                onDelete={!isReference && onDelete ? async (id) => { await onDelete(id); } : undefined}
+                onUnlink={isReference && onDelete ? async (url) => { if (onDelete) await onDelete(url); } : undefined}
             />
         </>
     )

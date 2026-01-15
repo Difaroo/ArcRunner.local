@@ -31,8 +31,11 @@ export class MediaService {
         // 2. Perform Transactional Write
         // We update the Clip CSV and create the Media record in one atomic go.
         return await db.$transaction(async (tx) => {
-            // A. Legacy Update (REMOVED - Migrated to Media Table)
-
+            // A. Legacy Update (Restored for UI Compatibility)
+            await tx.clip.update({
+                where: { id: clipId },
+                data: { resultUrl: newCsv }
+            });
 
             // B. New Media Record
             // @ts-ignore: Prisma Client Stale
@@ -159,12 +162,12 @@ export class MediaService {
     }
 
     /**
-     * Records a new Result (Image) for a Studio Item (Library).
+     * Records a new Result (Image/Video) for a Studio Item (Library).
      * Enforces Double-Lock:
      * 1. Appends to `StudioItem.refImageUrl` (Legacy CSV)
      * 2. Creates `Media` record (New)
      */
-    static async addStudioResult(studioItemId: number, url: string, localPath?: string) {
+    static async addStudioResult(studioItemId: number, url: string, type: 'IMAGE' | 'VIDEO' = 'IMAGE', localPath?: string) {
         const item = await db.studioItem.findUnique({ where: { id: studioItemId }, select: { refImageUrl: true } });
         if (!item) throw new Error(`StudioItem ${studioItemId} not found`);
 
@@ -174,13 +177,25 @@ export class MediaService {
         }
 
         return await db.$transaction(async (tx) => {
-            // A. Legacy Update (REMOVED)
+            // LOGGING
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const logPath = path.join(process.cwd(), 'debug_media.log');
+                fs.appendFileSync(logPath, `[${new Date().toISOString()}] MediaService.addStudioResult: Item=${studioItemId} URL=${url} Type=${type}\n`);
+            } catch (e) { }
 
+            // A. Legacy Update (Restored for UI Compatibility)
+            await tx.studioItem.update({
+                where: { id: studioItemId },
+                data: { refImageUrl: newCsv }
+            });
 
+            // @ts-ignore: Prisma Client Stale
             const media = await tx.media.create({
                 data: {
                     url: url,
-                    type: 'IMAGE',
+                    type: type,
                     category: 'STUDIO_UPLOAD',
                     localPath: localPath,
                     studioItemId: studioItemId

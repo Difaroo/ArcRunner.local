@@ -7,8 +7,11 @@ export class PromptSelector {
         const { input, characterImages, locationImages, explicitImages, styleImage } = context;
         console.log(`[PromptSelector DEBUG] Input Arrays: Loc=${locationImages?.length}, Chars=${characterImages?.length}, Explicit=${explicitImages?.length}`);
 
-        let selectedImages: string[] = [];
-        const maxTotal = 3;
+        // Dynamic capacity based on model capabilities
+        // Nano Banana Pro supports up to 14 images (conservative limit: 8)
+        // Flux/Veo support 3 images max
+        const isNanoModel = input.model?.includes('nano') || input.model?.includes('banana');
+        const maxTotal = isNanoModel ? 8 : 3;
 
         // 1-based index trackers
         let locImgIdx = 0;
@@ -16,19 +19,21 @@ export class PromptSelector {
         const refImgIndices: number[] = [];
         let styleImgIdx = 0;
 
+        let selectedImages: string[] = [];
+
         // --- Logic Branch: S2E vs Standard ---
         const isS2E = input.model === 'veo-s2e';
 
         if (isS2E) {
             // S2E STRICT: Image 1 = Start, Image 2 = End
             // Source: explicitImages only
-            if (explicitImages.length >= 2) {
+            if (explicitImages && explicitImages.length >= 2) {
                 selectedImages = [explicitImages[0], explicitImages[1]];
                 // S2E usually doesn't map to Location/Character slots in the same way,
                 // but for consistency we can leave slots empty or map them if needed.
                 // For now, simple S2E manifests usually don't need slot mapping for ABCD schemas.
                 // But we return a valid manifest.
-            } else if (explicitImages.length === 1) {
+            } else if (explicitImages && explicitImages.length === 1) {
                 // Fallback to Reference Mode (handled by downstream/Schema?)
                 // Or we just return what we have.
                 selectedImages = [explicitImages[0]];

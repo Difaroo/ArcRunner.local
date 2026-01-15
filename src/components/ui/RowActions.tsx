@@ -158,15 +158,22 @@ export function RowActions({
                     </TooltipProvider>
                 )}
 
-                {/* 3. GENERATING SPINNER */}
+                {/* 3. GENERATING SPINNER (Click to Retry) */}
                 {isGenerating && (
-                    <Button
-                        variant="outline"
-                        disabled
-                        className="h-8 w-8 p-0 border-primary/50 bg-primary/10"
-                    >
-                        <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                    </Button>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    onClick={(e) => { e.stopPropagation(); if (confirm('Restart generation?')) onGenerate(); }}
+                                    className="h-8 w-8 p-0 border-primary/50 bg-primary/10 hover:bg-red-900/20 hover:border-red-500 transition-colors"
+                                >
+                                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Generating... Click to Restart</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 )}
             </div>
 

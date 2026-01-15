@@ -78,7 +78,7 @@ export const MODELS: Record<string, ModelConfig> = {
         label: 'Nano Banana Pro',
         apiStrategy: 'nano',
         builderId: 'nano',
-        isImage: false, // Nano produces video
+        isImage: true, // Nano produces images
         internalId: 'nano-banana-pro',
         description: 'Nano model generation'
     }

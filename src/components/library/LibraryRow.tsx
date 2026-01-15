@@ -339,6 +339,7 @@ export function LibraryRow({
                                     originalUrl={item.refImageUrl}
                                     title={item.name}
                                     isThumbnail={!!item.thumbnailPath}
+                                    isReference={true} // Show minus icon (unlink) in Universal Viewer
                                     onPlay={(url) => {
                                         if (onPlay) onPlay(url);
                                     }}
@@ -348,7 +349,7 @@ export function LibraryRow({
                                         // LibraryRow item.id is the rowIndex
                                         if (onSave) await onSave(item.id, updates);
                                     }}
-                                    onDelete={async (id) => {
+                                    onDelete={async (url) => {
                                         if (onDelete) onDelete(item.id);
                                     }}
                                 />

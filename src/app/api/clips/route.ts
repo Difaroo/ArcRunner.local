@@ -83,7 +83,11 @@ export async function GET() {
                 negatives: item.negatives || '',
                 notes: item.notes || '',
                 episode: item.episode || '1',
-                series: item.seriesId
+                series: item.seriesId,
+                model: item.model || null,
+                // CRITICAL: Include status and taskId for polling loop to work
+                status: item.status || 'IDLE',
+                taskId: item.taskId || ''
             };
         });
 
@@ -127,19 +131,22 @@ export async function GET() {
             // ---------------------------------------------------------------
 
             // A. Resolve Results (Video/Image)
-            // Use logical last item (most recent) from Media table
+            // Use logical last item (most recent) from Media table.
+            // STRICT MODE: Do not fall back to clip.resultUrl. If unknown in Media, it's unknown.
             const mediaResult = clip.mediaResults && clip.mediaResults.length > 0
                 ? clip.mediaResults[clip.mediaResults.length - 1].url
-                : clip.resultUrl; // Fallback to Legacy
+                : ''; // PREVIOUSLY: clip.resultUrl (Legacy Fallback Removed)
 
             // B. Resolve References (Images)
             // Construct CSV from Media table if available
-            let explicitRefs = clip.refImageUrls || '';
+            // STRICT MODE: Ignore clip.refImageUrls (Legacy). Use Media Table ONLY.
+            let explicitRefs = '';
             if (clip.mediaReferences && clip.mediaReferences.length > 0) {
                 explicitRefs = clip.mediaReferences.map((m: any) => m.url).join(',');
             }
 
             // Proxy Clip for Resolver
+            // Note: We intentionally pass empty string if no Media Refs, effectively masking the stale CSV.
             const proxyClip = { ...clip, refImageUrls: explicitRefs };
             const { fullRefs, explicitRefs: resolvedExplicit, characterImageUrls, locationImageUrls } = resolveClipImages(proxyClip, findLib);
 

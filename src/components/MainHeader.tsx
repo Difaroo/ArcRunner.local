@@ -46,7 +46,7 @@ export function MainHeader({ currentView, onViewChange, loading, error }: MainHe
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                     <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
-                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary">0.18.0 Falcon</span>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary">0.19.0 Falcon</span>
                 </div>
 
                 <div className="h-6 w-px bg-border/40 mx-2"></div>

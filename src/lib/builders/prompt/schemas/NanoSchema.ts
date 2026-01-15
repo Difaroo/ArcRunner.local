@@ -68,7 +68,8 @@ export class NanoSchema implements PromptSchema {
 
         // --- 2. Instruction ---
         if (hasStyleImage) {
-            prompt += `[INSTRUCTION: Preserve the identity and purpose of the OUTPUT SUBJECT. Apply the Image ${styleImageIndex} STYLE: Facial style, Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality: to the OUTPUT SUBJECT.]\n\n`;
+            const strength = input.styleStrength || 5;
+            prompt += `[INSTRUCTION: Preserve the identity and purpose of the OUTPUT SUBJECT. Apply the Image ${styleImageIndex} STYLE: Facial style: ${strength}, Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality: to the OUTPUT SUBJECT.]\n\n`;
 
             // Conditional Style Asset Block
             if (styleAsset) {
@@ -110,10 +111,26 @@ export class NanoSchema implements PromptSchema {
             prompt += `${charLinePrefix}: [${char.description}].\n\n`;
         });
 
+        // Explicit References (for Studio items or additional refs)
+        // These come from manifest.slots.references which are explicitImages that weren't claimed by characters
+        if (manifest.slots.references && manifest.slots.references.length > 0) {
+            manifest.slots.references.forEach((refIndex) => {
+                if (refIndex > 0) {
+                    // For Studio items, the item description goes here as the reference context
+                    const refContext = input.subjectDescription || 'Reference for visual consistency';
+                    prompt += `REFERENCE: ESSENTIAL: IMAGE ${refIndex}: [${refContext}].\n\n`;
+                }
+            });
+        }
+
         prompt += `]\n\n`;
 
-        // --- 4. Action & Dialog ---
-        const actionText = input.clip.action || "";
+        // --- 4. Task/Action & Dialog ---
+        // Detect Studio Item: Has subjectDescription but no action
+        const isStudioItem = !input.clip.action && input.subjectDescription;
+        const taskLabel = isStudioItem ? 'TASK' : 'ACTION';
+
+        const actionText = input.clip.action || input.subjectDescription || "";
         const dialogText = input.clip.dialog ? `${input.clip.dialog}` : "";
 
         let unifiedAction = actionText;
@@ -130,12 +147,13 @@ export class NanoSchema implements PromptSchema {
             }
         });
 
-        prompt += `ACTION: [${unifiedAction}]\n`;
+        prompt += `${taskLabel}: [${unifiedAction}]\n`;
         prompt += `shot.\n`;
 
         // --- 6. Footer ---
         if (hasStyleImage) {
-            prompt += `\n[OUTPUT: Render ACTION with strict adherence to STYLE REFERENCE.]`;
+            const footerLabel = isStudioItem ? 'TASK' : 'ACTION';
+            prompt += `\n[OUTPUT: Render ${footerLabel} with strict adherence to STYLE REFERENCE.]`;
         }
 
         return {

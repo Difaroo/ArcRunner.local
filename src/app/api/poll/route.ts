@@ -18,7 +18,7 @@ export async function POST(req: Request) {
         // DEBUG LOG
         try {
             const logPath = '/Users/davidfennell/.gemini/antigravity/workspaces/arcrunner-local/debug_poll.log';
-            const logEntry = `[${new Date().toISOString()}] Poll Request: ${targets.length} targets. IDs: ${targets.map((t: any) => t.taskId).join(', ')}\n`;
+            const logEntry = `[${new Date().toISOString()}] Poll Request: ${targets.length} targets. Details: ${JSON.stringify(targets)}\n`;
             fs.appendFileSync(logPath, logEntry);
         } catch (e) { }
 
@@ -37,7 +37,10 @@ export async function POST(req: Request) {
             if (!taskId) continue;
 
             const idInt = parseInt(item.id);
-            if (isNaN(idInt)) continue;
+            if (isNaN(idInt)) {
+                console.error(`[Poll] Invalid item ID: ${item.id}. Skipping.`);
+                continue;
+            }
 
             const isLibrary = item.type === 'LIBRARY';
 
@@ -55,7 +58,8 @@ export async function POST(req: Request) {
                     else if (m.includes('flux')) strategies = ['flux'];
                     else strategies = ['veo', 'nano', 'flux', 'kling']; // Fallback
                 } else if (isLibrary) {
-                    strategies = ['flux'];
+                    // FALCON FIX: Library items can be Nano/Veo too (Video assets). Don't restrict to Flux.
+                    strategies = ['flux', 'nano', 'veo', 'kling'];
                 } else {
                     strategies = ['veo', 'nano', 'flux', 'kling'];
                 }
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
                 let resultUrl = '';
                 let errorMsg = '';
 
-                let bestResult = { status: 'Generating', resultUrl: '', errorMsg: '' };
+                let bestResult = { status: 'Generating', resultUrl: '', errorMsg: '', strategy: '' };
                 let foundAny = false;
                 let currentPriority = 0; // 0=None, 1=Error, 2=Generating, 3=Done
 
@@ -95,7 +99,8 @@ export async function POST(req: Request) {
                                     bestResult = {
                                         status: check.status,
                                         resultUrl: check.resultUrl || '',
-                                        errorMsg: check.errorMsg || ''
+                                        errorMsg: check.errorMsg || '',
+                                        strategy: apiType
                                     };
                                 }
 
@@ -103,11 +108,7 @@ export async function POST(req: Request) {
                                 if (priority === 3) break;
                             }
                         } catch (e: any) {
-                            // LOG STRATEGY FAILURES
-                            try {
-                                const logPath = '/Users/davidfennell/.gemini/antigravity/workspaces/arcrunner-local/debug_poll.log';
-                                fs.appendFileSync(logPath, `  -> ${apiType}: EXCEPTION detected: ${e.message}\n`);
-                            } catch (logErr) { }
+                            console.warn(`[Poll] Strategy ${apiType} exception for ${taskId}:`, e.message);
                         }
                     }
 
@@ -117,10 +118,7 @@ export async function POST(req: Request) {
                         errorMsg = bestResult.errorMsg;
                     } else {
                         // No strategy found the task (all 404/Error)
-                        try {
-                            const logPath = '/Users/davidfennell/.gemini/antigravity/workspaces/arcrunner-local/debug_poll.log';
-                            fs.appendFileSync(logPath, `  -> WARN: No strategy found task ${taskId}. Keeping as Generating.\n`);
-                        } catch (e) { }
+                        console.warn(`[Poll] No strategy found task ${taskId}. Keeping as Generating.`);
                     }
                 } catch (e: any) {
                     console.error(`[Poll] Critical Strategy Loop Error for ${taskId}:`, e);
@@ -138,7 +136,12 @@ export async function POST(req: Request) {
                 if (status === 'Done') finalStatus = 'Done';
                 else if (status === 'Generating') finalStatus = 'Generating';
 
-                const finalResult = status === 'Done' ? (resultUrl || '') : (status === 'Generating' ? (bestResult.resultUrl || '') : (resultUrl || 'Error'));
+                let finalResult = status === 'Done' ? (resultUrl || '') : (status === 'Generating' ? (bestResult.resultUrl || '') : (resultUrl || 'Error'));
+                const winningStrategy = bestResult.strategy;
+                console.log(`[PollAPI] Strategy: ${winningStrategy} | Status: ${status} | Result: ${finalResult}`);
+                const isVideoModel = ['veo', 'kling'].some(s => winningStrategy.includes(s));
+                const shouldPersistLocal = !isVideoModel; // Only Persist Images (Flux, Nano)
+
 
                 if (isLibrary) {
                     // --- LIBRARY UPDATE ---
@@ -152,7 +155,6 @@ export async function POST(req: Request) {
                     let newRefUrl = finalResult;
 
                     // Persistence Logic
-                    // Persistence Logic
                     if (status === 'Done' && finalResult) {
                         let localPath = finalResult;
                         if (finalResult.startsWith('http')) {
@@ -164,8 +166,26 @@ export async function POST(req: Request) {
                                 const version = existingRefs + 1;
                                 const customName = `${seriesName}.${epNum} ${assetName} ${version}`;
 
-                                const res = await persistLibraryImage(finalResult, idInt.toString(), customName);
-                                localPath = res.localPath;
+
+
+                                if (shouldPersistLocal) {
+                                    // 1. Download & Persist (Images)
+                                    try {
+                                        const res = await persistLibraryImage(finalResult, idInt.toString(), customName);
+                                        localPath = res.localPath;
+                                    } catch (persistErr: any) {
+                                        console.error(`Persistence failed for Item ${idInt}:`, persistErr);
+                                        // CRITICAL: Report this to UI instead of silently failing
+                                        finalStatus = 'Error';
+                                        finalResult = `Download Failed: ${persistErr.message || "Unknown"}`;
+                                        // Do NOT proceed to addStudioResult if download failed
+                                        throw new Error(finalResult);
+                                    }
+                                } else {
+                                    // 2. Remote URL (Videos)
+                                    // We still keep localPath = remoteUrl for the DB
+                                    localPath = finalResult;
+                                }
                             } catch (e) {
                                 console.error(`Persistence failed for Item ${idInt}:`, e);
                             }
@@ -173,19 +193,40 @@ export async function POST(req: Request) {
 
                         // FALCON REFACTOR: Dual-Write for Studio Items
                         // This updates StudioItem.refImageUrl AND creates a Media record
-                        await MediaService.addStudioResult(idInt, localPath, localPath);
-                    }
+                        const mediaType = isVideoModel ? 'VIDEO' : 'IMAGE';
+                        console.log(`[Poll] Persisting Studio result for ${idInt}: Type=${mediaType} LocalPath=${localPath}`);
 
-                    console.log(`[PollLibrary] Updating Item ${idInt}: Status=${finalStatus}`);
+                        await MediaService.addStudioResult(idInt, localPath, mediaType, localPath);
 
-                    // Final Status Update (Service handles images, we handle status/taskId)
-                    await db.studioItem.update({
-                        where: { id: idInt },
-                        data: {
-                            status: finalStatus,
-                            taskId: finalStatus === 'Done' ? '' : undefined
+                        // IMMEDIATE STATUS UPDATE (Break the loop)
+                        try {
+                            const updated = await db.studioItem.update({
+                                where: { id: idInt },
+                                data: {
+                                    status: 'Done',
+                                    taskId: null // Explicitly clear taskId
+                                }
+                            });
+                            console.log(`[Poll] Forced status update for Studio Item ${idInt}: Status=${updated.status}`);
+
+                        } catch (e: any) {
+                            console.error(`[Poll] Force update failed for ${idInt}:`, e);
                         }
-                    });
+                    } else {
+                        // Non-Done Status Update
+                        console.log(`[Poll] Updating Studio Item ${idInt}: Status=${finalStatus}`);
+
+                        // We also want to ensure we don't accidentally set it back to Generating if it was Done?
+                        // But finalStatus logic handles that.
+
+                        await db.studioItem.update({
+                            where: { id: idInt },
+                            data: {
+                                status: finalStatus,
+                                // taskId: finalStatus === 'Done' ? null : undefined // Don't touch ID for non-done
+                            }
+                        });
+                    }
 
                     updateCount++;
 
@@ -195,13 +236,33 @@ export async function POST(req: Request) {
 
                     if (status === 'Done' && finalResult) {
                         try {
-                            const { localPath, thumbnailPath: thumb } = await persistClipMedia(finalResult, idInt.toString());
-                            thumbnailPath = thumb;
+                            let localPath = finalResult;
+                            let fileType = 'IMAGE'; // Default
+
+                            if (shouldPersistLocal) {
+                                // A. Local Persistence (Images)
+                                const { localPath: lp, thumbnailPath: thumb } = await persistClipMedia(finalResult, idInt.toString());
+                                localPath = lp;
+                                thumbnailPath = thumb;
+                            } else {
+                                // B. Remote URL (Videos)
+                                // Generate Thumbnail explicitly
+                                try {
+                                    const thumb = await generateThumbnail(finalResult, idInt.toString());
+                                    if (thumb) thumbnailPath = thumb;
+                                } catch (thErr) { console.error('Thumbnail gen failed for remote video', thErr); }
+
+                                fileType = 'VIDEO';
+                            }
+
 
                             // FALCON REFACTOR: Use MediaService (Dual-Write)
-                            // This updates both the legacy CSV and the new Media table.
-                            const fileType = localPath.endsWith('.mp4') ? 'VIDEO' : 'IMAGE';
-                            await MediaService.addResult(idInt, localPath, fileType, localPath);
+                            if (shouldPersistLocal) {
+                                // Infer type from extension if we downloaded it
+                                fileType = localPath.endsWith('.mp4') ? 'VIDEO' : 'IMAGE';
+                            }
+
+                            await MediaService.addResult(idInt, localPath, fileType as 'IMAGE' | 'VIDEO', localPath);
 
                             // Update Status & Thumbnail (Service doesn't handle Status)
                             await db.clip.update({
@@ -292,6 +353,15 @@ export async function POST(req: Request) {
             // Artificial Delay to prevent API Rate Limits (5 requests per second?)
             await new Promise(r => setTimeout(r, 200));
         }
+
+        // Log final response
+        try {
+            // Log only if updates happened or specific ID
+            if (updateCount > 0) {
+                const logPath = path.join(process.cwd(), 'debug_poll.log');
+                fs.appendFileSync(logPath, `[${new Date().toISOString()}] Poll Response: Updated=${updateCount} Checked=${targets.length}\n`);
+            }
+        } catch (e) { }
 
         return NextResponse.json({
             success: true,

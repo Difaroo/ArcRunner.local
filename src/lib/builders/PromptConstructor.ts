@@ -61,7 +61,8 @@ export class PromptConstructor {
             finalNegative = result.negativePrompt || ""; // Capture logic output
         } catch (err) {
             console.error('[PromptConstructor] Schema Format Failed:', err);
-            warnings.push(`Schema Error: ${err}`);
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            warnings.push(`Prompt generation error: ${errorMsg}`);
             // Fallback to minimal safety prompt
             finalPrompt = input.subjectDescription || "Error building prompt.";
         }

@@ -1,9 +1,8 @@
 # SPRINT BACKLOG
 
-## Current High Priority (v0.18.0)
-- [ ] **Drag & Drop Reordering**: Implement DnD for Clips.
-- [ ] **Agentic Tests**: Expand `AgentMigrationTest` coverage.
-
-## Backlog
+## Current High Priority (v0.19.0)
 - [ ] **Mobile View**: Responsive polish for tablet usage.
 - [ ] **Prompt Playground**: dedicated sandbox for testing prompt structures.
+
+## Backlog
+- [ ] **Agentic Tests**: Expand `AgentMigrationTest` coverage.

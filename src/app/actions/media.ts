@@ -19,6 +19,16 @@ export async function fetchMedia(filter: MediaFilter, page = 1, limit = 50) {
     // Complex Filtering: Join to Clip/Studio to filter by Series/Episode
     // This is where Relational DB shines!
     if (filter.seriesId || filter.episodeId) {
+        let episodeNumberString: string | undefined;
+
+        // Resolve Episode Number string for matching against StudioItem.episode
+        if (filter.episodeId) {
+            const ep = await db.episode.findUnique({ where: { id: filter.episodeId } });
+            if (ep) {
+                episodeNumberString = ep.number.toString();
+            }
+        }
+
         where.OR = [
             // 1. Result for Clip
             {
@@ -38,12 +48,11 @@ export async function fetchMedia(filter: MediaFilter, page = 1, limit = 50) {
                     }
                 }
             },
-            // 3. Studio Item
+            // 3. Studio Item (Strict Filter)
             {
                 studioItem: {
                     seriesId: filter.seriesId,
-                    // Studio items often map to series, but maybe episode string?
-                    // For now, series filter is safe.
+                    ...(episodeNumberString && { episode: episodeNumberString })
                 }
             }
         ];

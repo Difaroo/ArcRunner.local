@@ -1,21 +1,13 @@
 
-import { db } from '@/lib/db';
+import { db } from '../src/lib/db';
 
 async function main() {
-    const name = 'Jack_Parsons_Roswell';
-    console.log(`Searching for StudioItem: ${name}`);
-
-    const items = await db.studioItem.findMany({
-        where: { name: { contains: 'Jack_Parsons' } } // loose search
+    const id = 244;
+    const item = await db.studioItem.findUnique({
+        where: { id },
+        include: { media: true }
     });
-
-    if (items.length === 0) {
-        console.log('No item found!');
-    } else {
-        items.forEach(item => {
-            console.log(`Found Item: ID=${item.id}, Name='${item.name}', Type='${item.type}', RefImage='${item.refImageUrl}'`);
-        });
-    }
+    console.log(JSON.stringify(item, null, 2));
 }
 
-main();
+main().catch(console.error);

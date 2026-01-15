@@ -122,7 +122,29 @@ const createStore: StateCreator<AppState> = (set, get) => ({
 
                 if (data.episodeTitles) updates.episodeTitles = data.episodeTitles;
                 if (data.episodes) updates.allEpisodes = data.episodes || [];
-                if (data.libraryItems) updates.libraryItems = data.libraryItems || [];
+
+                // Smart Merge for Library Items (Preserve Task ID)
+                if (data.libraryItems) {
+                    const currentLibrary = state.libraryItems;
+                    console.log(`[DataStore] Refresh received ${data.libraryItems.length} library items.`);
+                    updates.libraryItems = (data.libraryItems || []).map((newItem: LibraryItem) => {
+                        // Loose Equality for ID (String vs Number safety)
+                        const existing = currentLibrary.find(i => String(i.id) === String(newItem.id));
+
+                        const existingStatus = existing?.status?.toUpperCase() || 'IDLE';
+                        const newStatus = newItem.status?.toUpperCase() || 'IDLE';
+
+                        // Allow merge if server returns IDLE or GENERATING (race condition where DB hasn't updated or defaulted)
+                        if (existing && existing.taskId && !newItem.taskId && existingStatus === 'GENERATING' && (newStatus === 'GENERATING' || newStatus === 'IDLE')) {
+                            // Keep 'Generating' locally so polling continues
+                            return { ...newItem, taskId: existing.taskId, model: existing.model || newItem.model, status: 'Generating' };
+                        }
+
+
+
+                        return newItem;
+                    });
+                }
 
                 if (data.series) {
                     updates.seriesList = data.series || [];

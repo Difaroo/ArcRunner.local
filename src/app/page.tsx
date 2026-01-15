@@ -88,6 +88,13 @@ export default function Home() {
   const [editValues, setEditValues] = useState<Partial<Clip>>({});
   const [saving, setSaving] = useState(false);
   const [selectedModel, setSelectedModel] = useState('veo-fast');
+  // Persistent Studio Model (Default: Nano)
+  const [studioSelectedModel, setStudioSelectedModel] = useState('nano-banana-pro');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('studioSelectedModel');
+    if (saved) setStudioSelectedModel(saved);
+  }, []);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [clipDuration, setClipDuration] = useState("5");
 
@@ -803,7 +810,11 @@ export default function Home() {
 
   // --- Studio Model Logic ---
   const handleStudioModelChange = async (modelId: string) => {
-    if (selectedLibraryIds.size === 0) return alert("Select items to set their model.");
+    // 1. Update Persistent State
+    setStudioSelectedModel(modelId);
+    localStorage.setItem('studioSelectedModel', modelId);
+
+    if (selectedLibraryIds.size === 0) return; // Keep existing guard for batch updates
 
     // Clean value: 'default' -> null (remove override)
     const val = modelId === 'default' ? null : modelId;
@@ -897,7 +908,7 @@ export default function Home() {
     clips: clips,
     libraryItems: libraryItems,
     refreshData: refreshData,
-    intervalMs: 5000 // 5s polling (Aggressive)
+    intervalMs: 3000 // 3s polling (Hyper Aggressive for Nano)
   });
 
 
@@ -1331,7 +1342,7 @@ export default function Home() {
           const lib = !clip ? libraryItems.find(i => (i.refImageUrl || '').includes(url)) : undefined;
 
           // Determine if it is a Reference (i.e. not the main Result)
-          const isReference = clip ? (clip.resultUrl !== url) : (lib ? false : false); // Library items are roots? Or refs? Usually roots.
+          const isReference = clip ? (clip.resultUrl !== url) : (lib ? true : false); // Library/Studio items are references
 
           // Type Detection
           const isImageExt = url.match(/\.(png|jpg|jpeg|webp|gif|bmp)($|\?)/i);
@@ -1696,7 +1707,7 @@ export default function Home() {
                   aspectRatio={currentAspectRatio}
                   onAspectRatioChange={(ratio) => updateEpisodeSetting({ aspectRatio: ratio })}
                   // Model Control
-                  selectedModel={studioToolbarModel === 'mixed' ? null : studioToolbarModel}
+                  selectedModel={studioSelectedModel}
                   onModelChange={handleStudioModelChange}
                 />
               </div>
@@ -1880,7 +1891,7 @@ export default function Home() {
         onOpenChange={setShowStudioConfirm}
         count={selectedLibraryIds.size}
         onConfirm={executeStudioGeneration}
-        model={selectedModel}
+        model={studioSelectedModel}
         style={currentStyle}
         aspectRatio={currentAspectRatio}
         guidance={currentGuidance}

@@ -1,11 +1,13 @@
 {
   "name": "arcrunner-local",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "private": true,
   "scripts": {
     "dev": "npx -y kill-port 3000 && npx prisma generate && next dev -p 3000",
+    "dev:lan": "npx -y kill-port 3000 && npx prisma generate && next dev -p 3000 -H 0.0.0.0",
     "build": "next build",
-    "start": "next start -p 3001",
+    "start": "next start -p 3001 -H 0.0.0.0",
+    "prod": "next build && next start -p 3001 -H 0.0.0.0",
     "lint": "eslint",
     "test:ui": "playwright test",
     "test:ui:debug": "playwright test --debug",

@@ -101,7 +101,12 @@ export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: Stor
 
             {/* Media Thumbnail */}
             <div className={`aspect-video w-full rounded overflow-hidden mb-2 print:border print:border-black bg-transparent print:!bg-white ${isHidden ? 'opacity-50 grayscale' : ''}`}>
-                {clip.thumbnailPath || clip.resultUrl ? (
+                {clip.status?.toUpperCase() === 'GENERATING' ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-stone-900/50 border border-stone-800">
+                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-2"></div>
+                        <span className="text-xs font-mono text-primary animate-pulse">GENERATING</span>
+                    </div>
+                ) : (clip.thumbnailPath || clip.resultUrl ? (
                     <MediaDisplay
                         url={clip.thumbnailPath || clip.resultUrl!}
                         originalUrl={clip.resultUrl || undefined}
@@ -115,7 +120,7 @@ export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: Stor
                     <div className="w-full h-full flex items-center justify-center text-stone-700 bg-transparent print:!bg-white print:!bg-none [print-color-adjust:economy]">
                         <span className="material-symbols-outlined text-4xl print:hidden opacity-20">movie</span>
                     </div>
-                )}
+                ))}
             </div>
 
             {/* Action Description */}

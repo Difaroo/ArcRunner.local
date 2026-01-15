@@ -27,8 +27,10 @@ export class LegacySchema implements PromptSchema {
             input.subjectNegatives
         ].filter(Boolean);
 
+        const strength = input.styleStrength || 5;
+
         return {
-            prompt: `${style}. ${subject}.`,
+            prompt: `[Style Strength: ${strength}] ${style}. ${subject}.`,
             negativePrompt: negativeBlocks.join(', ')
         };
     }

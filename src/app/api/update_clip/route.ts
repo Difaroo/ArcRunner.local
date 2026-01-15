@@ -132,9 +132,12 @@ export async function POST(request: Request) {
         let finalExplicitRefs = '';
         if (isRefUpdate) {
             finalExplicitRefs = refUrlUpdate || '';
-        } else if (clipWithContext?.mediaReferences && clipWithContext.mediaReferences.length > 0) {
+        } else if (clipWithContext?.mediaReferences !== undefined) {
+            // STRICT MODE: If Media Refs loaded, use them. If empty, it's empty.
+            // Do NOT fallback to updatedClip.refImageUrls (Legacy/Zombie).
             finalExplicitRefs = clipWithContext.mediaReferences.map((m: any) => m.url).join(',');
         } else {
+            // Only fallback if Media context wasn't fetched (unlikely)
             finalExplicitRefs = updatedClip.refImageUrls || '';
         }
 
@@ -144,7 +147,9 @@ export async function POST(request: Request) {
             id: updatedClip.id.toString(), // CRITICAL: Frontend expects String ID
             episode: epNum,                // CRITICAL: Frontend expects Episode Number
             // Ensure explicitRefUrls is passed back so UI updates immediately.
-            explicitRefUrls: finalExplicitRefs
+            explicitRefUrls: finalExplicitRefs,
+            // STRICT MODE FIX: Return the fresh Media References array so Frontend updates source of truth
+            mediaReferences: clipWithContext?.mediaReferences || []
         };
 
         return NextResponse.json({ success: true, clip: formattedClip });

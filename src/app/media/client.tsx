@@ -193,17 +193,20 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                     {/* SERIES FILTER */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 gap-1 min-w-[120px] justify-between">
-                                {selectedSeries ? selectedSeries.name : "All Series"}
-                                <ChevronDown className="h-3 w-3 opacity-50" />
+                            <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-2 min-w-[140px] justify-between">
+                                <span className="flex items-center truncate">
+                                    <span className="text-zinc-500 font-semibold mr-2">SERIES</span>
+                                    {selectedSeries ? selectedSeries.name : "All Series"}
+                                </span>
+                                <ChevronDown className="h-3 w-3 opacity-50 flex-shrink-0" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[200px] max-h-[300px] overflow-y-auto">
-                            <DropdownMenuItem onClick={() => handleFilterChange('seriesId', undefined)}>
+                        <DropdownMenuContent align="end" className="w-[200px] max-h-[300px] overflow-y-auto bg-stone-900 border-stone-800 text-white">
+                            <DropdownMenuItem onClick={() => handleFilterChange('seriesId', undefined)} className="focus:bg-stone-800 focus:text-white cursor-pointer">
                                 All Series
                             </DropdownMenuItem>
                             {seriesList.map(s => (
-                                <DropdownMenuItem key={s.id} onClick={() => handleFilterChange('seriesId', s.id)}>
+                                <DropdownMenuItem key={s.id} onClick={() => handleFilterChange('seriesId', s.id)} className="focus:bg-stone-800 focus:text-white cursor-pointer">
                                     {s.name}
                                 </DropdownMenuItem>
                             ))}
@@ -212,30 +215,29 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* TYPE FILTERS */}
-                    <div className="flex items-center bg-muted/50 rounded-md border p-1">
+                    {/* TYPE FILTERS (Grouped) */}
+                    <div className="flex items-center h-8 gap-1 border border-zinc-700 rounded-md px-1.5 bg-background/50">
                         <Button
-                            variant={initialFilter.type === undefined ? 'secondary' : 'ghost'}
+                            variant={initialFilter.type === undefined ? 'outline' : 'ghost'}
                             size="sm"
                             onClick={() => handleFilterChange('type', undefined)}
-                            className="h-7 text-xs"
+                            className={`h-5 px-2 text-[9px] ${!initialFilter.type ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                         >
                             All
                         </Button>
-                        <Separator orientation="vertical" className="h-4 mx-1" />
                         <Button
-                            variant={initialFilter.type === 'VIDEO' ? 'secondary' : 'ghost'}
+                            variant={initialFilter.type === 'VIDEO' ? 'outline' : 'ghost'}
                             size="sm"
                             onClick={() => handleFilterChange('type', 'VIDEO')}
-                            className="h-7 text-xs"
+                            className={`h-5 px-2 text-[9px] ${initialFilter.type === 'VIDEO' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                         >
                             Video
                         </Button>
                         <Button
-                            variant={initialFilter.type === 'IMAGE' ? 'secondary' : 'ghost'}
+                            variant={initialFilter.type === 'IMAGE' ? 'outline' : 'ghost'}
                             size="sm"
                             onClick={() => handleFilterChange('type', 'IMAGE')}
-                            className="h-7 text-xs"
+                            className={`h-5 px-2 text-[9px] ${initialFilter.type === 'IMAGE' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                         >
                             Image
                         </Button>
@@ -243,30 +245,29 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* SOURCE FILTERS */}
-                    <div className="flex items-center bg-muted/50 rounded-md border p-1">
+                    {/* SOURCE FILTERS (Grouped) */}
+                    <div className="flex items-center h-8 gap-1 border border-zinc-700 rounded-md px-1.5 bg-background/50">
                         <Button
-                            variant={initialFilter.category === undefined ? 'secondary' : 'ghost'}
+                            variant={initialFilter.category === undefined ? 'outline' : 'ghost'}
                             size="sm"
                             onClick={() => handleFilterChange('category', undefined)}
-                            className="h-7 text-xs"
+                            className={`h-5 px-2 text-[9px] ${!initialFilter.category ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                         >
                             All Sources
                         </Button>
-                        <Separator orientation="vertical" className="h-4 mx-1" />
                         <Button
-                            variant={initialFilter.category === 'RESULT' ? 'secondary' : 'ghost'}
+                            variant={initialFilter.category === 'RESULT' ? 'outline' : 'ghost'}
                             size="sm"
                             onClick={() => handleFilterChange('category', 'RESULT')}
-                            className="h-7 text-xs"
+                            className={`h-5 px-2 text-[9px] ${initialFilter.category === 'RESULT' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                         >
                             Results
                         </Button>
                         <Button
-                            variant={initialFilter.category === 'REFERENCE' ? 'secondary' : 'ghost'}
+                            variant={initialFilter.category === 'REFERENCE' ? 'outline' : 'ghost'}
                             size="sm"
                             onClick={() => handleFilterChange('category', 'REFERENCE')}
-                            className="h-7 text-xs"
+                            className={`h-5 px-2 text-[9px] ${initialFilter.category === 'REFERENCE' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                         >
                             Reference
                         </Button>

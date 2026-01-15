@@ -9,13 +9,12 @@ import { randomUUID } from 'crypto';
 let ffmpegPath = ffmpegStatic;
 
 if (ffmpegPath && !fs.existsSync(ffmpegPath)) {
-    console.warn(`FFmpeg resolved path does not exist: ${ffmpegPath}`);
     // Fallback for Next.js dev environment
     const fallbackPath = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg');
     if (fs.existsSync(fallbackPath)) {
-        console.log(`Using fallback path: ${fallbackPath}`);
         ffmpegPath = fallbackPath;
     } else {
+        console.warn(`FFmpeg resolved path does not exist: ${ffmpegPath}`);
         console.error(`Fallback path also missing: ${fallbackPath}`);
     }
 }

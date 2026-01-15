@@ -87,12 +87,14 @@ export function ClipRow({
     // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
     // UPDATE v0.16.7: Hybrid Approach
     const getCleanExplicitRefs = () => {
-        // Phase 4: Use Native Array (Priority)
-        if (clip.mediaReferences && clip.mediaReferences.length > 0) {
+        // Phase 4 (STRICT MODE): Use Native Array if available (even if empty)
+        // This prevents "Zombie" legacy data from appearing when Media table is empty.
+        if (clip.mediaReferences !== undefined && clip.mediaReferences !== null) {
             return clip.mediaReferences.map(m => m.url);
         }
 
-        // Legacy Fallback (String parsing)
+        // Legacy Fallback (Only if mediaReferences is NOT loaded)
+        // This path should rarely run if fetch includes relations.
         const hasExplicit = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null;
 
         if (hasExplicit) {
@@ -669,7 +671,11 @@ export function ClipRow({
             < TableCell className="align-top py-3 w-[80px] text-left" >
                 {/* RESULT Column using MediaDisplay */}
                 {
-                    (clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status?.startsWith('Error')) && clip.resultUrl && (
+                    clip.status?.toUpperCase() === 'GENERATING' ? (
+                        <div className="flex items-center justify-center w-[70px] h-[70px] bg-stone-900 border border-stone-800 rounded-md">
+                            <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        </div>
+                    ) : (clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status?.startsWith('Error')) && clip.resultUrl && (
                         <div className={`flex justify-start relative ${clip.status?.startsWith('Error') ? 'opacity-50 grayscale border-red-500 border-2 rounded-md' : ''}`}>
                             {/* Visual Warning for Stale/Error State */}
                             {clip.status?.startsWith('Error') && (

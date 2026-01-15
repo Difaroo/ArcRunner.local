@@ -67,103 +67,45 @@ export function LibraryActionToolbar({
             {/* Central Control Group with Tighter Spacing */}
             <div className="flex items-center gap-2">
 
-                {/* VIEW / RATIO SELECTION */}
-                <DropdownMenu>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white mr-2">
-                                        <span className="text-zinc-500 mr-2 font-semibold">VIEW</span>
-                                        <span className="truncate inline-block align-bottom">{aspectRatio || '16:9'}</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Aspect Ratio (View)</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <DropdownMenuContent className="w-24 bg-stone-900 border-stone-800 text-white">
-                        {['16:9', '9:16', '1:1', '21:9', '4:3', '3:4'].map((ratio) => (
+                {/* MODEL SELECTION */}
+                {onModelChange && (
+                    <DropdownMenu>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                                            <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
+                                            {modelConfig?.label || "Select..."}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Select Generation Model (Applies to Selected)</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <DropdownMenuContent className="w-48 bg-stone-900 border-stone-800 text-white">
                             <DropdownMenuItem
-                                key={ratio}
-                                onClick={() => onAspectRatioChange(ratio)}
-                                className="focus:bg-stone-800 focus:text-white cursor-pointer justify-center"
+                                onClick={() => onModelChange('default')}
+                                className="text-xs text-stone-400 focus:bg-stone-800 focus:text-stone-300 italic"
                             >
-                                {ratio}
+                                Reset to Default
                             </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                            <DropdownMenuSeparator className="bg-zinc-700/50" />
+                            {MODEL_LIST.filter(m => m.isImage || m.apiStrategy === 'nano').map((model) => (
+                                <DropdownMenuItem
+                                    key={model.id}
+                                    onClick={() => onModelChange(model.id)}
+                                    className="focus:bg-stone-800 focus:text-white cursor-pointer"
+                                >
+                                    {model.label}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
 
-
-                {/* Style Selection */}
-                <DropdownMenu>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-                                        <span className="text-zinc-500 mr-2 font-semibold">STYLE</span>
-                                        <span className="truncate max-w-[150px] inline-block align-bottom">{currentStyle || 'Select...'}</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Select a visual style for the episode</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <DropdownMenuContent className="w-48 max-h-[300px] overflow-y-auto bg-stone-900 border-stone-800 text-white">
-                        {availableStyles.map((style) => (
-                            <DropdownMenuItem
-                                key={style}
-                                onClick={() => onStyleChange(style)}
-                                className="focus:bg-stone-800 focus:text-white cursor-pointer"
-                            >
-                                {style}
-                            </DropdownMenuItem>
-                        ))}
-                        {availableStyles.length === 0 && (
-                            <div className="p-2 text-xs text-stone-500">No styles found in Studio</div>
-                        )}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-
-
-                {/* GUIDANCE (Style Pwr) */}
-                <DropdownMenu>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-                                        <span className="text-zinc-500 mr-2 font-semibold">STRENGTH</span>
-                                        <span className="truncate inline-block align-bottom">{styleStrength}</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Guidance Scale (1-10): How strictly to follow the text prompt.</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <DropdownMenuContent className="w-16 max-h-[300px] overflow-y-auto bg-stone-900 border-stone-800 text-white min-w-[3rem]">
-                        {/* Guidance often goes higher than 10 in Flux (20-30), but 1-10 is a safe start */}
-                        {Array.from({ length: 15 }, (_, i) => i + 1).map((val) => (
-                            <DropdownMenuItem
-                                key={val}
-                                onClick={() => onStyleStrengthChange(val)}
-                                className="focus:bg-stone-800 focus:text-white cursor-pointer justify-center"
-                            >
-                                {val}
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* PROMPT STRENGTH REMOVED per user request */}
 
                 {/* SEED CONTROL */}
                 <TooltipProvider>
@@ -218,46 +160,116 @@ export function LibraryActionToolbar({
                     </Tooltip>
                 </TooltipProvider>
 
+                {/* VIEW / RATIO SELECTION */}
+                <DropdownMenu>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                                        <span className="text-zinc-500 mr-2 font-semibold">VIEW</span>
+                                        <span className="truncate inline-block align-bottom">{aspectRatio || '16:9'}</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Aspect Ratio (View)</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <DropdownMenuContent className="w-24 bg-stone-900 border-stone-800 text-white">
+                        {['16:9', '9:16', '1:1', '21:9', '4:3', '3:4'].map((ratio) => (
+                            <DropdownMenuItem
+                                key={ratio}
+                                onClick={() => onAspectRatioChange(ratio)}
+                                className="focus:bg-stone-800 focus:text-white cursor-pointer justify-center"
+                            >
+                                {ratio}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
 
 
-                {/* MODEL SELECTION */}
-                {onModelChange && (
+                {/* Style Selection */}
+                <div className="flex items-center gap-1 rounded border border-zinc-700 px-2 h-8 bg-background hover:bg-zinc-800/50 transition-colors">
+                    <span className="text-xs text-zinc-500 font-semibold mr-1">STYLE</span>
                     <DropdownMenu>
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white mr-2">
-                                            <span className="text-zinc-500 mr-2 font-semibold">MODEL</span>
-                                            {modelConfig?.label || "Select..."}
-                                        </Button>
+                                        <button className="truncate max-w-[150px] text-xs text-zinc-300 hover:text-white bg-transparent border-none outline-none cursor-pointer h-full min-w-[60px] text-left">
+                                            {currentStyle || 'Select...'}
+                                        </button>
                                     </DropdownMenuTrigger>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Select Generation Model (Applies to Selected)</p>
+                                    <p>Select a visual style for the episode</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                        <DropdownMenuContent className="w-48 bg-stone-900 border-stone-800 text-white">
-                            <DropdownMenuItem
-                                onClick={() => onModelChange('default')}
-                                className="text-xs text-stone-400 focus:bg-stone-800 focus:text-stone-300 italic"
-                            >
-                                Reset to Default
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-zinc-700/50" />
-                            {MODEL_LIST.filter(m => m.isImage).map((model) => (
+                        <DropdownMenuContent className="w-48 max-h-[300px] overflow-y-auto bg-stone-900 border-stone-800 text-white">
+                            {availableStyles.map((style) => (
                                 <DropdownMenuItem
-                                    key={model.id}
-                                    onClick={() => onModelChange(model.id)}
+                                    key={style}
+                                    onClick={() => onStyleChange(style)}
                                     className="focus:bg-stone-800 focus:text-white cursor-pointer"
                                 >
-                                    {model.label}
+                                    {style}
                                 </DropdownMenuItem>
                             ))}
+                            {availableStyles.length === 0 && (
+                                <div className="p-2 text-xs text-stone-500">No styles found in Studio</div>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
-                )}
+
+                    {/* Clear Button */}
+                    {currentStyle && (
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-4 w-4 text-zinc-600 hover:text-red-400 -mr-1"
+                            onClick={() => onStyleChange('')}
+                            title="Clear Style"
+                        >
+                            <span className="material-symbols-outlined !text-[12px]">close</span>
+                        </Button>
+                    )}
+                </div>
+
+
+                {/* GUIDANCE (Style Pwr) */}
+                <DropdownMenu>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                                        <span className="text-zinc-500 mr-2 font-semibold">STRENGTH</span>
+                                        <span className="truncate inline-block align-bottom">{styleStrength}</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Guidance Scale (1-10): How strictly to follow the text prompt.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <DropdownMenuContent className="w-16 max-h-[300px] overflow-y-auto bg-stone-900 border-stone-800 text-white min-w-[3rem]">
+                        {/* Guidance often goes higher than 10 in Flux (20-30), but 1-10 is a safe start */}
+                        {Array.from({ length: 15 }, (_, i) => i + 1).map((val) => (
+                            <DropdownMenuItem
+                                key={val}
+                                onClick={() => onStyleStrengthChange(val)}
+                                className="focus:bg-stone-800 focus:text-white cursor-pointer justify-center"
+                            >
+                                {val}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
 
             </div>
 

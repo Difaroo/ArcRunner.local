@@ -18,8 +18,8 @@ export function EpisodeTabs({
             {episodeKeys.map((epKey, i) => (
                 <button
                     key={epKey}
-                    onClick={() => onEpisodeChange(i + 1)}
-                    className={`nav-tab py-3 ${currentEpisode === i + 1 ? 'active' : ''}`}
+                    onClick={() => onEpisodeChange(parseInt(epKey))}
+                    className={`nav-tab py-3 ${currentEpisode === parseInt(epKey) ? 'active' : ''}`}
                     title={episodeTitles[epKey]}
                 >
                     Ep {epKey}

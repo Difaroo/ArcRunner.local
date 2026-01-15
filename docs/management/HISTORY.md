@@ -1,6 +1,22 @@
 # Project History & Architecture Log
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
+
+## 2026-01-14: v0.19.0 - Falcon (Studio Polish & Admin Tools)
+
+### Context
+A feature and polish release focused on improving the Studio user experience and adding administrative tools for developers. The Studio "Universal Media Viewer" was patched to correctly handle reference image states (unlinking vs deleting), and a direct database access button was added to the Settings page.
+
+### Changes
+- **Universal Media Viewer**:
+    - **Icon Logic Fix**: Resolved a critical issue where Studio items displayed "Airplay" and "Trash" icons instead of the correct "Minus" (Unlink) icon.
+    - **Root Cause**: Identified and fixed a global `UniversalMediaViewer` instance in `page.tsx` that was incorrectly flagging Library items as non-references.
+    - **Result**: Studio Reference images now correctly allow unlinking without permanent deletion.
+- **Admin Tools**:
+    - **Database Access**: Added a stylized "Database Admin" banner to the Settings page with a direct link to open Prisma Studio (`localhost:5555`).
+- **Version Bump**: 0.18.0 -> 0.19.0.
+
+---
 ## 2026-01-12: v0.18.0 - Falcon (Legacy Deprecation)
 
 ### Context
@@ -516,3 +532,17 @@ Fixed a critical logic bug where Veo generations were silently clamped to a sing
 - **Download Filenames**: Enforced `[SERIES].[EP] [NAME] [VERSION]` format for all clip downloads.
 - **Robustness**: Added automatic URL encoding in `GenerateManager` to handle filenames with spaces.
 - **Version Bump**: 0.14.1 -> 0.14.2.
+
+---
+
+## 2026-01-14: v0.18.1 - Nano Stability Fix (Legacy & Logging)
+
+### Context
+A critical debugging release addressing the "Studio Spinner of Death" when generating Nano items. The issue was twofold: massive log payloads causing server hangs, and incorrect API parameter assumptions.
+
+### Changes
+- **Server Stability**:
+    - **Log Truncation**: Modified `kieFetch` strategy to truncate excessively large legacy Base64 strings (image data) from debug logs. This prevents Node.js process hangs during upload.
+- **Nano Compliance**:
+    - **Format Revert**: Reverted `output_format` from `"mp4"` back to `"png"`. The Kie.ai API strictly enforces `"png"` for Nano payloads and returns a 500 error for `"mp4"`, regardless of the intended media type.
+- **Version Bump**: 0.18.0 -> 0.18.1.
