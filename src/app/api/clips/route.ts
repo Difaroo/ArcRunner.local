@@ -23,7 +23,8 @@ export async function GET() {
                         where: { category: 'STUDIO_UPLOAD' }, // Or just take all attached to it?
                         orderBy: { createdAt: 'desc' }
                     }
-                }
+                },
+                orderBy: { name: 'asc' } // CRITICAL: Sort by Name for UI stability (Duplicates appear adjacent)
             }),
             db.clip.findMany({
                 include: {

@@ -117,7 +117,9 @@ export default function Home() {
 
   // Optimize: Memoize filtered items
   const activeLibraryItems = useMemo(() =>
-    libraryItems.filter(i => i.series === currentSeriesId),
+    libraryItems
+      .filter(i => i.series === currentSeriesId)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '')), // Defensive: Handle null/undefined names
     [libraryItems, currentSeriesId]
   );
 
@@ -914,11 +916,16 @@ export default function Home() {
 
   // --- Duplicate Logic ---
   const handleDuplicateClip = async (id: string) => {
-    // 1. Find the clip and its index
-    const index = clips.findIndex(c => c.id === id);
-    if (index === -1) return;
+    // Determine active list for proper contextual insertion
+    const currentList = activeClips.length > 0 ? activeClips : clips.filter(c => c.series === currentSeriesId);
 
-    const parentClip = clips[index];
+    // 1. Find the clip and its index in the CONTEXTUAL list
+    const visualIndex = currentList.findIndex(c => c.id === id);
+    if (visualIndex === -1) return;
+
+    const parentClip = currentList[visualIndex];
+    const prevClip = currentList[visualIndex];
+    const nextClip = currentList[visualIndex + 1];
 
     // 2. Scene Number Logic: STRICTLY NUMERIC
     const sceneNum = parseFloat(parentClip.scene);
@@ -927,39 +934,49 @@ export default function Home() {
       return;
     }
 
-    // New Scene = Parent + 0.1
-    // Handle floating point precision issues (e.g. 1.2 + 0.1 = 1.29999)
-    // toFixed(1) ensures 1.3
-    const newScene = (sceneNum + 0.1).toFixed(1).replace(/\.0$/, ''); // Remove trailing .0 if integer results (1.9 + 0.1 = 2.0 -> 2)
-    // Actually, user is using "1.2". So .1 increments? 
-    // If scene is "1", duplicate -> "1.1" ?
-    // If scene is "1.9", duplicate -> "2" ? Or "2.0"? 
-    // Let's stick to standard math but keep format clean. 
-    // If input was "1" (integer), 1+0.1=1.1.
-    // If input was "1.2", 1.2+0.1=1.3.
+    // Smart Increment: 1.0 -> 1.1, 1.9 -> 2.0
+    const newScene = (sceneNum + 0.1).toFixed(1).replace(/\.0$/, '');
 
-    // 3. Sort Order Logic: Visual Insertion
-    // We want it to appear AFTER the parent. 
-    // Check if there is a next clip in the VISUAL list (activeClips). 
-    // But 'activeClips' is the filter for current episode. The duplication should be in same episode.
-    // Find parent in activeClips
-    const visualIndex = activeClips.findIndex(c => c.id === id);
-    const nextClip = activeClips[visualIndex + 1];
-
-    let newSortOrder: number;
+    // 3. Sort Order Logic: Collision Detection & Rebalancing
     const parentOrder = parentClip.sortOrder || 0;
+    const nextOrder = nextClip ? (nextClip.sortOrder || (parentOrder + 20)) : (parentOrder + 20);
 
-    if (nextClip) {
-      const nextOrder = nextClip.sortOrder || (parentOrder + 10); // Fallback
-      // Midpoint
-      newSortOrder = (parentOrder + nextOrder) / 2;
-    } else {
-      // End of list
-      newSortOrder = parentOrder + 10;
+    // Calculate naive midpoint
+    let newSortOrder = Math.round((parentOrder + nextOrder) / 2);
+
+    // Collision Threshold: If gap is too small, we risk integer collisions or unstable sorts
+    const gap = nextOrder - parentOrder;
+    const needsRebalance = gap <= 1 || newSortOrder === parentOrder || newSortOrder === nextOrder;
+
+    let rebalanceUpdates: { id: string | number; sortOrder: number }[] = [];
+
+    if (needsRebalance) {
+      console.log(`[Duplicate] Collision Detected (Gap: ${gap}). Rebalancing list...`);
+      // Strategy: Shift everything below insertion point down by 10 to clear space
+      // We re-calculate sort orders for the ENTIRE active list to ensure clean 10-step intervals
+      // Insertion index is visualIndex + 1
+
+      const insertAt = visualIndex + 1;
+
+      // Calculate new order for the NEW clip
+      newSortOrder = (insertAt + 1) * 10;
+
+      // Re-map existing clips to new robust orders
+      // We skip the slot for the new clip
+      currentList.forEach((c, i) => {
+        // If index is before insertion, keep stable or normalize? 
+        // Normalize entire list for max stability.
+        const baseIndex = i < insertAt ? i : i + 1; // Shift indices after insertion
+        const robustOrder = (baseIndex + 1) * 10;
+
+        // Only update if changed
+        if (c.sortOrder !== robustOrder) {
+          rebalanceUpdates.push({ id: c.id, sortOrder: robustOrder });
+        }
+      });
     }
 
     // 4. Create New Clip Object
-    // Temporary ID for optimistic UI (use a distinct prefix so we don't collide with stringified Ints)
     const tempId = `temp-${Date.now()}`;
 
     const newClip: Clip = {
@@ -970,28 +987,38 @@ export default function Home() {
       status: 'Ready',
       resultUrl: '',
       taskId: '',
-      // explicitRefUrls is copied. refImageUrls will be resolved by resolver locally.
-      refImageUrls: '', // Reset derived
+      refImageUrls: '',
       explicitRefUrls: parentClip.explicitRefUrls // Keep explicit refs
     };
 
-    // 5. Optimistic Update
-    // Insert into clips array
+    // 5. Optimistic Update (Global List)
+    const globalIndex = clips.findIndex(c => c.id === id); // Find in master list
     const updatedClips = [...clips];
-    // Insert after parent in the main list? 
-    // Actually simplicity: append or sort? 
-    // The list is usually sorted by sortOrder. 
-    // We should insert it into the array or let the sort take over?
-    // The "ClipTable" uses "orderedClips" which sorts based on... "orderedClips" state initialized from props.
-    // "db.clip.findMany" returns sorted by sortOrder.
-    // So update 'clips' state. But insertion index matters if we map directly.
-    // We should insert it at 'index + 1' in the master list to ensure it sits there until refresh.
-    updatedClips.splice(index + 1, 0, newClip);
+    updatedClips.splice(globalIndex + 1, 0, newClip);
+
+    // Apply rebalance updates locally if any
+    if (rebalanceUpdates.length > 0) {
+      const updateMap = new Map(rebalanceUpdates.map(u => [u.id.toString(), u.sortOrder]));
+      updatedClips.forEach(c => {
+        if (updateMap.has(c.id)) {
+          c.sortOrder = updateMap.get(c.id)!;
+        }
+      });
+    }
 
     setClips(updatedClips);
 
     try {
-      // 6. API Call
+      // 6. API Call - Rebalance First (if needed) to prevent unique constraint issues (rare) or just clean state
+      if (rebalanceUpdates.length > 0) {
+        await fetch('/api/sort', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates: rebalanceUpdates })
+        });
+      }
+
+      // 7. Create Clip
       const res = await fetch('/api/clips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1003,27 +1030,25 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error || 'Creation failed');
       notifyWrite();
 
-      // 7. Update Real ID
+      // 8. Update Real ID
       setClips(prev => prev.map(c => {
         if (c.id === tempId) {
           return {
             ...c,
             id: data.clip.id,
-            episode: data.clip.episode // Ensure consistent episode ID format
+            episode: data.clip.episode
           };
         }
         return c;
       }));
 
-      // Trigger resolver to ensure images show up
-      // (Similar to handleSave)
-      // With real ID available.
-
     } catch (e: any) {
       console.error("Duplicate failed", e);
       alert(`Failed to duplicate clip: ${e.message}`);
-      // Revert
+      // Revert is complex here due to rebalance; simple revert:
+      // Just reload data? Or filter out tempId and ignore sort drifts (harmless)
       setClips(prev => prev.filter(c => c.id !== tempId));
+      refreshData();
     }
   };
 
