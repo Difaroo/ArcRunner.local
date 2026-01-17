@@ -54,9 +54,11 @@ export function AddAsRefDialog({
     const groupedClips = useMemo(() => {
         // Sort by episode number, then scene number
         const sorted = [...clips].sort((a, b) => {
-            const epA = parseInt((a.episode || '1').replace(/\D/g, '')) || 1
-            const epB = parseInt((b.episode || '1').replace(/\D/g, '')) || 1
-            if (epA !== epB) return epA - epB
+            // episode is an object (relation) from Prisma: { number: int, ... }
+            const epNumA = (a as any).episode?.number || 1;
+            const epNumB = (b as any).episode?.number || 1;
+
+            if (epNumA !== epNumB) return epNumA - epNumB
 
             const sceneA = parseFloat(a.scene || '0') || 0
             const sceneB = parseFloat(b.scene || '0') || 0
@@ -66,9 +68,11 @@ export function AddAsRefDialog({
         // Group by episode
         const groups: Map<string, Clip[]> = new Map()
         sorted.forEach(clip => {
-            const ep = clip.episode || '1'
-            if (!groups.has(ep)) groups.set(ep, [])
-            groups.get(ep)!.push(clip)
+            const epNum = (clip as any).episode?.number || 1;
+            const epKey = epNum.toString();
+
+            if (!groups.has(epKey)) groups.set(epKey, [])
+            groups.get(epKey)!.push(clip)
         })
 
         return Array.from(groups.entries()).map(([episode, clips]) => ({
