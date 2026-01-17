@@ -7,7 +7,7 @@
     "dev:lan": "npx -y kill-port 3000 && npx prisma generate && next dev -p 3000 -H 0.0.0.0",
     "build": "next build",
     "start": "next start -p 3001 -H 0.0.0.0",
-    "prod": "next build && next start -p 3001 -H 0.0.0.0",
+    "prod": "npx -y kill-port 3001 && next build && next start -p 3001 -H 0.0.0.0",
     "lint": "eslint",
     "test:ui": "playwright test",
     "test:ui:debug": "playwright test --debug",
