@@ -1429,7 +1429,8 @@ export default function Home() {
             action: clip?.action,
             description: lib?.description,
             canDelete: true, // Controlled by isReference check in Viewer
-            isReference: isReference
+            isReference: isReference,
+            deleteIcon: !isReference ? 'minus' : undefined // Use Minus for Results (Clear), Trash for others (if default)
           };
         })}
         onUpdate={async (uniqueId, updates) => {

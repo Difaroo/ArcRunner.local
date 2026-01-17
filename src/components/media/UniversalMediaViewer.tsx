@@ -265,23 +265,37 @@ export function UniversalMediaViewer({
                             </TooltipProvider>
                         )}
 
-
-                        {/* Unlink (Minus) - Only for Refs */}
-                        {onUnlink && currentItem.isReference && (
+                        {/* Unlink (Minus) - Only for Refs OR if explicit 'minus' icon requested */}
+                        {((onUnlink && currentItem.isReference) || (onDelete && currentItem.deleteIcon === 'minus')) && (
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10" onClick={(e) => { e.stopPropagation(); onUnlink(currentItem.url); }}>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                // If it's a ref with unlinker, unlink. Otherwise, if it has delete handler (even if minus icon), call delete.
+                                                if (onUnlink && currentItem.isReference) {
+                                                    onUnlink(currentItem.url);
+                                                } else {
+                                                    handleDeleteClick();
+                                                }
+                                            }}
+                                        >
                                             <MinusCircle className="h-5 w-5" />
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Unlink Reference</TooltipContent>
+                                    <TooltipContent>
+                                        {currentItem.isReference ? 'Unlink Reference' : 'Clear/Remove Item'}
+                                    </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
                         )}
 
-                        {/* Delete (Trash) - Only for Root Assets */}
-                        {onDelete && !currentItem.isReference && (
+                        {/* Delete (Trash) - Only for Root Assets without 'minus' override */}
+                        {onDelete && !currentItem.isReference && currentItem.deleteIcon !== 'minus' && (
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
