@@ -45,7 +45,9 @@ export function MainHeader({ currentView, onViewChange, loading, error }: MainHe
         <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md px-6">
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                    <h1 className="text-xl font-bold tracking-tight text-foreground">ArcRunner</h1>
+                    <h1 className="text-xl tracking-tight text-foreground font-['Helvetica_Neue',_Helvetica,_sans-serif]">
+                        <span className="font-medium">ARC</span><span className="font-light">RUNNER</span>
+                    </h1>
                     <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary">0.20.0 Harrier</span>
                 </div>
 

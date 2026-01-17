@@ -1846,7 +1846,7 @@ export default function Home() {
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <span className="material-symbols-outlined text-4xl mb-2 text-primary animate-spin [animation-direction:reverse]">sync</span>
-            <span className="font-light">Loading ArcRunner...</span>
+            <span className="font-['Helvetica_Neue',_Helvetica,_sans-serif]">Loading <span className="font-medium">ARC</span><span className="font-light">RUNNER</span>...</span>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-64 text-destructive">
