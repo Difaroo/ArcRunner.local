@@ -73,6 +73,54 @@ export default function Home() {
     }
   }, [refreshData]);
 
+  // --- Persistence Logic: Load Series/Episode on Mount ---
+  // Ref to track if we have attempted logic to restore or are past hydration
+  const isInitialized = useRef(false);
+
+  useEffect(() => {
+    // Only run this ONCE when seriesList is populated
+    if (seriesList.length > 0 && !isInitialized.current) {
+
+      const savedSeriesId = localStorage.getItem('currentSeriesId');
+      const savedEpisodeId = localStorage.getItem('currentEpisodeId');
+
+      if (savedSeriesId) {
+        // Validate it exists in loaded list
+        if (seriesList.some(s => s.id === savedSeriesId)) {
+          console.log('[Persistence] Restoring Series:', savedSeriesId);
+          setCurrentSeriesId(savedSeriesId);
+        }
+      }
+
+      if (savedEpisodeId) {
+        const epNum = parseInt(savedEpisodeId);
+        if (!isNaN(epNum)) {
+          console.log('[Persistence] Restoring Episode:', epNum);
+          setCurrentEpisode(epNum);
+        }
+      }
+
+      // Mark as initialized so subsequent changes can be saved
+      // We use a small timeout to ensure state updates have processed before allowing saves
+      setTimeout(() => {
+        isInitialized.current = true;
+      }, 500);
+    }
+  }, [seriesList, setCurrentSeriesId, setCurrentEpisode]);
+
+  // --- Persistence Logic: Save on Change ---
+  useEffect(() => {
+    if (isInitialized.current && currentSeriesId) {
+      localStorage.setItem('currentSeriesId', currentSeriesId);
+    }
+  }, [currentSeriesId]);
+
+  useEffect(() => {
+    if (isInitialized.current && currentEpisode) {
+      localStorage.setItem('currentEpisodeId', currentEpisode.toString());
+    }
+  }, [currentEpisode]);
+
   // Handle URL View Param on Mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
