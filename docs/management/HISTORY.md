@@ -2,7 +2,7 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
-## 2026-01-17: v0.20.0 - Falcon (Image Manifest & Reference Workflow)
+## 2026-01-17: v0.20.0 - Harrier (Image Manifest & Reference Workflow)
 
 ### Context
 A significant feature release focused on the generation engine's image handling and the Universal Media Viewer's reference workflow. The Image Manifest Priority system was implemented to give explicit control over which images are sent to which model slots. The Add-as-Ref workflow was completely refactored to support moving (not duplicating) result images.
