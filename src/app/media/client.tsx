@@ -163,6 +163,14 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
         setViewerOpen(true);
     };
 
+    // Derived Logic for Viewer Clips
+    const viewerClips = React.useMemo(() => {
+        if (initialFilter.seriesId) {
+            return clips.filter(c => c.episode?.seriesId === initialFilter.seriesId);
+        }
+        return clips;
+    }, [clips, initialFilter.seriesId]);
+
     const handleAddAsRef = async (url: string, targetClipId: string, action: 'copy' | 'move' = 'move', sourceClipId?: string) => {
         try {
             const res = await fetch('/api/media/add-ref', {
@@ -277,7 +285,7 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                             onClick={() => handleFilterChange('type', 'VIDEO')}
                             className={`h-5 px-2 text-[9px] ${initialFilter.type === 'VIDEO' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                         >
-                            Video
+                            VIDEO
                         </Button>
                         <Button
                             variant={initialFilter.type === 'IMAGE' ? 'outline' : 'ghost'}
@@ -285,38 +293,40 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                             onClick={() => handleFilterChange('type', 'IMAGE')}
                             className={`h-5 px-2 text-[9px] ${initialFilter.type === 'IMAGE' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                         >
-                            Image
+                            IMAGE
                         </Button>
                     </div>
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* SOURCE FILTERS (Grouped) */}
-                    <div className="flex items-center h-8 gap-1 border border-zinc-700 rounded-md px-1.5 bg-background/50">
-                        <Button
-                            variant={initialFilter.category === undefined ? 'outline' : 'ghost'}
-                            size="sm"
-                            onClick={() => handleFilterChange('category', undefined)}
-                            className={`h-5 px-2 text-[9px] ${!initialFilter.category ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
-                        >
-                            All Sources
-                        </Button>
-                        <Button
-                            variant={initialFilter.category === 'RESULT' ? 'outline' : 'ghost'}
-                            size="sm"
-                            onClick={() => handleFilterChange('category', 'RESULT')}
-                            className={`h-5 px-2 text-[9px] ${initialFilter.category === 'RESULT' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
-                        >
-                            Results
-                        </Button>
-                        <Button
-                            variant={initialFilter.category === 'REFERENCE' ? 'outline' : 'ghost'}
-                            size="sm"
-                            onClick={() => handleFilterChange('category', 'REFERENCE')}
-                            className={`h-5 px-2 text-[9px] ${initialFilter.category === 'REFERENCE' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'text-zinc-400 hover:text-zinc-200'}`}
-                        >
-                            Reference
-                        </Button>
+                    {/* CATEGORY FILTERS */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-2 min-w-[120px] justify-between">
+                                <span className="flex items-center truncate">
+                                    <span className="text-zinc-500 font-semibold mr-2">CAT</span>
+                                    {initialFilter.category || "All"}
+                                </span>
+                                <ChevronDown className="h-3 w-3 opacity-50 flex-shrink-0" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[150px] bg-stone-900 border-stone-800 text-white">
+                            <DropdownMenuItem onClick={() => handleFilterChange('category', undefined)} className="focus:bg-stone-800 focus:text-white cursor-pointer">All Categories</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleFilterChange('category', 'REFERENCE')} className="focus:bg-stone-800 focus:text-white cursor-pointer">REFERENCE</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleFilterChange('category', 'RESULT')} className="focus:bg-stone-800 focus:text-white cursor-pointer">RESULT</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleFilterChange('category', 'STUDIO_UPLOAD')} className="focus:bg-stone-800 focus:text-white cursor-pointer">STUDIO</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Separator orientation="vertical" className="h-6" />
+
+                    {/* Search - Placeholder logic */}
+                    <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+                        <Input
+                            placeholder="Find..."
+                            className="h-8 w-[150px] pl-8 text-xs bg-zinc-900/50 border-zinc-800 focus-visible:ring-zinc-700"
+                        />
                     </div>
                 </div>
             </PageHeader>
@@ -346,7 +356,7 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                 onDelete={handleDelete} // Re-use delete logic
 
                 // Add As Ref Capabilities
-                clips={clips}
+                clips={viewerClips}
                 onAddAsRef={handleAddAsRef}
             />
         </div>
