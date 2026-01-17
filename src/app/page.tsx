@@ -1462,6 +1462,7 @@ export default function Home() {
           }
         }}
         onUnlink={async (url) => {
+          // 1. Legacy CSV Update (for generic/legacy structure)
           // Find owner of this reference URL
           const clip = clips.find(c =>
             (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url)
@@ -1470,6 +1471,18 @@ export default function Home() {
             const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
             const next = currentRefs.filter(r => r !== url).join(',');
             await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
+          }
+
+          // 2. Database Relation Update
+          // Ensures 'Moved' items (which have a Media record) are properly detached
+          try {
+            await fetch('/api/media/unlink', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url })
+            });
+          } catch (e) {
+            console.error('Failed to unlink media relation', e);
           }
         }}
         clips={clips}
