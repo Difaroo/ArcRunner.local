@@ -2,6 +2,24 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-17: v0.21.0 - Harrier (Reference Grid & Data Stability)
+
+### Context
+Addressed critical stability issues with Nano model generation where results were failing to persist or display correctly. This release also significantly enhances the usability of the Reference Image workflow by expanding the display grid and ensuring the newest content is always prioritized.
+
+### Changes
+- **Reference Workflow**:
+    - **3x3 Grid**: Expanded the Reference Image display in the Clip Table from a max of 3 items to a **3x3 Grid (9 items)**.
+    - **Reverse Ordering**: The grid now prioritizes **Newest-First** (LIFO), meaning the most recently dropped image appears immediately at the top-left, enhancing the "Sideload" feedback loop.
+- **Nano Stability**:
+    - **Persistence Fix**: Resolved a bug in `generate-manager.ts` where the resolved model ID (e.g., `nano-banana-pro`) was not persisting to the database, causing the Polling Loop to misidentify the task type and fail to save the result.
+    - **Data Recovery**: Retroactively fixed `Media` table entries for orphaned Nano clips.
+- **Architecture**:
+    - **Dual-Database Clarification**: Explicitly documented the separation between `dev.db` (Port 3000) and `prod.db` (Port 3001) to prevent confusion during debugging.
+- **Version Bump**: 0.20.0 -> 0.21.0.
+
+---
+
 ## 2026-01-17: v0.20.0 - Harrier (Image Manifest & Reference Workflow)
 
 ### Context

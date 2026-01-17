@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.21.0 (Reference Grid & Data Stability)
+- [x] **Ref Grid Experience**: Expanded to 3x3 layout (9 images) with LIFO ordering.
+- [x] **Nano Persistence**: Fixed model ID saving to ensure correct polling strategy.
+- [x] **Database Architecture**: Formalized separation of Dev/Prod databases.
+- [x] **Data Integrity**: Restored missing `Media` records for legacy clips.
+
 ## 🚀 Released v0.20.0 (Image Manifest & Reference Workflow)
 - [x] **Image Manifest Priority**: Model-specific limits (Veo 3, Kling 1, Nano/Flux 8).
 - [x] **Priority Order**: Style → Location → Characters → Refs.

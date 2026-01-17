@@ -13,7 +13,10 @@ ArcRunner is a local-first, AI-assisted video production studio. It orchestrates
 
 #### 2. The Brain (Backend / API)
 - **Route Handlers**: Next.js API Routes (`src/app/api/*`).
-- **Database**: SQLite (via Prisma). Dual-environment inputs (`dev.db` vs `prod.db`).
+- **Database**: SQLite (via Prisma). Dual-environment inputs:
+    - `dev.db` (Port 3000): Volatile development data.
+    - `prod.db` (Port 3001): Stable production data.
+    - **Note**: Data is NOT synced between environments. Code pushes affect behavior, but data remains isolated.
 - **Orchestration**:
     - **GenerateManager**: The central conductor for all generation tasks.
     - **KieClient**: Facade for external Model APIs (Veo, Flux).

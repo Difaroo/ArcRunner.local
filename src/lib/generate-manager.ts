@@ -399,8 +399,9 @@ export class GenerateManager {
                     await this.updateResult(input.clipId, directUrl, 'Done');
                     return { resultUrl: directUrl };
                 } else {
-                    // Async or waiting - Save Task ID but KEEP previous resultUrl
-                    await this.updateTaskId(input.clipId, result.taskId, 'Generating', input.model || 'veo-fast');
+                    // CRITICAL FIX: Save the RESOLVED model (config.id), not input.model
+                    // This ensures polling uses correct strategy (e.g., 'nano' instead of legacy 'veo-fast')
+                    await this.updateTaskId(input.clipId, result.taskId, 'Generating', config.id);
                     try {
                         const logPath = path.join(process.cwd(), 'debug_gen.log');
                         fs.appendFileSync(logPath, `[${new Date().toISOString()}] Updated DB with TaskID: ${result.taskId}\n`);

@@ -156,7 +156,7 @@ export function ClipRow({
         }
     };
 
-    const renderedRefs = getEffectiveRefs();
+    const renderedRefs = [...getEffectiveRefs()].reverse();
 
     const {
         attributes,
@@ -633,16 +633,16 @@ export function ClipRow({
                     </div>
                 ) : (
                     <div
-                        className={`flex gap-1 justify-end min-h-[30px] items-center rounded transition-colors ${isRefDragOver ? 'bg-stone-800 ring-2 ring-stone-600' : ''}`}
+                        className={`grid grid-cols-3 gap-0.5 justify-items-end min-h-[30px] w-full content-start rounded transition-colors ${isRefDragOver ? 'bg-stone-800 ring-2 ring-stone-600' : ''}`}
                         onClick={handleStartEdit}
                         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(true); }}
                         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(false); }}
                         onDrop={handleRefDropRef}
                     >
                         {renderedRefs.length > 0 ? (
-                            renderedRefs.slice(0, 3).map((url, i) => (
+                            renderedRefs.slice(0, 9).map((url, i) => (
                                 <img
-                                    key={i}
+                                    key={url}
                                     src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                     alt={`Ref ${i + 1}`}
                                     className="w-[24px] h-[24px] object-cover rounded border border-stone-600 shadow-sm cursor-pointer hover:opacity-80 transition-opacity active:cursor-grabbing"
