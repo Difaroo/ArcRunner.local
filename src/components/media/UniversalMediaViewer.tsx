@@ -187,16 +187,16 @@ export function UniversalMediaViewer({
         setIsDirty(false);
     };
 
-    const handleDeleteClick = () => {
-        // If it's a reference image (Unlink), we do it immediately (Low Risk)
-        // If it's a root asset (Delete), we show Dialog (High Risk)
-        if (currentItem.isReference && onUnlink) {
+    const handleDeleteClick = async () => {
+        // If it's a reference image (Unlink) OR an explicit 'minus' icon (Clear), we do it immediately (Low Risk)
+        if ((currentItem.isReference && onUnlink)) {
             onUnlink(currentItem.url);
-            // Don't close, just update list? 
-            // The parent should update `playlist` ref, causing re-render.
-            // But we might need to adjust index if current item disappears.
-            // Implementation Detail: Parent handles state update.
+        } else if (currentItem.deleteIcon === 'minus' && onDelete) {
+            // Low risk 'Clear' action - No dialog needed
+            await onDelete(currentItem.id);
+            onClose();
         } else if (onDelete) {
+            // If it's a root asset (Delete), we show Dialog (High Risk)
             setShowDeleteDialog(true);
         }
     };
