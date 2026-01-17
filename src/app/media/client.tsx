@@ -31,9 +31,10 @@ interface MediaGalleryClientProps {
     title: string;
     seriesList: any[];
     episodeList: any[];
+    clips: any[];
 }
 
-export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, title, seriesList, episodeList }: MediaGalleryClientProps) {
+export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, title, seriesList, episodeList, clips }: MediaGalleryClientProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
 
@@ -160,6 +161,34 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
         setViewerPlaylist(playlist);
         setViewerIndex(index >= 0 ? index : 0);
         setViewerOpen(true);
+    };
+
+    const handleAddAsRef = async (url: string, targetClipId: string, action: 'copy' | 'move' = 'move', sourceClipId?: string) => {
+        try {
+            const res = await fetch('/api/media/add-ref', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, targetClipId, sourceClipId })
+            });
+            if (!res.ok) throw new Error('Failed to add reference');
+
+            // Success
+            // Close viewer or switch context?
+            // Page.tsx (Clips View) switches context to the target clip.
+            // Here in Media View, maybe just notify? 
+            // For now, close viewer and refresh to show updated state (if moved)
+            setViewerOpen(false);
+            router.refresh();
+            // Could optionally navigate to the clip?
+            const targetClip = clips.find(c => c.id.toString() === targetClipId);
+            if (targetClip && confirm(`Added to ${targetClip.episode?.series?.title} Ep${targetClip.episode?.number} Clip ${targetClip.id}. Go there?`)) {
+                window.location.href = `/?seriesId=${targetClip.episode?.seriesId}&episodeId=${targetClip.episode?.id}`;
+            }
+
+        } catch (e) {
+            console.error(e);
+            alert('Failed to add reference');
+        }
     };
 
     return (
@@ -315,6 +344,10 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                 playlist={viewerPlaylist}
                 initialIndex={viewerIndex}
                 onDelete={handleDelete} // Re-use delete logic
+
+                // Add As Ref Capabilities
+                clips={clips}
+                onAddAsRef={handleAddAsRef}
             />
         </div>
     );

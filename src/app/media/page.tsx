@@ -27,6 +27,12 @@ export default async function MediaPage({ searchParams }: { searchParams: { seri
     const seriesList = await db.series.findMany({ orderBy: { name: 'asc' } });
     const episodeList = await db.episode.findMany({ orderBy: { number: 'asc' } });
 
+    // 5. Fetch Clips for "Add to Clip" feature
+    const clips = await db.clip.findMany({
+        include: { episode: true },
+        orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }]
+    });
+
     return (
         <main className="flex h-screen flex-col bg-background text-foreground">
             <MediaGalleryClient
@@ -36,6 +42,7 @@ export default async function MediaPage({ searchParams }: { searchParams: { seri
                 title={title}
                 seriesList={seriesList}
                 episodeList={episodeList}
+                clips={clips}
             />
         </main>
     );
