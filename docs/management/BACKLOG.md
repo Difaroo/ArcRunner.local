@@ -9,7 +9,16 @@
 - [ ] **Extended Edit Mode**: Expose other fields + controls in the inline edit view.
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
-## 🚀 Released v0.17.2 (Studio Alignment & Integrity)
+
+## 🚀 Released v0.20.0 (Image Manifest & Reference Workflow)
+- [x] **Image Manifest Priority**: Model-specific limits (Veo 3, Kling 1, Nano/Flux 8).
+- [x] **Priority Order**: Style → Location → Characters → Refs.
+- [x] **Ref Ordering**: Refs prepend (latest first) for I2V priority.
+- [x] **Add-as-Ref Refactoring**: Results move; Refs copy/move via dialog.
+- [x] **Media Move Logic**: Clears source resultUrl when moving to refs.
+- [x] **Universal Viewer Cleanup**: Removed duplicate Airplay button.
+
+## 🚀 Released v0.19.1 (Download Standardization)
 - [x] **Ref Integrity**: Fixed "Reappearing Thumb" bug via Dual-Write restoration.
 - [x] **Studio Sync**: Aligned Studio Item reference logic with Clips.
 - [x] **Edit Mode**: Fixed Location Thumbnail disappearance.

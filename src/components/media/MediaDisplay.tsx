@@ -34,6 +34,7 @@ export function MediaDisplay({
     isReference = false // Default to false (Root Asset) unless specified
 }: MediaDisplayProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [imgError, setImgError] = useState(false); // Track if proxy failed
 
     // Handle comma-separated lists (take first)
     const effectiveUrl = url ? url.split(',')[0].trim() : '';
@@ -107,14 +108,18 @@ export function MediaDisplay({
                 {/* Visual Representation */}
                 {isImageDisplay ? (
                     <img
-                        src={getSrc(effectiveUrl, 'image')}
+                        src={imgError ? effectiveUrl : getSrc(effectiveUrl, 'image')}
                         className="w-full h-full object-cover rounded border border-stone-800 shadow-sm transition-opacity group-hover:opacity-90 active:cursor-grabbing"
                         alt="Preview"
                         loading="lazy"
                         onError={(e) => {
-                            // If thumbnail fails, maybe try to load video directly?
-                            // For now, simple fallback styling?
-                            (e.target as HTMLImageElement).style.opacity = '0.5';
+                            // If proxy failed, try direct URL as fallback
+                            if (!imgError) {
+                                setImgError(true);
+                            } else {
+                                // Both failed, dim the image
+                                (e.target as HTMLImageElement).style.opacity = '0.3';
+                            }
                         }}
                     />
                 ) : (
@@ -157,7 +162,6 @@ export function MediaDisplay({
                     isReference: !!isReference // Respect prop
                 }))}
                 initialIndex={allUrls.indexOf(effectiveOriginalUrl || '')}
-                onSideload={!isReference && onUseAsRef ? async (url: string) => onUseAsRef(url) : undefined}
                 onUpdate={onUpdate ? async (id, updates) => { await onUpdate(id, updates); } : undefined}
                 // Map Delete logic:
                 // If Reference: Pass Delete as Unlock (Minus Button)

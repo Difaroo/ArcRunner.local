@@ -1,17 +1,44 @@
 import { GenerationContext } from '../PayloadBuilder';
 import { ImageManifest } from './types';
 
+/**
+ * IMAGE MANIFEST PRIORITY SPECIFICATION
+ * 
+ * NOTE: Ref images are in REVERSE order (latest added = first in array)
+ *       because most processes use the most recent ref image.
+ * 
+ * Model-specific priorities:
+ * 
+ * VEO (Standard): Max 3 images
+ *   Priority: Style → Location → Characters (up to 3) → Ref Images (up to 3)
+ * 
+ * VEO S2E (Start-to-End): Max 2 images
+ *   Priority: Ref Images only - [0] = Start Frame, [1] = End Frame
+ * 
+ * KLING: Max 1 image
+ *   Priority: Latest Ref Image (first in explicitImages array)
+ * 
+ * FLUX / NANO: Max 8 images
+ *   Priority: Style → Location → Characters (up to 8) → Ref Images (up to 8)
+ */
+
 export class PromptSelector {
 
     static select(context: GenerationContext): ImageManifest {
         const { input, characterImages, locationImages, explicitImages, styleImage } = context;
         console.log(`[PromptSelector DEBUG] Input Arrays: Loc=${locationImages?.length}, Chars=${characterImages?.length}, Explicit=${explicitImages?.length}`);
 
-        // Dynamic capacity based on model capabilities
-        // Nano Banana Pro supports up to 14 images (conservative limit: 8)
-        // Flux/Veo support 3 images max
-        const isNanoModel = input.model?.includes('nano') || input.model?.includes('banana');
-        const maxTotal = isNanoModel ? 8 : 3;
+        // Model-specific capacity
+        const model = (input.model || '').toLowerCase();
+        const isNanoModel = model.includes('nano') || model.includes('banana') || model.includes('flux');
+        const isKlingModel = model.includes('kling');
+        const isS2E = input.model === 'veo-s2e';
+
+        // Determine max images based on model
+        let maxTotal = 3; // Default for Veo
+        if (isNanoModel) maxTotal = 8;
+        if (isKlingModel) maxTotal = 1;
+        if (isS2E) maxTotal = 2;
 
         // 1-based index trackers
         let locImgIdx = 0;
@@ -21,29 +48,34 @@ export class PromptSelector {
 
         let selectedImages: string[] = [];
 
-        // --- Logic Branch: S2E vs Standard ---
-        const isS2E = input.model === 'veo-s2e';
-
-        if (isS2E) {
+        // --- KLING: Latest Ref Image Only ---
+        if (isKlingModel) {
+            if (explicitImages && explicitImages.length > 0) {
+                // explicitImages[0] is latest (reverse sorted)
+                selectedImages = [explicitImages[0]];
+                refImgIndices.push(1);
+            } else if (characterImages && characterImages.length > 0) {
+                selectedImages = [characterImages[0]];
+                charImgIndices[0] = 1;
+            } else if (locationImages && locationImages.length > 0) {
+                selectedImages = [locationImages[0]];
+                locImgIdx = 1;
+            }
+        }
+        // --- S2E: Start + End Frames ---
+        else if (isS2E) {
             // S2E STRICT: Image 1 = Start, Image 2 = End
             // Source: explicitImages only
             if (explicitImages && explicitImages.length >= 2) {
                 selectedImages = [explicitImages[0], explicitImages[1]];
-                // S2E usually doesn't map to Location/Character slots in the same way,
-                // but for consistency we can leave slots empty or map them if needed.
-                // For now, simple S2E manifests usually don't need slot mapping for ABCD schemas.
-                // But we return a valid manifest.
             } else if (explicitImages && explicitImages.length === 1) {
-                // Fallback to Reference Mode (handled by downstream/Schema?)
-                // Or we just return what we have.
                 selectedImages = [explicitImages[0]];
                 refImgIndices.push(1);
             }
         } else {
-            // --- Standard Hierarchy Logic ---
+            // --- Standard Hierarchy Logic (Veo, Flux, Nano) ---
+            // Priority Order: Style → Location → Characters → Refs
             const tempImages: string[] = [];
-            const isStyleImageActive = !!styleImage;
-            const capacity = isStyleImageActive ? maxTotal - 1 : maxTotal;
 
             // Helper: Add unique, valid URL
             const addImage = (url: string): number => {
@@ -55,16 +87,22 @@ export class PromptSelector {
                 return 0;
             };
 
-            // 1. Location (Priority)
-            if (locationImages && locationImages.length > 0) {
-                locImgIdx = addImage(locationImages[0]);
+            // 1. Style (First Priority - Reference for artistic direction)
+            if (styleImage) {
+                styleImgIdx = addImage(styleImage);
             }
 
-            // 2. Characters (Smart Linkage)
+            let slotsLeft = maxTotal - tempImages.length;
+
+            // 2. Location
+            if (locationImages && locationImages.length > 0 && slotsLeft > 0) {
+                locImgIdx = addImage(locationImages[0]);
+                if (locImgIdx > 0) slotsLeft--;
+            }
+
+            // 3. Characters (Smart Linkage)
             // Strategy: Iterate granular images first. 
             // If granular image missing, check if Asset has a URL that matches an Explicit Image.
-
-            let slotsLeft = capacity - tempImages.length;
 
             // We iterate based on Asssets (Rich Data) if available, or just images?
             // The context provides 'characterImages' (resolved array) AND 'characterAssets' (metadata).
@@ -103,9 +141,9 @@ export class PromptSelector {
                 }
             }
 
-            // 3. Explicit References (Fillers)
+            // 4. Explicit References (Fillers)
             // Now we add any explicit refs that weren't "claimed" by characters
-            slotsLeft = capacity - tempImages.length;
+            slotsLeft = maxTotal - tempImages.length;
             if (explicitImages) {
                 for (let i = 0; i < explicitImages.length; i++) {
                     if (slotsLeft > 0) {
@@ -122,11 +160,6 @@ export class PromptSelector {
                         }
                     }
                 }
-            }
-
-            // 4. Style (Last Slot)
-            if (isStyleImageActive && styleImage) {
-                styleImgIdx = addImage(styleImage);
             }
 
             selectedImages = tempImages;

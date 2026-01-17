@@ -2,6 +2,32 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-17: v0.20.0 - Falcon (Image Manifest & Reference Workflow)
+
+### Context
+A significant feature release focused on the generation engine's image handling and the Universal Media Viewer's reference workflow. The Image Manifest Priority system was implemented to give explicit control over which images are sent to which model slots. The Add-as-Ref workflow was completely refactored to support moving (not duplicating) result images.
+
+### Changes
+- **Image Manifest Priority**:
+    - **Model-Specific Limits**: Veo (3 images), Kling (1 image), S2E (2 images), Nano/Flux (8 images).
+    - **Priority Order**: Style → Location → Characters → Ref Images.
+    - **Ref Ordering**: Refs now prepend (latest first) for I2V start frame priority.
+    - **Kling Single-Image**: Kling uses ONLY the first ref image (latest added).
+- **Add-as-Ref Refactoring**:
+    - **Result Images**: Single-click moves result to clip's refs (no dialog).
+    - **Ref Images**: Opens dialog with **Copy** and **Move** options to another clip.
+    - **No Duplicates**: Move operation now clears source clip's `resultUrl` and `thumbnailPath`.
+    - **API Endpoints**: Created `/api/media/copy-ref` (duplicate) and updated `/api/media/add-ref` (move).
+- **Universal Viewer Cleanup**:
+    - Removed duplicate Airplay button.
+    - Removed unused `onSideload` prop.
+    - Added `ownerClipId` prop for direct result-to-ref moves.
+- **Test Fixes**:
+    - Fixed `editing.spec.ts` click target for Studio Library inline editing.
+- **Version Bump**: 0.19.1 → 0.20.0.
+
+---
+
 ## 2026-01-15: v0.19.1 - Falcon (Download Standardization)
 
 ### Context

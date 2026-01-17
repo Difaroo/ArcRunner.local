@@ -1460,27 +1460,6 @@ export default function Home() {
             });
           }
         }}
-        onSideload={async (url) => {
-          // Re-find owner to sideload
-          const clip = clips.find(c => (c.resultUrl || '').includes(url));
-          if (clip) {
-            // Fix: Filter out auto-resolved Studio images to prevent "baking them in" to Explicit Refs
-            const autoImages = new Set([
-              ...(clip.characterImageUrls || []),
-              ...(clip.locationImageUrls || [])
-            ]);
-
-            const rawRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-            const currentRefs = rawRefs.filter(u => !autoImages.has(u));
-
-            if (!currentRefs.includes(url)) {
-              const next = [...currentRefs, url].join(',');
-              await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
-            } else {
-              alert("Already a reference.");
-            }
-          }
-        }}
         onUnlink={async (url) => {
           // Find owner of this reference URL
           const clip = clips.find(c =>
@@ -1490,6 +1469,47 @@ export default function Home() {
             const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
             const next = currentRefs.filter(r => r !== url).join(',');
             await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
+          }
+        }}
+        clips={clips}
+        ownerClipId={(() => {
+          // Find clip that owns the playing result (for direct add-as-ref on result images)
+          const ownerClip = clips.find(c => c.resultUrl === playingVideoUrl);
+          return ownerClip?.id.toString();
+        })()}
+        onAddAsRef={async (imageUrl, targetClipId, action = 'move', sourceClipId) => {
+          try {
+            // Route to appropriate API based on action
+            const endpoint = action === 'copy' ? '/api/media/copy-ref' : '/api/media/add-ref';
+
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: imageUrl, targetClipId, sourceClipId })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `Failed to ${action} reference`);
+
+            // Refresh data to show new/moved reference
+            await refreshData();
+
+            // Switch context to target clip's episode
+            const targetClip = clips.find(c => c.id.toString() === targetClipId.toString());
+            if (targetClip && targetClip.episode) {
+              const epIndex = sortedEpKeys.indexOf(targetClip.episode);
+              if (epIndex !== -1 && (epIndex + 1) !== currentEpisode) {
+                setCurrentEpisode(epIndex + 1);
+              }
+            }
+
+            // Close viewer
+            setPlayingVideoUrl(null);
+            setPlaylist([]);
+
+          } catch (e: any) {
+            console.error('[AddAsRef] Error:', e);
+            alert(`Failed to ${action} reference: ${e.message}`);
           }
         }}
       />

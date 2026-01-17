@@ -70,9 +70,9 @@ test.describe('ArcRunner Editing Logic', () => {
         const lastRow = rows.last();
         lastRow.scrollIntoViewIfNeeded();
 
-        // 4. Edit Name (Index 2 in table, but we use ID now)
+        // 4. Edit Name - Click on the text inside the cell to trigger EditableCell
         const nameCell = lastRow.getByTestId('cell-name');
-        await nameCell.click();
+        await nameCell.locator('span').first().click(); // Click the visible text span
 
         const nameInput = nameCell.locator('input').first();
         await expect(nameInput).toBeVisible();

@@ -62,12 +62,20 @@ The system uses a deterministic "Logic Matrix" to construct payloads based on th
 | **D** | **Veo** | 0 Images | **Text Only**: Pure text-to-video generation. | `TEXT_2_VIDEO` |
 | **E** | **Veo S2E** | 2 Images | **Start-to-End**: Transitions strictly from Image 1 to Image 2. | `IMAGE_TO_VIDEO` |
 
-### Image Hierarchy
-When resolving multiple images (e.g., Location + Characters), the system fills slots in this priority order (Max 3):
-1.  **Location** (Always Image 1 if present)
-2.  **Character 1**
-3.  **Character 2** / Reference
-*Note: If a Style Image is active (State C), it takes the LAST slot.*
+### Image Hierarchy (v0.20.0)
+When resolving multiple images for generation, the system fills slots in this priority order based on model type:
+
+| Model | Capacity | Priority Order |
+| :--- | :--- | :--- |
+| **Veo** | 3 | Style → Location → Character(s) → Refs |
+| **Kling** | 1 | Latest Ref Image ONLY |
+| **S2E** | 2 | Ref[0] = Start Frame, Ref[1] = End Frame |
+| **Nano/Flux** | 8 | Style → Location → Character(s) → Refs |
+
+**Notes**:
+- **Ref Ordering**: New references are prepended (latest first), so the most recent ref is prioritized for I2V start frames.
+- **Style Position**: Style is now the FIRST slot (previously last) to ensure consistent artistic direction.
+- **Kling**: Only accepts 1 image—always the latest ref.
 
 ### Validation & Fallback
 -   **S2E Safety**: If "Veo Start 2 End" is selected but only 1 image is available, the system automatically downgrades to **State C (Reference Mode)** to prevent errors.

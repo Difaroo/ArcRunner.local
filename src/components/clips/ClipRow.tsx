@@ -688,6 +688,8 @@ export function ClipRow({
                                 originalUrl={clip.resultUrl}
                                 model={clip.model}
                                 title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
+                                isThumbnail={!!clip.thumbnailPath}
+                                contentType={clip.thumbnailPath ? 'image' : 'video'}
                                 onPlay={(url) => {
                                     const allRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);
                                     const fullPlaylist = [url, ...allRefs];

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Loader2, Airplay, Trash2, MinusCircle, Check, X, ChevronLeft, ChevronRight, Save, Download } from "lucide-react";
+import { Loader2, Trash2, MinusCircle, Check, X, ChevronLeft, ChevronRight, Save, Download, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadFile } from '@/lib/download-utils';
 import {
@@ -20,6 +20,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { AddAsRefDialog } from "@/components/dialogs/viewer/AddAsRefDialog";
+import { Clip } from "@/types";
 
 // Optimized Types for Universal Usage
 export interface UniversalMediaItem {
@@ -48,7 +50,13 @@ interface UniversalMediaViewerProps {
     onUpdate?: (id: string, updates: any) => Promise<void>;
     onDelete?: (id: string) => Promise<void>; // Permanent Delete
     onUnlink?: (url: string) => Promise<void>; // Remove from list
-    onSideload?: (url: string) => Promise<void>;
+
+
+    // Add as Ref Feature
+    clips?: Clip[];
+    onAddAsRef?: (imageUrl: string, targetClipId: string, action?: 'copy' | 'move', sourceClipId?: string) => Promise<void>;
+    // For results: Direct move to own clip's refs (no dialog)
+    ownerClipId?: string;  // The clip that owns this result (for direct move)
 }
 
 export function UniversalMediaViewer({
@@ -59,7 +67,10 @@ export function UniversalMediaViewer({
     onUpdate,
     onDelete,
     onUnlink,
-    onSideload
+
+    clips = [],
+    onAddAsRef,
+    ownerClipId
 }: UniversalMediaViewerProps) {
 
     // --- State ---
@@ -67,6 +78,7 @@ export function UniversalMediaViewer({
     const [isDirty, setIsDirty] = useState(false);
     const [editValue, setEditValue] = useState("");
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showAddRefDialog, setShowAddRefDialog] = useState(false);
 
     // --- Derived State ---
     // Ensure bounds safety
@@ -220,19 +232,39 @@ export function UniversalMediaViewer({
 
                     {/* Top Controls Overlay - Always Visible */}
                     <div className="absolute top-0 right-0 p-4 flex gap-2 z-50 bg-gradient-to-b from-black/60 to-transparent">
-                        {/* Sideload (Airplay) - Disabled for References */}
-                        {onSideload && !currentItem.isReference && (
+                        {/* Add as Ref Image - Different behavior for Results vs Refs */}
+                        {isImage && onAddAsRef && (
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10" onClick={(e) => { e.stopPropagation(); onSideload(currentItem.url); }}>
-                                            <Airplay className="h-5 w-5" />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (currentItem.isReference) {
+                                                    // Ref Image: Show dialog for Copy/Move to another clip
+                                                    setShowAddRefDialog(true);
+                                                } else if (ownerClipId) {
+                                                    // Result Image: Direct move to own clip's refs
+                                                    await onAddAsRef(currentItem.url, ownerClipId, 'move', ownerClipId);
+                                                } else {
+                                                    // Fallback: Show dialog
+                                                    setShowAddRefDialog(true);
+                                                }
+                                            }}
+                                        >
+                                            <ImagePlus className="h-5 w-5" />
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Use as Reference</TooltipContent>
+                                    <TooltipContent>
+                                        {currentItem.isReference ? 'Copy/Move to clip' : 'Add as ref image'}
+                                    </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
                         )}
+
 
                         {/* Unlink (Minus) - Only for Refs */}
                         {onUnlink && currentItem.isReference && (
@@ -367,6 +399,24 @@ export function UniversalMediaViewer({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Add as Ref Image Dialog - Only for ref images */}
+            <AddAsRefDialog
+                open={showAddRefDialog}
+                onOpenChange={setShowAddRefDialog}
+                imageUrl={currentItem?.url || ''}
+                clips={clips}
+                onCopy={async (targetClipId) => {
+                    if (onAddAsRef && currentItem) {
+                        await onAddAsRef(currentItem.url, targetClipId, 'copy');
+                    }
+                }}
+                onMove={async (targetClipId) => {
+                    if (onAddAsRef && currentItem) {
+                        await onAddAsRef(currentItem.url, targetClipId, 'move');
+                    }
+                }}
+            />
         </div >
     );
 
