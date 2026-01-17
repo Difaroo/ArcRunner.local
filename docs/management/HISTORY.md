@@ -2,6 +2,26 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-17: v0.22.0 - Osprey (Persistence & Safety)
+
+### Context
+A massive UX and stability update addressing long-standing friction points in session management and data safety. Users can now trust their session state (Episode/Series selection) to persist across reloads, and the "Unlink" action is no longer destructive. Navigation flow is smoothed with click-to-view reference internal logic.
+
+### Changes
+- **Session Persistence**:
+    - **LocalStorage**: Implemented robust saving/restoring of `currentSeriesId` and `currentEpisode` to browser storage.
+    - **Race Condition Fix**: Added hydration guards to prevent default state values from overwriting saved sessions on page load.
+- **Data Safety**:
+    - **Safe Unlink**: Refactored the "Unlink" (`-`) action to detach `Media` records from clips via a new `/api/media/unlink` endpoint instead of deleting them. This fixes "Ghost Deletions" where items disappeared from the Media Gallery.
+    - **Backwards Compatibility**: Maintains legacy CSV string updates while properly handling the relational DB link.
+- **UX Refinements**:
+    - **Ref Image Click**: Clicking a reference image thumbnail in the Episode view now opens the **Universal Media Viewer** in "Playlist Mode" (allowing swiping through all refs) instead of triggering the inline editor.
+    - **Edit Mode Access**: Edit mode is still accessible by clicking the empty "Drop Zone" or other cell areas.
+- **Version Bump**: 0.21.0 -> 0.22.0.
+# Project History & Architecture Log
+
+This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
+
 ## 2026-01-17: v0.21.0 - Harrier (Reference Grid & Data Stability)
 
 ### Context

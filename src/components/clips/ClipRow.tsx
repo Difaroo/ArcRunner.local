@@ -646,6 +646,14 @@ export function ClipRow({
                                     src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                     alt={`Ref ${i + 1}`}
                                     className="w-[24px] h-[24px] object-cover rounded border border-stone-600 shadow-sm cursor-pointer hover:opacity-80 transition-opacity active:cursor-grabbing"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        // Construct Playlist: Clicked URL + All other Refs
+                                        // We want the user to be able to swipe through all refs
+                                        const allRefs = renderedRefs; // define explicitly if needed, but renderedRefs is in scope
+                                        onPlay(url, allRefs);
+                                    }}
                                     draggable="true"
                                     onDragStart={(e) => {
                                         e.dataTransfer.setData('text/plain', url);
