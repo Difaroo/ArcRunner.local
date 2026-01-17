@@ -239,13 +239,15 @@ export function UniversalMediaViewer({
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
-                                            variant="ghost"
+                                            variant="outline"
                                             size="icon"
-                                            className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
+                                            className="text-orange-500 border-orange-500 hover:bg-orange-500/10 hover:text-orange-400"
                                             onClick={async (e) => {
                                                 e.stopPropagation();
-                                                if (currentItem.isReference) {
-                                                    // Ref Image: Show dialog for Copy/Move to another clip
+                                                const ownerClipId = (currentItem as any).ownerClipId;
+
+                                                if (ownerClipId && currentItem.isReference) {
+                                                    // Already a reference
                                                     setShowAddRefDialog(true);
                                                 } else if (ownerClipId) {
                                                     // Result Image: Direct move to own clip's refs
