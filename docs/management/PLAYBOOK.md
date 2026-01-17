@@ -12,6 +12,23 @@ Choose the right mode based on **risk level**:
 
 ---
 
+## ⛔ Rules of Engagement (Golden Rules)
+
+### 1. NO Direct Prod Updates
+*   **NEVER** directly modify files on the Production Server (Port 3001).
+*   **NEVER** run build/start commands for Production unless explicitly instructed to "Deploy Locally".
+*   **NEVER** commit directly to `production` or `main` branches. Use Pull Requests or Merge workflows.
+
+### 2. Environment Discipline
+*   **Dev (Port 3000)**: Your playground. Hot reload active. Safe to break.
+*   **Prod (Port 3001)**: Sacred ground. Only updated via `git merge` -> `build`.
+
+### 3. Data Integrity
+*   **NEVER** touch `prod.db` to fix a dev issue.
+*   **ALWAYS** respect the wall between Dev Data and Prod Data.
+
+---
+
 ## 🚀 Quick Mode Prompts
 
 ### Small Fix

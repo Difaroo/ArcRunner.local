@@ -79,19 +79,31 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
 
                     if (isVideo) {
                         return (
-                            <video
-                                src={item.localPath || src} // Prefer localPath if explicitly set
-                                className="h-full w-full object-cover"
-                                muted
-                                loop
-                                playsInline
-                                onMouseOver={e => e.currentTarget.play().catch(() => { })}
-                                onMouseOut={e => e.currentTarget.pause()}
-                                onError={(e) => {
-                                    (e.target as HTMLVideoElement).style.display = 'none';
-                                    e.currentTarget.parentElement?.classList.add('bg-destructive/10');
-                                }}
-                            />
+                            <div className="relative h-full w-full bg-zinc-900 flex items-center justify-center">
+                                {/* Fallback overlay while video loads */}
+                                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                    <Play className="h-12 w-12 text-white/50" />
+                                </div>
+                                <video
+                                    src={item.localPath || src} // Prefer localPath if explicitly set
+                                    className="h-full w-full object-cover relative z-20"
+                                    muted
+                                    loop
+                                    playsInline
+                                    preload="metadata"
+                                    onMouseOver={e => e.currentTarget.play().catch(() => { })}
+                                    onMouseOut={e => e.currentTarget.pause()}
+                                    onLoadedData={e => {
+                                        // Hide the fallback once video loads
+                                        const fallback = e.currentTarget.previousElementSibling;
+                                        if (fallback) (fallback as HTMLElement).style.display = 'none';
+                                    }}
+                                    onError={(e) => {
+                                        // On error, hide video and show icon
+                                        (e.target as HTMLVideoElement).style.display = 'none';
+                                    }}
+                                />
+                            </div>
                         );
                     } else {
                         return (

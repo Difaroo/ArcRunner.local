@@ -50,7 +50,7 @@ interface UniversalMediaViewerProps {
     // Actions
     onUpdate?: (id: string, updates: any) => Promise<void>;
     onDelete?: (id: string) => Promise<void>; // Permanent Delete
-    onUnlink?: (url: string) => Promise<void>; // Remove from list
+    onUnlink?: (url: string, contextId?: string, isResult?: boolean) => Promise<void>; // Unlink from clip
 
 
     // Add as Ref Feature
@@ -244,8 +244,18 @@ export function UniversalMediaViewer({
                                             className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                // Always show dialog for Move/Copy actions
-                                                setShowAddRefDialog(true);
+                                                // Determine ownerClipId: Prefer item-level (from rich playlist), fallback to prop
+                                                // @ts-ignore - dynamic prop from polymorphic playlist
+                                                const itemOwnerClipId = currentItem.ownerClipId || ownerClipId;
+
+                                                // Immediate Sideload: If this is a Result (not ref) belonging to a clip
+                                                if (itemOwnerClipId && !currentItem.isReference && onAddAsRef) {
+                                                    // "Sideload" = Move Result to Refs of same clip
+                                                    onAddAsRef(currentItem.url, itemOwnerClipId, 'move', itemOwnerClipId);
+                                                } else {
+                                                    // Otherwise (Copying, or moving from elsewhere), show dialog
+                                                    setShowAddRefDialog(true);
+                                                }
                                             }}
                                         >
                                             <ImagePlus className="h-5 w-5" />
@@ -258,8 +268,8 @@ export function UniversalMediaViewer({
                             </TooltipProvider>
                         )}
 
-                        {/* Unlink (Minus) - Only for Refs OR if explicit 'minus' icon requested */}
-                        {((onUnlink && currentItem.isReference) || (onDelete && currentItem.deleteIcon === 'minus')) && (
+                        {/* Unlink (Minus) - For both Refs AND Results with 'minus' icon */}
+                        {onUnlink && (currentItem.isReference || currentItem.deleteIcon === 'minus') && (
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -269,19 +279,19 @@ export function UniversalMediaViewer({
                                             className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                // If it's a ref with unlinker, unlink. Otherwise, if it has delete handler (even if minus icon), call delete.
-                                                if (onUnlink && currentItem.isReference) {
-                                                    onUnlink(currentItem.url);
-                                                } else {
-                                                    handleDeleteClick();
-                                                }
+                                                // UNIFIED: Both refs and results call onUnlink
+                                                // Pass item type so handler knows which field to clear
+                                                // @ts-ignore - dynamic prop
+                                                const contextId = currentItem.ownerClipId;
+                                                const isResult = !currentItem.isReference;
+                                                onUnlink(currentItem.url, contextId, isResult);
                                             }}
                                         >
                                             <MinusCircle className="h-5 w-5" />
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        {currentItem.isReference ? 'Unlink Reference' : 'Clear/Remove Item'}
+                                        {currentItem.isReference ? 'Unlink Reference' : 'Unlink Result'}
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>

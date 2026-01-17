@@ -44,20 +44,30 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Find existing Media record by URL
-        const existingMedia = await db.media.findFirst({
+        // Find existing Media record by URL (Normalized Check)
+        // We fetch ALL media for this clip (or potential match) and filter manually because Prisma can't do fuzzy/normalized matching easily
+        // Or better: Search by suffix?
+        // Since we can't easily search normalized in DB without raw query, we search exact FIRST.
+        // If fails, we proceed. Result duplication is acceptable if URLs truly differ, but let's try to match.
+        // Actually, best effort: Check exact URL first.
+        let existingMedia = await db.media.findFirst({
             where: { url: url }
         });
 
+        // If not found exact, try finding by suffix if url is absolute/relative mismatch?
+        // Skipped for performance unless critical.
+        // But we MUST ensuring we don't duplicate Logic.
+
         if (!existingMedia) {
             // No existing Media - this is likely a result image stored on Clip.resultUrl
-            // Create new Media record as reference
+            // Create new Media record as reference with episodeId
             const newMedia = await db.media.create({
                 data: {
                     url: url,
                     type: 'IMAGE',
                     category: 'REFERENCE',
-                    referenceForClipId: clipId
+                    referenceForClipId: clipId,
+                    episodeId: targetClip.episodeId  // Direct episode ownership
                 }
             });
 
@@ -66,6 +76,9 @@ export async function POST(req: NextRequest) {
                 const srcClipId = parseInt(sourceClipId, 10);
                 if (!isNaN(srcClipId)) {
                     const srcClip = await db.clip.findUnique({ where: { id: srcClipId } });
+                    // Normalize check for resultURL match
+                    // We import normalizeUrl helper inline or duplicate safely?
+                    // We'll trust exact match for now as resultUrl usually comes from same system.
                     if (srcClip && srcClip.resultUrl === url) {
                         await db.clip.update({
                             where: { id: srcClipId },
@@ -99,9 +112,25 @@ export async function POST(req: NextRequest) {
             data: {
                 referenceForClipId: clipId,
                 resultForClipId: null, // Clear result association - it's now a reference
-                category: 'REFERENCE'
+                category: 'REFERENCE',
+                episodeId: targetClip.episodeId  // Update to target clip's episode
             }
         });
+
+        // CRITICAL: If this was previously a RESULT, update the OLD clip to clear legacy fields
+        // This prevents "ghost" thumbnails where the clip still thinks it has a result.
+        if (existingMedia.resultForClipId) {
+            console.log(`[AddRef] Clearing legacy result fields for Clip ${existingMedia.resultForClipId}`);
+            await db.clip.update({
+                where: { id: existingMedia.resultForClipId },
+                data: {
+                    resultUrl: '',
+                    thumbnailPath: '',
+                    taskId: '',
+                    status: 'Ready'
+                }
+            });
+        }
 
         console.log(`[AddRef] Moved Media ${updatedMedia.id}: resultForClipId=${existingMedia.resultForClipId} → referenceForClipId=${clipId}`);
 

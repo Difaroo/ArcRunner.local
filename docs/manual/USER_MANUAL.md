@@ -134,8 +134,11 @@ Refine your clips with seamless Drag & Drop actions directly in the standard vie
     -   The UI updates **instantly** (0ms latency).
     -   If the background save fails, the UI automatically **reverts** to prevent "ghost data".
 
-### Architecture Note: Media-First
-As of v0.18.0, the system stores all media links in a relational `Media` table. 
+### Architecture Note: Media-First (v0.23.0)
+As of v0.23.0, the system stores all media links in a relational `Media` table directly linked to Episodes.
+-   **Episode-Based Ownership**: Media items belong to an Episode, not just a Clip. This means "unlinking" a media item from a clip does not delete it; it returns to the Episode Gallery.
+-   **Unified Playlist**: Clicking a Reference Image in the Clip Table now opens a playlist that *includes* the Result (if one exists), allowing for seamless swiping between Result and References.
+-   **Safe Unlinking**: Unlinking a Result now correctly clears the "ghost" thumbnail and resets the Clip status to Ready, ensuring you never see stale data.
 -   **Legacy CSV columns** (`resultUrl`, `refImageUrls`) are **deprecated** and no longer written to.
--   The Frontend and API automatically synchronize to ensure you always see the most up-to-date references.
+
 

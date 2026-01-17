@@ -16,46 +16,15 @@ export async function fetchMedia(filter: MediaFilter, page = 1, limit = 50) {
     if (filter.type) where.type = filter.type;
     if (filter.category) where.category = filter.category;
 
-    // Complex Filtering: Join to Clip/Studio to filter by Series/Episode
-    // This is where Relational DB shines!
-    if (filter.seriesId || filter.episodeId) {
-        let episodeNumberString: string | undefined;
-
-        // Resolve Episode Number string for matching against StudioItem.episode
-        if (filter.episodeId) {
-            const ep = await db.episode.findUnique({ where: { id: filter.episodeId } });
-            if (ep) {
-                episodeNumberString = ep.number.toString();
-            }
-        }
-
-        where.OR = [
-            // 1. Result for Clip
-            {
-                resultForClip: {
-                    episode: {
-                        ...(filter.episodeId && { id: filter.episodeId }),
-                        ...(filter.seriesId && { seriesId: filter.seriesId })
-                    }
-                }
-            },
-            // 2. Reference for Clip
-            {
-                referenceForClip: {
-                    episode: {
-                        ...(filter.episodeId && { id: filter.episodeId }),
-                        ...(filter.seriesId && { seriesId: filter.seriesId })
-                    }
-                }
-            },
-            // 3. Studio Item (Strict Filter)
-            {
-                studioItem: {
-                    seriesId: filter.seriesId,
-                    ...(episodeNumberString && { episode: episodeNumberString })
-                }
-            }
-        ];
+    // SIMPLIFIED: Use direct episodeId on Media table (after migration)
+    // Previously this required complex OR joins through Clip/StudioItem relations
+    if (filter.episodeId) {
+        where.episodeId = filter.episodeId;
+    } else if (filter.seriesId) {
+        // For series-level filtering, we still need to join through episode
+        where.episode = {
+            seriesId: filter.seriesId
+        };
     }
 
     const items = await db.media.findMany({

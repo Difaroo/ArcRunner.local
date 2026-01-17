@@ -28,9 +28,25 @@ export async function POST(req: Request) {
 
         // 3. Perform Move
         // We use updateMany for bulk efficiency
+        const clipIdNums = clipIds.map((id: string | number) => parseInt(id.toString()));
+
         const result = await db.clip.updateMany({
             where: {
-                id: { in: clipIds.map((id: string | number) => parseInt(id.toString())) }
+                id: { in: clipIdNums }
+            },
+            data: {
+                episodeId: targetEpisode.id
+            }
+        });
+
+        // 4. Update Media records to match new episode
+        // All media attached to these clips should also move to the new episode
+        await db.media.updateMany({
+            where: {
+                OR: [
+                    { referenceForClipId: { in: clipIdNums } },
+                    { resultForClipId: { in: clipIdNums } }
+                ]
             },
             data: {
                 episodeId: targetEpisode.id

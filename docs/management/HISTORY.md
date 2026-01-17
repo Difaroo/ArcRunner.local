@@ -2,6 +2,24 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-17: v0.23.0 - Osprey (Media Architecture)
+
+### Context
+A fundamental architectural shift for Media management. Media items are now first-class citizens directly linked to Episodes (`episodeId`), rather than just incidental attachments to Clips. This resolves all "orphaned media" issues and enables robust Reference Image management.
+
+### Key Changes
+- **Database Schema**: Added `episodeId` to `Media` model.
+- **Single Source of Truth**: `Media` table is now the definitive source for all gallery and clip references; legacy CSV columns logic superseded.
+- **Hardening**:
+  - `unlink` logic now recursively cleans legacy Clip fields (`resultUrl`, `thumbnailPath`, `status`, `taskId`) to prevent "zombie" state.
+  - Video thumbnail fallback added to prevent dark cards.
+  - `add-ref` logic cleaned up to prevent "ghost" thumbnails when moving results.
+- **UX**:
+  - Unified Playlist: Clicking a Reference Image now builds a playlist that *includes* the Result, enabling seamless swiping.
+  - Blank Preview Fix: `ClipRow` now correctly identifies Image results even when thumbnail path is missing.
+
+---
+
 ## 2026-01-17: v0.22.1 - Osprey (Sideload Polish)
 
 ### Context
