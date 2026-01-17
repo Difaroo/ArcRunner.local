@@ -262,7 +262,7 @@ export function AddAsRefDialog({
                         variant="outline"
                         onClick={() => flatClips[selectedIndex] && handleAction(flatClips[selectedIndex].id, 'move')}
                         disabled={loading || flatClips.length === 0}
-                        className="border-stone-600 text-stone-300 hover:bg-stone-800 hover:text-white min-w-[100px]"
+                        className="text-orange-500 border-orange-500 hover:bg-orange-500/10 hover:text-orange-400 min-w-[100px]"
                     >
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Move

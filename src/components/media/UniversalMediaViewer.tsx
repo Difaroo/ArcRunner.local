@@ -239,9 +239,9 @@ export function UniversalMediaViewer({
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
-                                            variant="outline"
+                                            variant="ghost"
                                             size="icon"
-                                            className="text-orange-500 border-orange-500 hover:bg-orange-500/10 hover:text-orange-400"
+                                            className="text-zinc-400 hover:text-white"
                                             onClick={async (e) => {
                                                 e.stopPropagation();
                                                 const ownerClipId = (currentItem as any).ownerClipId;
