@@ -152,7 +152,8 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                 type: item.type === 'VIDEO' ? 'video' : 'image',
                 title: itemTitle,
                 canDelete: true, // Allow deletion from viewer
-                isReference: false // In Gallery, all are "roots"
+                isReference: false, // In Gallery, all are "roots"
+                ownerClipId: item.resultForClipId // Track source clip for Move operations
             };
         }).filter(u => u.url); // filter invalid
 
@@ -178,7 +179,9 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url, targetClipId, sourceClipId })
             });
-            if (!res.ok) throw new Error('Failed to add reference');
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to add reference');
 
             // Success
             // Close viewer or switch context?
@@ -193,9 +196,9 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                 window.location.href = `/?seriesId=${targetClip.episode?.seriesId}&episodeId=${targetClip.episode?.id}`;
             }
 
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert('Failed to add reference');
+            alert(e.message || 'Failed to add reference');
         }
     };
 

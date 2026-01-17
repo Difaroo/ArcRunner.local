@@ -241,7 +241,7 @@ export function UniversalMediaViewer({
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="text-zinc-400 hover:text-white"
+                                            className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
                                             onClick={async (e) => {
                                                 e.stopPropagation();
                                                 const ownerClipId = (currentItem as any).ownerClipId;
