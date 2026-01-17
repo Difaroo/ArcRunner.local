@@ -242,20 +242,10 @@ export function UniversalMediaViewer({
                                             variant="ghost"
                                             size="icon"
                                             className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
-                                            onClick={async (e) => {
+                                            onClick={(e) => {
                                                 e.stopPropagation();
-                                                const ownerClipId = (currentItem as any).ownerClipId;
-
-                                                if (ownerClipId && currentItem.isReference) {
-                                                    // Already a reference
-                                                    setShowAddRefDialog(true);
-                                                } else if (ownerClipId) {
-                                                    // Result Image: Direct move to own clip's refs
-                                                    await onAddAsRef(currentItem.url, ownerClipId, 'move', ownerClipId);
-                                                } else {
-                                                    // Fallback: Show dialog
-                                                    setShowAddRefDialog(true);
-                                                }
+                                                // Always show dialog for Move/Copy actions
+                                                setShowAddRefDialog(true);
                                             }}
                                         >
                                             <ImagePlus className="h-5 w-5" />
