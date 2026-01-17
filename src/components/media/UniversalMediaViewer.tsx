@@ -37,6 +37,7 @@ export interface UniversalMediaItem {
     // Capabilities
     isReference?: boolean; // If true, Minus icon (Unlink) appears instead of Trash (Delete) for context
     canDelete?: boolean;
+    deleteIcon?: 'trash' | 'minus'; // Override icon (e.g. use 'minus' for "Clear Result" even if not a reference)
 }
 
 interface UniversalMediaViewerProps {
