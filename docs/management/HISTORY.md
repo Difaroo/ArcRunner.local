@@ -2,6 +2,17 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-17: v0.22.1 - Osprey (Sideload Polish)
+
+### Context
+A polish release improving the velocity of the "Sideloading" workflow. References can now be created from results with a single click.
+
+### Changes
+- **UX**: "Add as Ref" button in Universal Viewer now immediately sideloads the result to the current clip if applicable, bypassing the dialog.
+- **Version Bump**: 0.22.0 -> 0.22.1.
+
+---
+
 ## 2026-01-17: v0.22.0 - Osprey (Persistence & Safety)
 
 ### Context
