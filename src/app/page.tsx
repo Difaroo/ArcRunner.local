@@ -1442,13 +1442,13 @@ export default function Home() {
         onDelete={async (uniqueId) => {
           if (uniqueId.startsWith('clip-')) {
             const id = uniqueId.replace('clip-', '');
-            markClipDeleted(id);
-            setPlayingVideoUrl(null); // Close player
-            await fetch('/api/clips', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id })
+            // FIX: "Trash" in viewer should CLEAR THE RESULT, not delete the clip
+            await handleSave(id, {
+              resultUrl: '',
+              thumbnailPath: '',
+              status: 'Pending' // Reset to pending so it can be re-generated
             });
+            setPlayingVideoUrl(null); // Close player
           } else if (uniqueId.startsWith('lib-')) {
             const id = uniqueId.replace('lib-', '');
             markLibraryItemDeleted(id);
