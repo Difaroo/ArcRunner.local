@@ -2,6 +2,19 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-18: v0.23.2 - Osprey (Batch Download & Media UX)
+
+### Context
+A UX improvement release focused on streamlining batch operations and fixing media gallery interactions.
+
+### Features
+- **Batch Download to Folder**: Implemented File System Access API (`showDirectoryPicker`) for batch downloads. Users now select a destination folder once, and all selected clips save directly without individual save dialogs. Falls back to sequential downloads on unsupported browsers.
+
+### Bug Fixes
+- **Media Gallery UV Click**: Fixed click handler z-index issue where video overlay and controls were blocking the click-to-view functionality. Cards now properly open Universal Viewer on click.
+
+---
+
 ## 2026-01-18: v0.23.1 - Osprey (Bug Fixes & Polish)
 
 ### Context

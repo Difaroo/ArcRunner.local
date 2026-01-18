@@ -57,7 +57,10 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
     }
 
     return (
-        <div className="group relative aspect-video w-full overflow-hidden rounded-md border bg-muted/50 transition-all hover:ring-2 hover:ring-primary/50">
+        <div
+            className="group relative aspect-video w-full overflow-hidden rounded-md border bg-muted/50 transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer"
+            onClick={() => onSelect?.(item)}
+        >
             {/* Visual */}
             {/* Visual */
                 (() => {
@@ -143,8 +146,8 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
                     {label}
                 </span>
 
-                {/* Controls (Hover Only) */}
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {/* Controls (Hover Only) - pointer-events-auto to not be blocked by parent onClick */}
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto z-40">
                     <Button
                         size="icon"
                         variant="ghost"
@@ -164,8 +167,7 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
                 </div>
             </div>
 
-            {/* Click Handler */}
-            <div className="absolute inset-0 cursor-pointer" onClick={() => onSelect?.(item)} />
+
         </div>
     );
 }

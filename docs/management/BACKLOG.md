@@ -16,6 +16,10 @@
 - [x] **Database Architecture**: Formalized separation of Dev/Prod databases.
 - [x] **Data Integrity**: Restored missing `Media` records for legacy clips.
 - [x] **Viewer Safety**: Fixed Trash icon deleting clips; changed to Minus icon (Clear Result) in Episode View.
+## 🚀 Released v0.23.2 (Batch Download & Media UX)
+- [x] **Batch Download to Folder**: Users can now select a destination folder once and download all selected clips without individual save dialogs.
+- [x] **Media Gallery UV Click**: Fixed z-index issue preventing cards from opening Universal Viewer on click.
+
 ## 🚀 Released v0.23.1 (Bug Fixes & Polish)
 - [x] **Clip Title Save**: Added `title` to ClipRow's ALLOWED_FIELDS - title changes now persist.
 - [x] **Library/Studio Save**: Refactored LibraryRow save with whitelist+diff pattern.

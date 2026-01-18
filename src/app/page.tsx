@@ -781,13 +781,71 @@ export default function Home() {
     const toDownload = activeClips.filter(c => selectedIds.has(c.id) && c.resultUrl);
     if (toDownload.length === 0) return alert("No completed clips selected.");
 
-    // Sequential download to avoid overwhelming browser
-    for (const clip of toDownload) {
-      if (clip.resultUrl) {
-        const filename = getClipFilename(clip);
-        await downloadFile(clip.resultUrl, filename);
-        // Optional: short delay
-        await new Promise(r => setTimeout(r, 500));
+    // Check for File System Access API support
+    if ('showDirectoryPicker' in window) {
+      try {
+        // Prompt user to select destination folder ONCE
+        const dirHandle = await (window as any).showDirectoryPicker({
+          mode: 'readwrite',
+          startIn: 'downloads'
+        });
+
+        // Download all files to the selected folder
+        let successCount = 0;
+        for (const clip of toDownload) {
+          if (clip.resultUrl) {
+            try {
+              const filename = getClipFilename(clip);
+
+              // Fetch the file content
+              const url = clip.resultUrl.startsWith('http') && !clip.resultUrl.includes('localhost')
+                ? `/api/proxy-download?url=${encodeURIComponent(clip.resultUrl)}&filename=${encodeURIComponent(filename)}`
+                : clip.resultUrl;
+
+              const response = await fetch(url);
+              if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
+
+              const blob = await response.blob();
+
+              // Create file in the selected directory
+              const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+              const writable = await fileHandle.createWritable();
+              await writable.write(blob);
+              await writable.close();
+
+              successCount++;
+            } catch (fileError) {
+              console.error(`Failed to download ${clip.title}:`, fileError);
+            }
+          }
+        }
+
+        alert(`Downloaded ${successCount} of ${toDownload.length} files to selected folder.`);
+
+      } catch (e: any) {
+        // User cancelled folder picker or other error
+        if (e.name !== 'AbortError') {
+          console.error('Batch download error:', e);
+          alert('Batch download failed. Falling back to individual downloads.');
+          // Fallback to sequential downloads
+          for (const clip of toDownload) {
+            if (clip.resultUrl) {
+              const filename = getClipFilename(clip);
+              await downloadFile(clip.resultUrl, filename);
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+        }
+      }
+    } else {
+      // Fallback for browsers without File System Access API
+      alert('Your browser does not support folder selection. Files will be downloaded individually.');
+      for (const clip of toDownload) {
+        if (clip.resultUrl) {
+          const filename = getClipFilename(clip);
+          await downloadFile(clip.resultUrl, filename);
+          await new Promise(r => setTimeout(r, 500));
+        }
       }
     }
   };
