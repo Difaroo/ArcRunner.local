@@ -2,6 +2,22 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-18: v0.23.1 - Osprey (Bug Fixes & Polish)
+
+### Context
+A quality-of-life release addressing multiple UX and functional bugs reported during Osprey testing. Focused on data persistence, media handling, and generation parameters.
+
+### Bug Fixes
+- **Clip Title Save**: Added `title` to ClipRow's `ALLOWED_FIELDS` whitelist - previously title changes were silently ignored.
+- **Library/Studio Save**: Refactored LibraryRow to use ClipRow's proven whitelist+diff pattern for consistent field saving.
+- **Duplicate Positioning**: Fixed duplicate rows appearing at bottom of list instead of immediately after source row.
+- **Prompt Builder (Nano)**: Fixed repeated Location/Action/Camera text being inserted for every reference image.
+- **Aspect Ratio**: Generation now correctly uses Episode's `aspectRatio` setting instead of stale 16:9 default.
+- **Video Refs in UV**: Fixed video reference images displaying blank in Universal Viewer (was hardcoded as `type: 'image'`).
+- **UV Download**: Replaced new-tab download approach with fetch+blob - downloads now happen inline without opening/closing tabs.
+
+---
+
 ## 2026-01-17: v0.23.0 - Osprey (Media Architecture)
 
 ### Context

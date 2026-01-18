@@ -96,20 +96,29 @@ export async function downloadFile(url: string, filename: string): Promise<boole
             return true;
         }
 
-        // Remote (Cross-Origin) - Needs Proxy
+        // Remote (Cross-Origin) - Needs Proxy with Fetch+Blob (no new tab)
         console.log(`[Download] Handling Remote File via Proxy: ${effectiveUrl} -> ${safeFilename}`);
         const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(effectiveUrl)}&filename=${encodeURIComponent(safeFilename)}`;
 
+        // Fetch the file as blob and trigger download without opening new tab
+        const response = await fetch(proxyUrl);
+        if (!response.ok) {
+            throw new Error(`Download failed: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
         const a = document.createElement('a');
-        a.href = proxyUrl;
-        a.target = '_blank'; // Force new tab to prevent main window freeze/nav
-        a.rel = 'noopener noreferrer';
+        a.href = blobUrl;
+        a.download = safeFilename;
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
 
-        // Cleanup with delay (longer for new tab trigger?)
-        setTimeout(() => document.body.removeChild(a), 500);
+        // Cleanup
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
         return true;
 
     } catch (error) {

@@ -48,7 +48,7 @@ export function MainHeader({ currentView, onViewChange, loading, error }: MainHe
                     <h1 className="text-xl tracking-tight text-foreground font-['Helvetica_Neue',_Helvetica,_sans-serif]">
                         <span className="font-medium">ARC</span><span className="font-light">RUNNER</span>
                     </h1>
-                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary font-['Helvetica_Neue',_Helvetica,_sans-serif] font-light">0.23.0 Osprey</span>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary font-['Helvetica_Neue',_Helvetica,_sans-serif] font-light">0.23.1 Osprey</span>
                 </div>
 
                 <div className="h-6 w-px bg-border/40 mx-2"></div>

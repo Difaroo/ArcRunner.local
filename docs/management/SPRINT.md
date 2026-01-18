@@ -1,6 +1,6 @@
 # SPRINT BACKLOG
 
-## Current High Priority (v0.20.0)
+## Current Sprint (Post-v0.23.1)
 - [ ] **Mobile View**: Responsive polish for tablet usage.
 - [ ] **Prompt Playground**: Dedicated sandbox for testing prompt structures.
 

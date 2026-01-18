@@ -1212,8 +1212,13 @@ export default function Home() {
       // Keep everything else same
     };
 
-    // 4. Optimistic Update
-    setLibraryItems(prev => [...prev, newItem]);
+    // 4. Optimistic Update - Insert AFTER source (not at end)
+    const sourceIndex = libraryItems.findIndex(i => i.id === id);
+    setLibraryItems(prev => {
+      const updated = [...prev];
+      updated.splice(sourceIndex + 1, 0, newItem);
+      return updated;
+    });
 
     // 5. API Persist
     try {
@@ -1316,7 +1321,7 @@ export default function Home() {
           clip: { ...clip, style: styleToUse, duration: clipDuration }, // Override style & duration
           library: allSeriesAssets, // Use filtered library
           model: selectedModel || 'flux', // Provide fallback string
-          aspectRatio: aspectRatio, // Pass Aspect Ratio
+          aspectRatio: currentAspectRatio, // Use Episode's Aspect Ratio (not stale local state)
           sound: audioEnabled, // Pass Audio Toggle
           seed: currentSeed ?? undefined, // Pass Persistent Seed
           startFrame: extras?.startFrame, // Pass Start Frame Toggle
