@@ -82,7 +82,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
         setImageToDelete(null);
     };
 
-    const imageUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean) : [];
+    const imageUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean).reverse() : [];
     // For display, prioritize library images if any, otherwise show first clip image
     // But for editing, we show all clip images
     const imageUrl = imageUrls.length > 0 ? imageUrls[0] : null;
@@ -123,12 +123,13 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
     if (isEditing) {
         return (
             <div
-                className={`flex flex-row items-center gap-2 min-h-[40px] transition-colors rounded ${isDragOver ? 'bg-stone-800 ring-2 ring-stone-600' : ''}`}
+                className={`flex flex-wrap gap-1 w-full justify-end content-start transition-colors rounded ${isDragOver ? 'bg-stone-800 ring-2 ring-stone-600' : ''}`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
             >
-                <div className="flex items-center gap-2">
+                {/* Add Button */}
+                <div className="w-[24px] h-[24px] relative shrink-0">
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -142,72 +143,67 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                             <TooltipTrigger asChild>
                                 <Button
                                     variant="outline"
-                                    size="sm"
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading}
-                                    className="btn-icon-action p-0"
+                                    className="w-full h-full p-0 border-dashed border-stone-600 hover:border-stone-400 bg-transparent min-w-0"
                                 >
-                                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">add</span>}
+                                    {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <span className="material-symbols-outlined !text-[16px] text-stone-500">add</span>}
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>Upload Image or Drop Result Here</p>
+                                <p>Upload Image</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                 </div>
-                <div className="flex flex-wrap gap-2 mb-0">
-                    {imageUrls.map((url, idx) => {
-                        const lower = url.toLowerCase();
-                        const isStatus = lower === 'waiting' || lower === 'generating' || lower.startsWith('task:');
-                        const isError = lower.includes('error');
 
-                        return (
-                            <div
-                                key={idx}
-                                className="relative group"
-                                title={url}
-                                draggable="true"
-                                onDragStart={(e) => {
-                                    e.dataTransfer.setData('text/plain', url);
-                                    e.dataTransfer.effectAllowed = 'copy';
-                                }}
-                            >
-                                <div className={`w-10 h-10 rounded overflow-hidden border ${isError ? 'border-red-500 bg-red-900/20' : 'border-stone-700 bg-stone-900'} flex items-center justify-center cursor-move`}>
-                                    {isStatus ? (
-                                        <Loader2 className="h-5 w-5 animate-spin text-stone-500" />
-                                    ) : isError ? (
-                                        <span className="material-symbols-outlined text-red-500 text-lg">error</span>
-                                    ) : (
-                                        <img
-                                            src={(url.startsWith('/api/') || url.startsWith('/media/') || url.startsWith('/uploads/') || url.startsWith('/thumbnails/')) ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                            alt="Thumbnail"
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                if (!isStatus && !isError) (e.target as HTMLImageElement).src = 'https://placehold.co/100x150/1a1a1a/666?text=Err';
-                                            }}
-                                        />
-                                    )}
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleDeleteClick(url);
-                                    }}
-                                    className="absolute -top-2 -right-2 bg-stone-900 rounded-full p-1 shadow-md border border-stone-600 hover:bg-red-900/90 hover:border-red-500 transition-colors z-50 cursor-pointer flex items-center justify-center"
-                                    title="Delete Image"
-                                >
-                                    <X className="h-3 w-3 text-stone-200" />
-                                </button>
+                {imageUrls.map((url, idx) => {
+                    const lower = url.toLowerCase();
+                    const isStatus = lower === 'waiting' || lower === 'generating' || lower.startsWith('task:');
+                    const isError = lower.includes('error');
+
+                    return (
+                        <div
+                            key={idx}
+                            className="w-[24px] h-[24px] relative group shrink-0"
+                            title={url}
+                            draggable="true"
+                            onDragStart={(e) => {
+                                e.dataTransfer.setData('text/plain', url);
+                                e.dataTransfer.effectAllowed = 'copy';
+                            }}
+                        >
+                            <div className={`w-full h-full rounded overflow-hidden ${isError ? 'border border-red-500 bg-red-900/20' : 'bg-stone-900'} flex items-center justify-center cursor-move`}>
+                                {isStatus ? (
+                                    <Loader2 className="h-3 w-3 animate-spin text-stone-500" />
+                                ) : isError ? (
+                                    <span className="material-symbols-outlined text-red-500 text-xs">error</span>
+                                ) : (
+                                    <img
+                                        src={(url.startsWith('/api/') || url.startsWith('/media/') || url.startsWith('/uploads/') || url.startsWith('/thumbnails/')) ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                        alt="Thumbnail"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            if (!isStatus && !isError) (e.target as HTMLImageElement).src = 'https://placehold.co/100x150/1a1a1a/666?text=Err';
+                                        }}
+                                    />
+                                )}
                             </div>
-                        )
-                    })}
-                </div>
-
-
-
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteClick(url);
+                                }}
+                                className="absolute -top-1 -right-1 bg-stone-900 rounded-full p-0.5 shadow-md border border-stone-600 hover:bg-red-900/90 hover:border-red-500 transition-colors z-50 cursor-pointer flex items-center justify-center opacity-0 group-hover:opacity-100"
+                                title="Delete Image"
+                            >
+                                <X className="h-2 w-2 text-stone-200" />
+                            </button>
+                        </div>
+                    )
+                })}
             </div>
         );
     }

@@ -30,7 +30,7 @@ interface ClipTableProps {
     onSave: (id: string, values: Partial<Clip>) => void | Promise<void>
     onCancelEdit: () => void
     onGenerate: (clip: Clip) => void
-    onPlay: (url: string, contextPlaylist?: string[]) => void
+    onPlay: (url: string, contextPlaylist?: any[]) => void
     onDelete: (id: string) => void
     onDuplicate: (id: string) => void
     uniqueValues: {

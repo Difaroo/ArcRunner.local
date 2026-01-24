@@ -20,6 +20,12 @@ export interface LibraryItem {
     status?: string;
     taskId?: string;
     model?: string | null;
+    media?: {
+        id: string;
+        url: string;
+        localPath?: string | null;
+        type: string;
+    }[];
 }
 
 /**
@@ -29,7 +35,9 @@ export interface LibraryItem {
  */
 export async function getLibraryItems(filterSeriesId?: string): Promise<LibraryItem[]> {
     try {
-        const query: any = {};
+        const query: any = {
+            include: { media: true }
+        };
         if (filterSeriesId) {
             query.where = { seriesId: filterSeriesId }; // NOTE: Schema uses seriesId
         }
@@ -49,7 +57,13 @@ export async function getLibraryItems(filterSeriesId?: string): Promise<LibraryI
             series: item.seriesId,
             status: item.status || 'IDLE',
             taskId: item.taskId || '',
-            model: item.model || null
+            model: item.model || null,
+            media: item.media.map(m => ({
+                id: m.id,
+                url: m.url,
+                localPath: m.localPath,
+                type: m.type
+            }))
         }));
     } catch (error) {
         console.error('Error fetching library items (DB):', error);

@@ -37,15 +37,17 @@ export class MediaService {
                 data: { resultUrl: newCsv }
             });
 
-            // B. New Media Record
+            // B. New Media Record with episodeId
             // @ts-ignore: Prisma Client Stale
+            const clip = await tx.clip.findUnique({ where: { id: clipId }, select: { episodeId: true } });
             const media = await tx.media.create({
                 data: {
                     url: url,
                     type: type,
                     category: 'RESULT',
                     localPath: localPath,
-                    resultForClipId: clipId
+                    resultForClipId: clipId,
+                    episodeId: clip?.episodeId
                 }
             });
 
@@ -68,19 +70,16 @@ export class MediaService {
         }
 
         return await db.$transaction(async (tx) => {
-            /*
-            await tx.clip.update({
-                where: { id: clipId },
-                data: { refImageUrls: newCsv }
-            });
-            */
+            // Get episodeId from clip
+            const clipData = await tx.clip.findUnique({ where: { id: clipId }, select: { episodeId: true } });
 
             await tx.media.create({
                 data: {
                     url: url,
                     type: 'IMAGE',
                     category: 'REFERENCE',
-                    referenceForClipId: clipId
+                    referenceForClipId: clipId,
+                    episodeId: clipData?.episodeId
                 }
             });
         });
@@ -146,15 +145,18 @@ export class MediaService {
                 });
             }
 
-            // C. Create Added
+            // C. Create Added with episodeId
             if (toAdd.length > 0) {
+                // Get clip's episodeId
+                const clipData = await tx.clip.findUnique({ where: { id: clipId }, select: { episodeId: true } });
                 // Optimized Parallel Creation
                 await Promise.all(toAdd.map(url => tx.media.create({
                     data: {
                         url: url,
                         type: 'IMAGE',
                         category: 'REFERENCE',
-                        referenceForClipId: clipId
+                        referenceForClipId: clipId,
+                        episodeId: clipData?.episodeId
                     }
                 })));
             }

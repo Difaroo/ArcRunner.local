@@ -47,7 +47,7 @@ interface ClipRowProps {
     onSave: (id: string, values: Partial<Clip>) => void | Promise<void>
     onCancelEdit: () => void
     onGenerate: (clip: Clip) => void
-    onPlay: (url: string, contextPlaylist?: string[]) => void
+    onPlay: (url: string, contextPlaylist?: any[]) => void
     saving: boolean
     uniqueValues: {
         characters: string[]
@@ -186,6 +186,10 @@ export function ClipRow({
         setEditValues({
             ...clip,
             negativePrompt: clip.negativePrompt || '',
+            location: clip.location || '', // Robust init to ensure key exists for Object.keys loop
+            character: clip.character || '',
+            action: clip.action || '',
+            dialog: clip.dialog || '',
             refImageUrls: getCleanExplicitRefs().join(',')
         })
         onEdit(clip)
@@ -277,6 +281,7 @@ export function ClipRow({
         // STRICT WHITELIST: Only allow editing fields that are exposed in the UI.
         // This prevents accidental overwrite of system fields (resultUrl, status) via stale local state.
         const ALLOWED_FIELDS: Array<keyof Clip> = [
+            'title',
             'action',
             'negativePrompt',
             'dialog',
@@ -621,7 +626,7 @@ export function ClipRow({
             </TableCell>
             <TableCell className="align-top py-3 w-[80px] text-right">
                 {isEditing ? (
-                    <div className="flex flex-col gap-2 items-end">
+                    <div className="flex flex-col gap-2 w-full">
                         <ImageUploadCell
                             value={editValues.refImageUrls || ''}
                             onChange={(url) => handleChange('refImageUrls', url)}
@@ -633,7 +638,7 @@ export function ClipRow({
                     </div>
                 ) : (
                     <div
-                        className={`grid grid-cols-3 gap-0.5 justify-items-end min-h-[30px] w-full content-start rounded transition-colors ${isRefDragOver ? 'bg-stone-800 ring-2 ring-stone-600' : ''}`}
+                        className={`flex flex-wrap gap-1 w-full justify-end content-start rounded transition-colors ${isRefDragOver ? 'bg-stone-800 ring-2 ring-stone-600' : ''}`}
                         onClick={handleStartEdit}
                         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(true); }}
                         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(false); }}
@@ -645,14 +650,48 @@ export function ClipRow({
                                     key={url}
                                     src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                     alt={`Ref ${i + 1}`}
-                                    className="w-[24px] h-[24px] object-cover rounded border border-stone-600 shadow-sm cursor-pointer hover:opacity-80 transition-opacity active:cursor-grabbing"
+                                    className="w-[24px] h-[24px] object-cover rounded shadow-sm cursor-pointer hover:opacity-80 transition-opacity active:cursor-grabbing"
                                     onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        // Construct Playlist: Clicked URL + All other Refs
-                                        // We want the user to be able to swipe through all refs
-                                        const allRefs = renderedRefs; // define explicitly if needed, but renderedRefs is in scope
-                                        onPlay(url, allRefs);
+
+                                        // 1. Build List of References (Rich Objects)
+                                        const refItems = renderedRefs.map(rUrl => {
+                                            const isVideo = rUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+                                            return {
+                                                id: rUrl,
+                                                url: rUrl,
+                                                type: isVideo ? 'video' : 'image',
+                                                title: isVideo ? 'Reference Video' : 'Reference Image',
+                                                isReference: true,
+                                                ownerClipId: clip.id
+                                            };
+                                        });
+
+                                        // 2. Build Result Item (if exists)
+                                        let fullPlaylist = [...refItems];
+
+                                        if (clip.resultUrl && (clip.status === 'Done' || clip.status === 'Saved' || clip.status === 'Ready')) {
+                                            const resultType = clip.thumbnailPath
+                                                ? 'image'
+                                                : (clip.resultUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'video' : 'image');
+
+                                            const resultItem = {
+                                                id: `result-${clip.id}`,
+                                                url: clip.resultUrl,
+                                                type: resultType,
+                                                title: getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "") || 'Result',
+                                                isReference: false,
+                                                ownerClipId: clip.id,
+                                                thumbnailPath: clip.thumbnailPath
+                                            };
+
+                                            // Prepend Result to Playlist
+                                            // The user wants to see the result available even if they clicked a ref
+                                            fullPlaylist = [resultItem, ...refItems];
+                                        }
+
+                                        onPlay(url, fullPlaylist);
                                     }}
                                     draggable="true"
                                     onDragStart={(e) => {
@@ -697,7 +736,11 @@ export function ClipRow({
                                 model={clip.model}
                                 title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
                                 isThumbnail={!!clip.thumbnailPath}
-                                contentType={clip.thumbnailPath ? 'image' : 'video'}
+                                contentType={
+                                    clip.thumbnailPath
+                                        ? 'image'
+                                        : (clip.resultUrl?.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'video' : 'image')
+                                }
                                 onPlay={(url) => {
                                     const allRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);
                                     const fullPlaylist = [url, ...allRefs];

@@ -49,7 +49,7 @@ interface LibraryRowProps {
     onSave: (id: string, updates: Partial<LibraryItem>) => Promise<void> | void;
     onGenerate?: (item: LibraryItem) => void;
     onDelete?: (id: string) => void;
-    onPlay?: (url: string) => void;
+    onPlay?: (url: string, contextPlaylist?: any[]) => void;
     onDownload: (url: string, name: string) => void;
     onDuplicate?: (id: string) => void;
     onArchive?: (url: string) => void;
@@ -111,25 +111,60 @@ export function LibraryRow({
         const safeUrl = (isErrorStatus || isGarbage || !isUrl) ? '' : urlCandidate;
 
         setEditValues({ ...rest, refImageUrl: safeUrl });
-        onStartEdit(item);
+        console.log('[LibraryRow] startLocalEdit - Initialized editValues with name:', rest.name); onStartEdit(item);
     };
 
     const handleLocalSave = async () => {
-        setSaving(true);
-        try {
-            await onSave(item.id, editValues);
-            // onSave success should eventually cause isEditing to become false from parent?
-            // LibraryTable: handleSave calls onSave prop then sets editingId(null).
-            // So isEditing becomes false.
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setSaving(false);
+        const updates: Partial<LibraryItem> = {};
+        const normalize = (val: any) => val === undefined || val === null ? '' : String(val);
+
+        // WHITELIST: Only fields that should be editable via this form
+        const ALLOWED_FIELDS: Array<keyof LibraryItem> = [
+            'name',
+            'type',
+            'description',
+            'negatives',
+            'notes',
+            'episode',
+            'refImageUrl',
+        ];
+
+        console.log('[LibraryRow] handleLocalSave - editValues.name:', editValues.name, 'item.name:', item.name);
+        console.log('[LibraryRow] handleLocalSave - editValues keys:', Object.keys(editValues));
+
+        // Only send fields that changed (prevents stale data issues)
+        (Object.keys(editValues) as Array<keyof LibraryItem>).forEach(key => {
+            if (!ALLOWED_FIELDS.includes(key)) return;
+
+            const currentVal = editValues[key];
+            const originalVal = item[key];
+
+            if (normalize(currentVal) !== normalize(originalVal)) {
+                console.log(`[LibraryRow] Change detected: ${key} "${originalVal}" -> "${currentVal}"`);
+                // @ts-ignore
+                updates[key] = currentVal;
+            }
+        });
+
+        console.log('[LibraryRow] handleLocalSave: Detected changes:', updates);
+
+        if (Object.keys(updates).length > 0) {
+            setSaving(true);
+            try {
+                await onSave(item.id, updates);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setSaving(false);
+            }
+        } else {
+            console.log('[LibraryRow] No changes detected, cancelling edit.');
+            onCancelEdit();
         }
     };
 
     const handleChange = (field: keyof LibraryItem, value: string) => {
-        setEditValues(prev => ({ ...prev, [field]: value }));
+        console.log(`[LibraryRow] handleChange: ${field} = "${value}"`); setEditValues(prev => ({ ...prev, [field]: value }));
     };
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -341,7 +376,33 @@ export function LibraryRow({
                                     isThumbnail={!!item.thumbnailPath}
                                     isReference={true} // Show minus icon (unlink) in Universal Viewer
                                     onPlay={(url) => {
-                                        if (onPlay) onPlay(url);
+                                        if (onPlay) {
+                                            // Construct Rich Playlist from item.media if available
+                                            const playlist = item.media ? item.media.map(m => ({
+                                                id: `media-${m.id}`,
+                                                url: m.url || m.localPath || '',
+                                                type: m.type.toLowerCase(),
+                                                title: item.name,
+                                                isReference: true,
+                                                ownerClipId: `lib-${item.id}`, // Context ID for Unlink (Namespaced)
+                                                deleteIcon: 'minus' // Explicitly request Unlink icon
+                                            })) : [];
+
+                                            // Fallback: If no media relation, use the single legacy url
+                                            if (playlist.length === 0 && item.refImageUrl) {
+                                                playlist.push({
+                                                    id: `legacy-${item.id}`,
+                                                    url: item.refImageUrl,
+                                                    type: 'image',
+                                                    title: item.name,
+                                                    isReference: true,
+                                                    ownerClipId: `lib-${item.id}`,
+                                                    deleteIcon: 'minus'
+                                                });
+                                            }
+
+                                            onPlay(url, playlist);
+                                        }
                                     }}
                                     className="w-full h-full"
                                     onSave={onArchive}

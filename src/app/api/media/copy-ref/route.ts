@@ -62,7 +62,8 @@ export async function POST(req: NextRequest) {
                 url: url,
                 type: 'IMAGE',
                 category: 'REFERENCE',
-                referenceForClipId: clipId
+                referenceForClipId: clipId,
+                episodeId: targetClip.episodeId  // Direct episode ownership
             }
         });
 

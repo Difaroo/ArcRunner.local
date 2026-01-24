@@ -16,6 +16,30 @@
 - [x] **Database Architecture**: Formalized separation of Dev/Prod databases.
 - [x] **Data Integrity**: Restored missing `Media` records for legacy clips.
 - [x] **Viewer Safety**: Fixed Trash icon deleting clips; changed to Minus icon (Clear Result) in Episode View.
+## 🚀 Released v0.23.2 (Batch Download & Media UX)
+- [x] **Batch Download to Folder**: Users can now select a destination folder once and download all selected clips without individual save dialogs.
+- [x] **Media Gallery UV Click**: Fixed z-index issue preventing cards from opening Universal Viewer on click.
+
+## 🚀 Released v0.23.1 (Bug Fixes & Polish)
+- [x] **Clip Title Save**: Added `title` to ClipRow's ALLOWED_FIELDS - title changes now persist.
+- [x] **Library/Studio Save**: Refactored LibraryRow save with whitelist+diff pattern.
+- [x] **Duplicate Positioning**: Fixed rows duplicating to bottom instead of after source.
+- [x] **Prompt Builder (Nano)**: Fixed repeated ref context text in Nano prompts.
+- [x] **Aspect Ratio**: Generation now uses Episode's ratio (was hardcoded 16:9).
+- [x] **Video Refs in UV**: Fixed blank video display in Universal Viewer.
+- [x] **UV Download**: Downloads now happen inline without opening new tabs.
+
+## 🚀 Released v0.23.0 (Media Data Architecture)
+- [x] **Single Source of Truth**: Migrated `Media` model to be directly linked to `Episodes`, decoupling it from Clips.
+- [x] **Persistence Fix**: Unlinking results no longer causes them to reappear (recursive cleanup of Clip legacy fields).
+- [x] **Preview Fix**: Fixed blank previews for Image results (ClipRow now intelligently discriminates content type).
+- [x] **Ghost Thumbnail Fix**: "Add as Ref" (move result) now correctly clears the original clip's thumbnail.
+- [x] **Unified Playlist**: Clicking a Reference Image thumbnail now opens a playlist that includes the Result (if present).
+- [x] **Migration**: Successfully promoted Dev DB schema and data to Production.
+
+## 🚀 Released v0.22.1 (Sideload Polish)
+- [x] **UX**: "Add as Ref" in Universal Viewer now immediately sideloads results to the current clip (bypassing dialog).
+
 ## 🚀 Released v0.22.0 (Persistence & Reference UX)
 - [x] **Dialog Fix**: Fixed crash in "Add to Clip" dialog caused by Episode Object handling.
 - [x] **Context Awareness**: "Add to Clip" dialog now respects the active Series filter.

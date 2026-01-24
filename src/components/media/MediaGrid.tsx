@@ -57,7 +57,10 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
     }
 
     return (
-        <div className="group relative aspect-video w-full overflow-hidden rounded-md border bg-muted/50 transition-all hover:ring-2 hover:ring-primary/50">
+        <div
+            className="group relative aspect-video w-full overflow-hidden rounded-md border bg-muted/50 transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer"
+            onClick={() => onSelect?.(item)}
+        >
             {/* Visual */}
             {/* Visual */
                 (() => {
@@ -79,27 +82,41 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
 
                     if (isVideo) {
                         return (
-                            <video
-                                src={item.localPath || src} // Prefer localPath if explicitly set
-                                className="h-full w-full object-cover"
-                                muted
-                                loop
-                                playsInline
-                                onMouseOver={e => e.currentTarget.play().catch(() => { })}
-                                onMouseOut={e => e.currentTarget.pause()}
-                                onError={(e) => {
-                                    (e.target as HTMLVideoElement).style.display = 'none';
-                                    e.currentTarget.parentElement?.classList.add('bg-destructive/10');
-                                }}
-                            />
+                            <div className="relative h-full w-full bg-zinc-900 flex items-center justify-center">
+                                {/* Fallback overlay while video loads */}
+                                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                    <Play className="h-12 w-12 text-white/50" />
+                                </div>
+                                <video
+                                    src={item.localPath || src} // Prefer localPath if explicitly set
+                                    className="h-full w-full object-cover relative z-20 cursor-pointer"
+                                    muted
+                                    loop
+                                    playsInline
+                                    preload="metadata"
+                                    onClick={() => onSelect?.(item)}
+                                    onMouseOver={e => e.currentTarget.play().catch(() => { })}
+                                    onMouseOut={e => e.currentTarget.pause()}
+                                    onLoadedData={e => {
+                                        // Hide the fallback once video loads
+                                        const fallback = e.currentTarget.previousElementSibling;
+                                        if (fallback) (fallback as HTMLElement).style.display = 'none';
+                                    }}
+                                    onError={(e) => {
+                                        // On error, hide video and show icon
+                                        (e.target as HTMLVideoElement).style.display = 'none';
+                                    }}
+                                />
+                            </div>
                         );
                     } else {
                         return (
                             <img
                                 src={item.localPath || src}
                                 alt="Media"
-                                className="h-full w-full object-cover"
+                                className="h-full w-full object-cover cursor-pointer"
                                 loading="lazy"
+                                onClick={() => onSelect?.(item)}
                                 onError={(e) => {
                                     e.currentTarget.style.display = 'none';
                                     const parent = e.currentTarget.parentElement;
@@ -131,13 +148,18 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
                     {label}
                 </span>
 
-                {/* Controls (Hover Only) */}
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {/* Controls (Hover Only) - pointer-events-auto to not be blocked by parent onClick */}
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto z-40">
                     <Button
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7 bg-black/20 text-red-500 hover:bg-red-500 hover:text-white backdrop-blur-sm transition-colors"
-                        onClick={(e) => { e.stopPropagation(); onDelete?.(item.id); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('Are you sure you want to delete this media?')) {
+                                onDelete?.(item.id);
+                            }
+                        }}
                     >
                         <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -152,8 +174,7 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
                 </div>
             </div>
 
-            {/* Click Handler */}
-            <div className="absolute inset-0 cursor-pointer" onClick={() => onSelect?.(item)} />
+
         </div>
     );
 }

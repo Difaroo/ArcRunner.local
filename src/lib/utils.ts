@@ -39,3 +39,25 @@ export const convertDriveUrl = (url: string | null | undefined): string => {
 
     return '';
 };
+
+/**
+ * Normalizes a URL for robust comparison.
+ * Strips origin (host/protocol) and returns just the pathname.
+ * Handles both absolute and relative URLs.
+ */
+export const normalizeUrl = (url: string | null | undefined): string => {
+    if (!url) return '';
+    try {
+        // If it's already relative/path, return it trimmed
+        if (url.startsWith('/')) {
+            const parts = url.split('?'); // strip query if present
+            return parts[0].trim();
+        }
+        // If absolute, parse and return pathname
+        const urlObj = new URL(url);
+        return urlObj.pathname.trim();
+    } catch {
+        // Fallback for weird formats - split query manually if full URL parse fails
+        return url.split('?')[0].trim();
+    }
+};

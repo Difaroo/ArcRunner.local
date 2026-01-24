@@ -42,6 +42,7 @@ model Episode {
   seriesId  String
   series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   clips     Clip[]
+  media     Media[]  @relation("EpisodeMedia")
 }
 
 // The "Studio" Table (Formerly 'Library')
@@ -92,6 +93,10 @@ model Media {
   
   studioItemId       Int?
   studioItem         StudioItem? @relation("StudioMedia", fields: [studioItemId], references: [id], onDelete: Cascade)
+  
+  // Direct episode ownership (independent of clip attachment)
+  episodeId          String?
+  episode            Episode? @relation("EpisodeMedia", fields: [episodeId], references: [id], onDelete: SetNull)
 }
 
 // The "Clips" Table

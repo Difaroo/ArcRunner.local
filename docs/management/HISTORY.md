@@ -2,6 +2,53 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-18: v0.23.2 - Osprey (Batch Download & Media UX)
+
+### Context
+A UX improvement release focused on streamlining batch operations and fixing media gallery interactions.
+
+### Features
+- **Batch Download to Folder**: Implemented File System Access API (`showDirectoryPicker`) for batch downloads. Users now select a destination folder once, and all selected clips save directly without individual save dialogs. Falls back to sequential downloads on unsupported browsers.
+
+### Bug Fixes
+- **Media Gallery UV Click**: Fixed click handler z-index issue where video overlay and controls were blocking the click-to-view functionality. Cards now properly open Universal Viewer on click.
+
+---
+
+## 2026-01-18: v0.23.1 - Osprey (Bug Fixes & Polish)
+
+### Context
+A quality-of-life release addressing multiple UX and functional bugs reported during Osprey testing. Focused on data persistence, media handling, and generation parameters.
+
+### Bug Fixes
+- **Clip Title Save**: Added `title` to ClipRow's `ALLOWED_FIELDS` whitelist - previously title changes were silently ignored.
+- **Library/Studio Save**: Refactored LibraryRow to use ClipRow's proven whitelist+diff pattern for consistent field saving.
+- **Duplicate Positioning**: Fixed duplicate rows appearing at bottom of list instead of immediately after source row.
+- **Prompt Builder (Nano)**: Fixed repeated Location/Action/Camera text being inserted for every reference image.
+- **Aspect Ratio**: Generation now correctly uses Episode's `aspectRatio` setting instead of stale 16:9 default.
+- **Video Refs in UV**: Fixed video reference images displaying blank in Universal Viewer (was hardcoded as `type: 'image'`).
+- **UV Download**: Replaced new-tab download approach with fetch+blob - downloads now happen inline without opening/closing tabs.
+
+---
+
+## 2026-01-17: v0.23.0 - Osprey (Media Architecture)
+
+### Context
+A fundamental architectural shift for Media management. Media items are now first-class citizens directly linked to Episodes (`episodeId`), rather than just incidental attachments to Clips. This resolves all "orphaned media" issues and enables robust Reference Image management.
+
+### Key Changes
+- **Database Schema**: Added `episodeId` to `Media` model.
+- **Single Source of Truth**: `Media` table is now the definitive source for all gallery and clip references; legacy CSV columns logic superseded.
+- **Hardening**:
+  - `unlink` logic now recursively cleans legacy Clip fields (`resultUrl`, `thumbnailPath`, `status`, `taskId`) to prevent "zombie" state.
+  - Video thumbnail fallback added to prevent dark cards.
+  - `add-ref` logic cleaned up to prevent "ghost" thumbnails when moving results.
+- **UX**:
+  - Unified Playlist: Clicking a Reference Image now builds a playlist that *includes* the Result, enabling seamless swiping.
+  - Blank Preview Fix: `ClipRow` now correctly identifies Image results even when thumbnail path is missing.
+
+---
+
 ## 2026-01-17: v0.22.1 - Osprey (Sideload Polish)
 
 ### Context

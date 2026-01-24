@@ -117,7 +117,7 @@ export class NanoSchema implements PromptSchema {
             manifest.slots.references.forEach((refIndex) => {
                 if (refIndex > 0) {
                     // For Studio items, the item description goes here as the reference context
-                    const refContext = input.subjectDescription || 'Reference for visual consistency';
+                    const refContext = 'Reference for visual consistency';
                     prompt += `REFERENCE: ESSENTIAL: IMAGE ${refIndex}: [${refContext}].\n\n`;
                 }
             });

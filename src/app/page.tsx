@@ -3,11 +3,13 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader2, Sun, Moon, Pencil, Check, X } from "lucide-react";
-import { Clip, Series, Episode } from '@/types'; // Added Episode type import to fix linter error if it wasn't there
+import { Clip, Series, Episode } from '@/types';
+import { deleteMedia } from '@/app/actions/media';
 import { resolveClipImages } from '@/lib/shared-resolvers';
 import { getModelConfig } from '@/lib/models';
 import { downloadFile, getClipFilename } from '@/lib/download-utils';
 import { Button } from "@/components/ui/button"
+import { normalizeUrl } from "@/lib/utils";
 import { Input } from "@/components/ui/input"
 // Removed inline Dialog imports as they are moved to components
 import {
@@ -780,13 +782,71 @@ export default function Home() {
     const toDownload = activeClips.filter(c => selectedIds.has(c.id) && c.resultUrl);
     if (toDownload.length === 0) return alert("No completed clips selected.");
 
-    // Sequential download to avoid overwhelming browser
-    for (const clip of toDownload) {
-      if (clip.resultUrl) {
-        const filename = getClipFilename(clip);
-        await downloadFile(clip.resultUrl, filename);
-        // Optional: short delay
-        await new Promise(r => setTimeout(r, 500));
+    // Check for File System Access API support
+    if ('showDirectoryPicker' in window) {
+      try {
+        // Prompt user to select destination folder ONCE
+        const dirHandle = await (window as any).showDirectoryPicker({
+          mode: 'readwrite',
+          startIn: 'downloads'
+        });
+
+        // Download all files to the selected folder
+        let successCount = 0;
+        for (const clip of toDownload) {
+          if (clip.resultUrl) {
+            try {
+              const filename = getClipFilename(clip);
+
+              // Fetch the file content
+              const url = clip.resultUrl.startsWith('http') && !clip.resultUrl.includes('localhost')
+                ? `/api/proxy-download?url=${encodeURIComponent(clip.resultUrl)}&filename=${encodeURIComponent(filename)}`
+                : clip.resultUrl;
+
+              const response = await fetch(url);
+              if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
+
+              const blob = await response.blob();
+
+              // Create file in the selected directory
+              const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+              const writable = await fileHandle.createWritable();
+              await writable.write(blob);
+              await writable.close();
+
+              successCount++;
+            } catch (fileError) {
+              console.error(`Failed to download ${clip.title}:`, fileError);
+            }
+          }
+        }
+
+        alert(`Downloaded ${successCount} of ${toDownload.length} files to selected folder.`);
+
+      } catch (e: any) {
+        // User cancelled folder picker or other error
+        if (e.name !== 'AbortError') {
+          console.error('Batch download error:', e);
+          alert('Batch download failed. Falling back to individual downloads.');
+          // Fallback to sequential downloads
+          for (const clip of toDownload) {
+            if (clip.resultUrl) {
+              const filename = getClipFilename(clip);
+              await downloadFile(clip.resultUrl, filename);
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+        }
+      }
+    } else {
+      // Fallback for browsers without File System Access API
+      alert('Your browser does not support folder selection. Files will be downloaded individually.');
+      for (const clip of toDownload) {
+        if (clip.resultUrl) {
+          const filename = getClipFilename(clip);
+          await downloadFile(clip.resultUrl, filename);
+          await new Promise(r => setTimeout(r, 500));
+        }
       }
     }
   };
@@ -946,6 +1006,70 @@ export default function Home() {
 
   const handleDeleteLibraryItem = (id: string) => {
     markLibraryItemDeleted(id);
+  };
+
+  const handleUnlink = async (url: string, contextId?: string, isResult?: boolean) => {
+    // 1. Studio Context (using Namespaced ID from LibraryRow)
+    if (contextId && contextId.startsWith('lib-')) {
+      const studioId = contextId.replace('lib-', '');
+      const item = libraryItems.find(i => i.id === studioId);
+
+      if (item) {
+        // A. Try to find/delete Media Record (New System)
+        // @ts-ignore
+        const media = (item.media || []).find(m => m.url === url || m.localPath === url);
+
+        if (media) {
+          try {
+            await deleteMedia(media.id);
+          } catch (e) {
+            console.error("Failed to delete media", e);
+            alert("Failed to unlink media");
+          }
+        }
+        // B. Fallback: Clear Legacy Field if URL matches
+        else if (item.refImageUrl === url) {
+          await handleLibrarySave(studioId, { refImageUrl: '' });
+        }
+
+        refreshData();
+      }
+    } else {
+      // 2. Clip Context (Preserving Existing Logic)
+      const clipId = contextId; // contextId is clipId for clips
+      const clip = clipId
+        ? clips.find(c => c.id.toString() === clipId.toString())
+        : clips.find(c => (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url));
+
+      if (clip) {
+        if (isResult) {
+          // RESULT UNLINK: Clear resultUrl but keep media in Media table
+          setClips(prev => prev.map(c =>
+            c.id.toString() === clip.id.toString()
+              ? { ...c, resultUrl: '', thumbnailPath: '' }
+              : c
+          ));
+        } else {
+          // REFERENCE UNLINK: Remove from CSV
+          const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+          const targetPath = normalizeUrl(url);
+          const next = currentRefs.filter(r => normalizeUrl(r) !== targetPath).join(',');
+          await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
+        }
+      }
+
+      // Database Relation Update
+      try {
+        await fetch('/api/media/unlink', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, clipId, isResult })
+        });
+        notifyWrite();
+      } catch (e) {
+        console.error('Failed to unlink media relation', e);
+      }
+    }
   };
 
   const handleDeleteClip = (id: string) => {
@@ -1211,8 +1335,13 @@ export default function Home() {
       // Keep everything else same
     };
 
-    // 4. Optimistic Update
-    setLibraryItems(prev => [...prev, newItem]);
+    // 4. Optimistic Update - Insert AFTER source (not at end)
+    const sourceIndex = libraryItems.findIndex(i => i.id === id);
+    setLibraryItems(prev => {
+      const updated = [...prev];
+      updated.splice(sourceIndex + 1, 0, newItem);
+      return updated;
+    });
 
     // 5. API Persist
     try {
@@ -1315,7 +1444,7 @@ export default function Home() {
           clip: { ...clip, style: styleToUse, duration: clipDuration }, // Override style & duration
           library: allSeriesAssets, // Use filtered library
           model: selectedModel || 'flux', // Provide fallback string
-          aspectRatio: aspectRatio, // Pass Aspect Ratio
+          aspectRatio: currentAspectRatio, // Use Episode's Aspect Ratio (not stale local state)
           sound: audioEnabled, // Pass Audio Toggle
           seed: currentSeed ?? undefined, // Pass Persistent Seed
           startFrame: extras?.startFrame, // Pass Start Frame Toggle
@@ -1433,14 +1562,28 @@ export default function Home() {
         isOpen={!!playingVideoUrl}
         onClose={() => { setPlayingVideoUrl(null); setPlaylist([]); }}
         initialIndex={currentPlayIndex}
-        playlist={playlist.map(url => {
+        playlist={playlist.map((item: any) => {
+          // Handle Polymorphism: Item can be String (Legacy) or UniversalMediaItem (Rich)
+          let url = '';
+          let precalculatedItem: any = null;
+
+          if (typeof item === 'string') {
+            url = item;
+          } else if (item && typeof item === 'object') {
+            url = item.url || '';
+            precalculatedItem = item;
+          }
+
+          if (!url) return null as any; // Skip invalid
+
+
           // Resolve Context - Robust Search
           const clip = clips.find(c =>
             (c.resultUrl === url) ||
             ((c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url))
           );
 
-          const lib = !clip ? libraryItems.find(i => (i.refImageUrl || '').includes(url)) : undefined;
+          const lib = !clip ? libraryItems.find(i => (i.refImageUrl || '').includes(url) || (i.media || []).some((m: any) => m.url === url || m.localPath === url)) : undefined;
 
           // Determine if it is a Reference (i.e. not the main Result)
           const isReference = clip ? (clip.resultUrl !== url) : (lib ? true : false); // Library/Studio items are references
@@ -1469,7 +1612,8 @@ export default function Home() {
           if (isReference) displayTitle += ' (Ref)';
 
 
-          return {
+          // Construct UniversalMediaItem
+          const baseItem = {
             id: uniqueId,
             url: url,
             type: type,
@@ -1478,9 +1622,21 @@ export default function Home() {
             description: lib?.description,
             canDelete: true, // Controlled by isReference check in Viewer
             isReference: isReference,
-            deleteIcon: !isReference ? 'minus' : undefined // Use Minus for Results (Clear), Trash for others (if default)
+            deleteIcon: !isReference ? 'minus' : undefined, // Use Minus for Results (Clear), Trash for others (if default)
+
+            // New Context Fields (Pass through)
+            ownerClipId: clip ? clip.id.toString() : undefined
           };
-        })}
+
+          if (precalculatedItem) {
+            return {
+              ...baseItem,
+              ...precalculatedItem
+            };
+          }
+
+          return baseItem;
+        }).filter(Boolean)}
         onUpdate={async (uniqueId, updates) => {
           if (uniqueId.startsWith('clip-')) {
             await handleSave(uniqueId.replace('clip-', ''), updates);
@@ -1509,30 +1665,7 @@ export default function Home() {
             });
           }
         }}
-        onUnlink={async (url) => {
-          // 1. Legacy CSV Update (for generic/legacy structure)
-          // Find owner of this reference URL
-          const clip = clips.find(c =>
-            (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url)
-          );
-          if (clip) {
-            const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-            const next = currentRefs.filter(r => r !== url).join(',');
-            await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
-          }
-
-          // 2. Database Relation Update
-          // Ensures 'Moved' items (which have a Media record) are properly detached
-          try {
-            await fetch('/api/media/unlink', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url })
-            });
-          } catch (e) {
-            console.error('Failed to unlink media relation', e);
-          }
-        }}
+        onUnlink={handleUnlink}
         clips={clips}
         ownerClipId={(() => {
           // Find clip that owns the playing result (for direct add-as-ref on result images)
@@ -1553,10 +1686,63 @@ export default function Home() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `Failed to ${action} reference`);
 
-            // Refresh data to show new/moved reference
-            await refreshData();
+            // CRITICAL: Notify that a write occurred
+            notifyWrite();
 
-            // Switch context to target clip's episode
+            // OPTIMISTIC UPDATE: Modify local state directly to preserve scroll position
+            // Instead of refreshData() which resets scroll, we update just the affected clip(s)
+            setClips(prevClips => prevClips.map(clip => {
+              const clipIdStr = clip.id.toString();
+
+              // Target clip: Add the image to its refs
+              if (clipIdStr === targetClipId.toString()) {
+                const normUrl = normalizeUrl(imageUrl);
+
+                // 1. CSV Update (Legacy)
+                const currentRefs = (clip.refImageUrls || '').split(',').filter(Boolean);
+                const existsInCsv = currentRefs.some(r => normalizeUrl(r) === normUrl);
+                if (!existsInCsv) {
+                  currentRefs.push(imageUrl);
+                }
+
+                // 2. Media References Update (Rich)
+                // Fix: Check for duplicates before adding to prevent consistent UI duplication
+                let nextMediaRefs = clip.mediaReferences || [];
+                // @ts-ignore
+                const existsInMedia = nextMediaRefs.some(m => normalizeUrl(m.url) === normUrl);
+
+                if (!existsInMedia) {
+                  nextMediaRefs = [...nextMediaRefs, {
+                    url: imageUrl,
+                    id: `temp-${Date.now()}`,
+                    type: 'IMAGE',
+                    category: 'REFERENCE'
+                  }];
+                }
+
+                return {
+                  ...clip,
+                  refImageUrls: currentRefs.join(','),
+                  mediaReferences: nextMediaRefs as any
+                };
+              }
+
+              // Source clip (if move): Clear its resultUrl
+              if (action === 'move' && sourceClipId && clipIdStr === sourceClipId.toString()) {
+                return {
+                  ...clip,
+                  resultUrl: '',
+                  thumbnailPath: ''
+                };
+              }
+
+              return clip;
+            }));
+
+            // NO refreshData() - preserves scroll position!
+            // The next manual refresh or navigation will sync with server.
+
+            // Switch context to target clip's episode (only if different)
             const targetClip = clips.find(c => c.id.toString() === targetClipId.toString());
             if (targetClip && targetClip.episode) {
               const epIndex = sortedEpKeys.indexOf(targetClip.episode);
@@ -1957,7 +2143,14 @@ export default function Home() {
                   setPlayingVideoUrl(url);
                   if (contextPlaylist && contextPlaylist.length > 0) {
                     setPlaylist(contextPlaylist);
-                    setCurrentPlayIndex(contextPlaylist.indexOf(url));
+                    // Handle Rich Playlist (UniversalMediaItem[])
+                    if (typeof contextPlaylist[0] === 'object') {
+                      const index = contextPlaylist.findIndex((p: any) => p.url === url);
+                      setCurrentPlayIndex(index !== -1 ? index : 0);
+                    } else {
+                      // Legacy String[] Fallback
+                      setCurrentPlayIndex(contextPlaylist.indexOf(url));
+                    }
                   } else {
                     setPlaylist([url]);
                     setCurrentPlayIndex(0);
