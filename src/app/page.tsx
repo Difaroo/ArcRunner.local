@@ -1583,7 +1583,7 @@ export default function Home() {
             ((c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url))
           );
 
-          const lib = !clip ? libraryItems.find(i => (i.refImageUrl || '').includes(url) || (i.media || []).some((m: any) => m.url === url || m.localPath === url)) : undefined;
+          const lib = !clip ? libraryItems.find(i => (i.refImageUrl || '').includes(url) || ((i as any).media || []).some((m: any) => m.url === url || m.localPath === url)) : undefined;
 
           // Determine if it is a Reference (i.e. not the main Result)
           const isReference = clip ? (clip.resultUrl !== url) : (lib ? true : false); // Library/Studio items are references

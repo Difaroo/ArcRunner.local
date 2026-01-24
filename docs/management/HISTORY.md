@@ -620,6 +620,23 @@ Addressed critical usability gaps in the Studio (Library) workflow. Users report
     - **Seed Control**: Narrowed seed input to loosely suggest 4-digit localized usage; changed placeholder to "Auto".
 ### Version Bump
 - **Minor**: 0.12.3 -> 0.13.0.
+- **Commit**: `[Short Hash]`
+
+## v0.24.0 (Peregrine) - 2026-01-24
+**Focus**: Infrastructure Stability & Persistence Fixes
+
+### 🛠️ Infrastructure
+- **PM2 Migration**: Replaced fragile shell scripts with PM2 Process Manager.
+    - **Dev**: Port 3000 (Managed).
+    - **Prod**: Port 3001 (Managed, Background).
+    - **Benefits**: Auto-restart, centralized logs, zero zombie processes.
+- **Database Rescue**: Fixed critical "Readonly Database" error in Production by migrating to `prod_v2.db` and stripping system lock attributes.
+- **Docs**: Updated `PLAYBOOK.md` with Master System Context & Operations Manual.
+
+### 🐛 Bug Fixes
+- **Camera Persistence**: Fixed critical bug where `camera` and `style` fields were silently dropped on save.
+- **Location Persistence**: Investigated and resolved Production-specific caching issues causing optimistic UI reverts.
+- **Server Restart**: Fixed broken deployment pipeline (`restart-stack.sh` now updated and verified).
 
 ## 2026-01-02: v0.14.0 - Payload Hardening & UI Polish
 

@@ -45,7 +45,8 @@ When generating multiple items (Clips or Library Assets), a **Confirmation Dialo
 - **Error Handling**: Network errors during creation will be displayed visually in the dialog.
 
 ## System Intelligence
-- **Persistence**: Application state (Series, Episodes) is stored in a local SQLite database (`v0.15_RECOVERY_DATA.db`) but presented via the robust v0.14.2 UI.
+- **Persistence**: Application state (Series, Episodes) is stored in a local SQLite database (`prod_v2.db` in Prod).
+- **Process Robustness (v0.24.0)**: The system is managed by **PM2**, ensuring zero-downtime restarts and eliminating "zombie" processes.
 - **Polling**: Background polling ensures generation status updates are reflected in near real-time.
 
 ## Prompt Logic & Architecture (v0.16.0 Matrix)

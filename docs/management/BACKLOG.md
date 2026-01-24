@@ -10,6 +10,13 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.24.0 (Stability & Persistence)
+- [x] **Camera Persistence**: Fixed bug where Camera and Style fields were not saving due to frontend whitelist.
+- [x] **Location Persistence**: Fixed "bouncing back" issue in Prod via Caching analysis.
+- [x] **Production Stability**: Migrated to **PM2** for robust process management (No more zombies).
+- [x] **Database Lock Fix**: Resolved "Readonly Database" error by migrating to fresh `prod_v2.db`.
+- [x] **Documentation**: Added "System Context" to Playbook and documented Server Ops.
+
 ## 🚀 Released v0.21.0 (Reference Grid & Data Stability)
 - [x] **Ref Grid Experience**: Expanded to 3x3 layout (9 images) with LIFO ordering.
 - [x] **Nano Persistence**: Fixed model ID saving to ensure correct polling strategy.

@@ -190,6 +190,8 @@ export function ClipRow({
             character: clip.character || '',
             action: clip.action || '',
             dialog: clip.dialog || '',
+            camera: clip.camera || '',
+            style: clip.style || '',
             refImageUrls: getCleanExplicitRefs().join(',')
         })
         onEdit(clip)
@@ -289,7 +291,9 @@ export function ClipRow({
             'refImageUrls', // Mapped to explicitRefUrls
             'character',
             'location',
-            // Add other editable fields here if needed (e.g. shotType, camera).
+            'camera',
+            'style',
+            // Add other editable fields here if needed (e.g. shotType).
             // DO NOT INCLUDE: resultUrl, status, taskId.
         ];
 

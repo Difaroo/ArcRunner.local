@@ -58,7 +58,7 @@ export async function getLibraryItems(filterSeriesId?: string): Promise<LibraryI
             status: item.status || 'IDLE',
             taskId: item.taskId || '',
             model: item.model || null,
-            media: item.media.map(m => ({
+            media: (item as any).media?.map((m: any) => ({
                 id: m.id,
                 url: m.url,
                 localPath: m.localPath,

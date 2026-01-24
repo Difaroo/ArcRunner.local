@@ -12,6 +12,7 @@ ArcRunner is a local-first, AI-assisted video production studio. It orchestrates
 - **Styling**: TailwindCSS + `shadcn/ui`.
 
 #### 2. The Brain (Backend / API)
+- **Runtime**: Managed via **PM2** (Process Manager 2) for resilience.
 - **Route Handlers**: Next.js API Routes (`src/app/api/*`).
 - **Database**: SQLite (via Prisma). Dual-environment inputs:
     - `dev.db` (Port 3000): Volatile development data.

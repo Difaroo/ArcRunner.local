@@ -29,6 +29,37 @@ Choose the right mode based on **risk level**:
 
 ---
 
+## 🗺️ System Context & Onboarding (READ ME FIRST)
+
+### 📚 Documentation Map
+*   **User Manual**: [`docs/manual/USER_MANUAL.md`](file:///Users/davidfennell/.gemini/antigravity/workspaces/arcrunner-local/docs/manual/USER_MANUAL.md) - Features & Flows.
+*   **Architecture**: [`docs/architecture/HIGH_LEVEL_ARCH.md`](file:///Users/davidfennell/.gemini/antigravity/workspaces/arcrunner-local/docs/architecture/HIGH_LEVEL_ARCH.md) - System Design.
+*   **Render Engine**: [`docs/architecture/RENDER_ENGINE_ARCHITECTURE.md`](file:///Users/davidfennell/.gemini/antigravity/workspaces/arcrunner-local/docs/architecture/RENDER_ENGINE_ARCHITECTURE.md) - Generation Pipeline.
+*   **Golden Master**: [`docs/management/GOLDEN_MASTER.md`](file:///Users/davidfennell/.gemini/antigravity/workspaces/arcrunner-local/docs/management/GOLDEN_MASTER.md) - API Specs.
+*   **History**: [`docs/management/HISTORY.md`](file:///Users/davidfennell/.gemini/antigravity/workspaces/arcrunner-local/docs/management/HISTORY.md) - Changelog.
+
+### 🛠️ Server Management
+**Production (Port 3001)**
+*   **Deployment**: To deploy code updates to Production, run:
+    ```bash
+    ./scripts/restart-stack.sh
+    ```
+    This script performs: `Stop Processes` -> `npm run build` -> `Start Production (Background)`.
+*   **Manual Restart**: If script fails, use: `npm run prod`.
+*   **Logs**: `tail -f production.log` (if started via script) or check active terminal.
+
+**Development (Port 3000)**
+*   **Start**: `npm run dev`
+*   **Database**: `prisma/dev.db`
+
+### 🏗️ Tech Stack
+*   **Frontend**: Next.js 14 (App Router), TailwindCSS, Radix UI.
+*   **Backend**: Next.js API Routes, GenerateManager.
+*   **Database**: SQLite (`dev.db`, `prod.db`) via Prisma.
+*   **AI**: Kie.ai (Flux/Veo), OpenAI (Assistants).
+
+---
+
 ## 🚀 Quick Mode Prompts
 
 ### Small Fix
@@ -155,20 +186,3 @@ Before any production deploy:
 - [ ] `npm run build` succeeds
 - [ ] Local test of changed feature
 - [ ] Commit with descriptive message
-
----
-
-## 💡 Efficiency Tips
-
-### Trust the Agent
-For **clear specs**, let the agent decide implementation details. Only review if it affects user experience or data.
-
-### Reduce Approval Gates
-- **Don't need approval**: Variable names, file structure, utility functions
-- **Need approval**: User-facing changes, API contracts, database schema
-
-### Fail Fast
-Run `npx tsc --noEmit` after every significant edit. Catches typos immediately.
-
-### One Thing at a Time
-Smaller, focused requests = higher accuracy = less rework.
