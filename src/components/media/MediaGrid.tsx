@@ -89,11 +89,12 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
                                 </div>
                                 <video
                                     src={item.localPath || src} // Prefer localPath if explicitly set
-                                    className="h-full w-full object-cover relative z-20"
+                                    className="h-full w-full object-cover relative z-20 cursor-pointer"
                                     muted
                                     loop
                                     playsInline
                                     preload="metadata"
+                                    onClick={() => onSelect?.(item)}
                                     onMouseOver={e => e.currentTarget.play().catch(() => { })}
                                     onMouseOut={e => e.currentTarget.pause()}
                                     onLoadedData={e => {
@@ -113,8 +114,9 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
                             <img
                                 src={item.localPath || src}
                                 alt="Media"
-                                className="h-full w-full object-cover"
+                                className="h-full w-full object-cover cursor-pointer"
                                 loading="lazy"
+                                onClick={() => onSelect?.(item)}
                                 onError={(e) => {
                                     e.currentTarget.style.display = 'none';
                                     const parent = e.currentTarget.parentElement;
@@ -152,7 +154,12 @@ function MediaCard({ item, onDelete, onSelect }: { item: MediaWithRelations, onD
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7 bg-black/20 text-red-500 hover:bg-red-500 hover:text-white backdrop-blur-sm transition-colors"
-                        onClick={(e) => { e.stopPropagation(); onDelete?.(item.id); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('Are you sure you want to delete this media?')) {
+                                onDelete?.(item.id);
+                            }
+                        }}
                     >
                         <Trash2 className="h-3.5 w-3.5" />
                     </Button>

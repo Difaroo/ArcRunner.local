@@ -49,7 +49,7 @@ interface LibraryRowProps {
     onSave: (id: string, updates: Partial<LibraryItem>) => Promise<void> | void;
     onGenerate?: (item: LibraryItem) => void;
     onDelete?: (id: string) => void;
-    onPlay?: (url: string) => void;
+    onPlay?: (url: string, contextPlaylist?: any[]) => void;
     onDownload: (url: string, name: string) => void;
     onDuplicate?: (id: string) => void;
     onArchive?: (url: string) => void;
@@ -376,7 +376,33 @@ export function LibraryRow({
                                     isThumbnail={!!item.thumbnailPath}
                                     isReference={true} // Show minus icon (unlink) in Universal Viewer
                                     onPlay={(url) => {
-                                        if (onPlay) onPlay(url);
+                                        if (onPlay) {
+                                            // Construct Rich Playlist from item.media if available
+                                            const playlist = item.media ? item.media.map(m => ({
+                                                id: `media-${m.id}`,
+                                                url: m.url || m.localPath || '',
+                                                type: m.type.toLowerCase(),
+                                                title: item.name,
+                                                isReference: true,
+                                                ownerClipId: `lib-${item.id}`, // Context ID for Unlink (Namespaced)
+                                                deleteIcon: 'minus' // Explicitly request Unlink icon
+                                            })) : [];
+
+                                            // Fallback: If no media relation, use the single legacy url
+                                            if (playlist.length === 0 && item.refImageUrl) {
+                                                playlist.push({
+                                                    id: `legacy-${item.id}`,
+                                                    url: item.refImageUrl,
+                                                    type: 'image',
+                                                    title: item.name,
+                                                    isReference: true,
+                                                    ownerClipId: `lib-${item.id}`,
+                                                    deleteIcon: 'minus'
+                                                });
+                                            }
+
+                                            onPlay(url, playlist);
+                                        }
                                     }}
                                     className="w-full h-full"
                                     onSave={onArchive}

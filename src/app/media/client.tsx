@@ -63,13 +63,14 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
     }, [seriesList, episodeList, router, initialFilter]); // Dependency array: Run when lists are ready, but mostly on mount logic via checks
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this media? This will break any clips using it.')) return;
+        // Confirmation is handled by UI components (MediaGrid / UniversalMediaViewer)
 
         try {
             await deleteMedia(id);
             router.refresh();
-        } catch (e) {
-            alert('Delete Failed');
+        } catch (e: any) {
+            console.error("Delete Media Error:", e);
+            alert(`Delete Failed: ${e.message || 'Unknown Error'}`);
         }
     };
 

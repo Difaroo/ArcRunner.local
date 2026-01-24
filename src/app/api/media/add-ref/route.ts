@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { normalizeUrl } from "@/lib/utils";
 
 /**
  * POST /api/media/add-ref
@@ -44,19 +45,28 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Find existing Media record by URL (Normalized Check)
-        // We fetch ALL media for this clip (or potential match) and filter manually because Prisma can't do fuzzy/normalized matching easily
-        // Or better: Search by suffix?
-        // Since we can't easily search normalized in DB without raw query, we search exact FIRST.
-        // If fails, we proceed. Result duplication is acceptable if URLs truly differ, but let's try to match.
-        // Actually, best effort: Check exact URL first.
-        let existingMedia = await db.media.findFirst({
-            where: { url: url }
-        });
+        // 1. Try to find Media by RELATIONSHIP (If this is a Move operation from a known source clip)
+        // This is robust against URL string variations (e.g. encoded/decoded differences)
+        let existingMedia = null;
+        if (sourceClipId) {
+            const srcId = parseInt(sourceClipId, 10);
+            if (!isNaN(srcId)) {
+                existingMedia = await db.media.findFirst({
+                    where: { resultForClipId: srcId }
+                });
+            }
+        }
 
-        // If not found exact, try finding by suffix if url is absolute/relative mismatch?
-        // Skipped for performance unless critical.
-        // But we MUST ensuring we don't duplicate Logic.
+        // 2. Fallback: Find by URL (Normalized) if relationship lookup failed or wasn't applicable
+        if (!existingMedia) {
+            // Try exact match first (Performance)
+            existingMedia = await db.media.findFirst({
+                where: { url: url }
+            });
+        }
+
+        // 3. Deep Fallback: If URL has query params differences, we might want to check normalized?
+        // (Skipped for now to avoid over-engineering unless user issue persists, as Relationship check solves the primary "Sideload" case)
 
         if (!existingMedia) {
             // No existing Media - this is likely a result image stored on Clip.resultUrl

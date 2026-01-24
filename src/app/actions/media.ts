@@ -29,7 +29,12 @@ export async function fetchMedia(filter: MediaFilter, page = 1, limit = 50) {
 
     const items = await db.media.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [
+            // Primary: Sort by associated clip's sortOrder (matches Episode view)
+            { resultForClip: { sortOrder: 'asc' } },
+            // Fallback: createdAt for media without clip association
+            { createdAt: 'desc' }
+        ],
         take: limit,
         skip: (page - 1) * limit,
         include: {

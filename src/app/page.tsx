@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader2, Sun, Moon, Pencil, Check, X } from "lucide-react";
-import { Clip, Series, Episode } from '@/types'; // Added Episode type import to fix linter error if it wasn't there
+import { Clip, Series, Episode } from '@/types';
+import { deleteMedia } from '@/app/actions/media';
 import { resolveClipImages } from '@/lib/shared-resolvers';
 import { getModelConfig } from '@/lib/models';
 import { downloadFile, getClipFilename } from '@/lib/download-utils';
@@ -1007,6 +1008,70 @@ export default function Home() {
     markLibraryItemDeleted(id);
   };
 
+  const handleUnlink = async (url: string, contextId?: string, isResult?: boolean) => {
+    // 1. Studio Context (using Namespaced ID from LibraryRow)
+    if (contextId && contextId.startsWith('lib-')) {
+      const studioId = contextId.replace('lib-', '');
+      const item = libraryItems.find(i => i.id === studioId);
+
+      if (item) {
+        // A. Try to find/delete Media Record (New System)
+        // @ts-ignore
+        const media = (item.media || []).find(m => m.url === url || m.localPath === url);
+
+        if (media) {
+          try {
+            await deleteMedia(media.id);
+          } catch (e) {
+            console.error("Failed to delete media", e);
+            alert("Failed to unlink media");
+          }
+        }
+        // B. Fallback: Clear Legacy Field if URL matches
+        else if (item.refImageUrl === url) {
+          await handleLibrarySave(studioId, { refImageUrl: '' });
+        }
+
+        refreshData();
+      }
+    } else {
+      // 2. Clip Context (Preserving Existing Logic)
+      const clipId = contextId; // contextId is clipId for clips
+      const clip = clipId
+        ? clips.find(c => c.id.toString() === clipId.toString())
+        : clips.find(c => (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url));
+
+      if (clip) {
+        if (isResult) {
+          // RESULT UNLINK: Clear resultUrl but keep media in Media table
+          setClips(prev => prev.map(c =>
+            c.id.toString() === clip.id.toString()
+              ? { ...c, resultUrl: '', thumbnailPath: '' }
+              : c
+          ));
+        } else {
+          // REFERENCE UNLINK: Remove from CSV
+          const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+          const targetPath = normalizeUrl(url);
+          const next = currentRefs.filter(r => normalizeUrl(r) !== targetPath).join(',');
+          await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
+        }
+      }
+
+      // Database Relation Update
+      try {
+        await fetch('/api/media/unlink', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, clipId, isResult })
+        });
+        notifyWrite();
+      } catch (e) {
+        console.error('Failed to unlink media relation', e);
+      }
+    }
+  };
+
   const handleDeleteClip = (id: string) => {
     markClipDeleted(id);
   };
@@ -1518,7 +1583,7 @@ export default function Home() {
             ((c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url))
           );
 
-          const lib = !clip ? libraryItems.find(i => (i.refImageUrl || '').includes(url)) : undefined;
+          const lib = !clip ? libraryItems.find(i => (i.refImageUrl || '').includes(url) || (i.media || []).some((m: any) => m.url === url || m.localPath === url)) : undefined;
 
           // Determine if it is a Reference (i.e. not the main Result)
           const isReference = clip ? (clip.resultUrl !== url) : (lib ? true : false); // Library/Studio items are references
@@ -1600,43 +1665,7 @@ export default function Home() {
             });
           }
         }}
-        onUnlink={async (url, clipId, isResult) => {
-          // Find the clip for this URL
-          const clip = clipId
-            ? clips.find(c => c.id.toString() === clipId.toString())
-            : clips.find(c => (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url));
-
-          if (clip) {
-            if (isResult) {
-              // RESULT UNLINK: Clear resultUrl but keep media in Media table
-              // The Media table unlink below will handle the relational cleanup
-              // Local state update - optimistic
-              setClips(prev => prev.map(c =>
-                c.id.toString() === clip.id.toString()
-                  ? { ...c, resultUrl: '', thumbnailPath: '' }
-                  : c
-              ));
-            } else {
-              // REFERENCE UNLINK: Remove from CSV
-              const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-              const targetPath = normalizeUrl(url);
-              const next = currentRefs.filter(r => normalizeUrl(r) !== targetPath).join(',');
-              await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
-            }
-          }
-
-          // 2. Database Relation Update - handles both refs AND results
-          try {
-            await fetch('/api/media/unlink', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url, clipId, isResult }) // Tell API which field to clear
-            });
-            notifyWrite(); // Prevent stale overwrites
-          } catch (e) {
-            console.error('Failed to unlink media relation', e);
-          }
-        }}
+        onUnlink={handleUnlink}
         clips={clips}
         ownerClipId={(() => {
           // Find clip that owns the playing result (for direct add-as-ref on result images)
@@ -1667,20 +1696,34 @@ export default function Home() {
 
               // Target clip: Add the image to its refs
               if (clipIdStr === targetClipId.toString()) {
+                const normUrl = normalizeUrl(imageUrl);
+
+                // 1. CSV Update (Legacy)
                 const currentRefs = (clip.refImageUrls || '').split(',').filter(Boolean);
-                if (!currentRefs.includes(imageUrl)) {
+                const existsInCsv = currentRefs.some(r => normalizeUrl(r) === normUrl);
+                if (!existsInCsv) {
                   currentRefs.push(imageUrl);
                 }
-                return {
-                  ...clip,
-                  refImageUrls: currentRefs.join(','),
-                  // Also update mediaReferences array if it exists (with minimal required fields)
-                  mediaReferences: [...(clip.mediaReferences || []), {
+
+                // 2. Media References Update (Rich)
+                // Fix: Check for duplicates before adding to prevent consistent UI duplication
+                let nextMediaRefs = clip.mediaReferences || [];
+                // @ts-ignore
+                const existsInMedia = nextMediaRefs.some(m => normalizeUrl(m.url) === normUrl);
+
+                if (!existsInMedia) {
+                  nextMediaRefs = [...nextMediaRefs, {
                     url: imageUrl,
                     id: `temp-${Date.now()}`,
                     type: 'IMAGE',
                     category: 'REFERENCE'
-                  }] as any
+                  }];
+                }
+
+                return {
+                  ...clip,
+                  refImageUrls: currentRefs.join(','),
+                  mediaReferences: nextMediaRefs as any
                 };
               }
 

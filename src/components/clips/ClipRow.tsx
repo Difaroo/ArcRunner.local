@@ -186,6 +186,10 @@ export function ClipRow({
         setEditValues({
             ...clip,
             negativePrompt: clip.negativePrompt || '',
+            location: clip.location || '', // Robust init to ensure key exists for Object.keys loop
+            character: clip.character || '',
+            action: clip.action || '',
+            dialog: clip.dialog || '',
             refImageUrls: getCleanExplicitRefs().join(',')
         })
         onEdit(clip)
