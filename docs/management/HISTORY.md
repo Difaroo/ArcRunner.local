@@ -2,6 +2,22 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-25: v0.25.0 - Peregrine (Viewer Stability & Prompt Fixes)
+
+### Context
+A stability and polish release focused on the "Universal Viewer" workflow and prompt generation reliability. It resolves critical friction points in the Sideload/Referencing loop and fixes a long-standing issue with Location Reference resolving.
+
+### Features
+- **Smart Sideload**: "Add as Ref" in the Universal Viewer now keeps the viewer open and automatically "Advances" to the next result, enabling rapid-fire sorting of batch generations.
+- **Reference Unlink**: Unlinking a Reference Image (`-`) now properly detaches the Media record and closes the viewer, providing clear "Task Complete" feedback.
+
+### Bug Fixes
+- **Prompt Generation**: Fixed `Location Image` resolution logic. The generator now correctly resolves Location images even if they are "References" (not just Uploads) and handles space/underscore naming discrepancies robustly.
+- **UI Alignment**: Reduced Edit Mode padding for standard text inputs (Title, Scene, etc.) to eliminate the visual jump when switching between Read/Edit modes.
+- **Viewer Context**: Fixed logic where the Universal Viewer would sometimes lose its playlist context or fail to perform Sideloads due to missing event handlers.
+
+---
+
 ## 2026-01-18: v0.23.2 - Osprey (Batch Download & Media UX)
 
 ### Context

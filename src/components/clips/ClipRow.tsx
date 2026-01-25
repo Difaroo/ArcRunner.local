@@ -293,6 +293,7 @@ export function ClipRow({
             'location',
             'camera',
             'style',
+            'scene', // Fix: Allow Scene updates
             // Add other editable fields here if needed (e.g. shotType).
             // DO NOT INCLUDE: resultUrl, status, taskId.
         ];
@@ -370,8 +371,18 @@ export function ClipRow({
                     onCheckedChange={() => onSelect(clip.id)}
                 />
             </TableCell>
-            <TableCell className="align-top font-sans font-extralight text-stone-500 text-xs py-3 w-[24px] px-1">
-                {clip.scene}
+            <TableCell className={`align-top font-sans font-extralight text-stone-500 text-xs w-[35px] px-1 ${isEditing ? "py-2" : "py-3"}`}>
+                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-stone-500">
+                    {isEditing ? (
+                        <Input
+                            value={editValues.scene || ''}
+                            onChange={(e) => handleChange('scene', e.target.value)}
+                            className="h-8 w-full text-xs px-1 text-center bg-stone-900 border-stone-700 text-stone-500 font-sans disabled:opacity-50"
+                        />
+                    ) : (
+                        clip.scene
+                    )}
+                </EditableCell>
             </TableCell>
 
             {/* ... [Title/Char/Loc/Cam/Action/Dialog Cells Omitted for Brevity - Keeping same Logic] ... 
@@ -380,20 +391,20 @@ export function ClipRow({
                 I will copy the standard cells from the view.
             */}
 
-            <TableCell className={`align-top w-[160px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[160px] ${isEditing ? "py-2" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="font-medium text-white block">
                     {isEditing ? (
                         <Input
                             value={editValues.title || ''}
                             onChange={(e) => handleChange('title', e.target.value)}
-                            className="table-input h-full"
+                            className="h-8 w-full text-xs bg-stone-900 border-stone-700 text-white font-normal px-2 placeholder:text-stone-600"
                         />
                     ) : (
                         <span className="table-text font-medium">{clip.title || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[170px] ${isEditing ? "p-1" : "py-3"}`} data-testid="cell-character">
+            <TableCell className={`align-top w-[170px] ${isEditing ? "py-2" : "py-3"}`} data-testid="cell-character">
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
                     {isEditing ? (
                         <div className="w-full">
@@ -485,7 +496,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[170px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top w-[170px] ${isEditing ? "py-2" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <div className="relative w-full flex items-center gap-1">
@@ -555,7 +566,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white text-xs w-[140px] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white text-xs w-[140px] ${isEditing ? "py-2" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
                     {isEditing ? (
                         <div className="flex flex-col gap-2">
@@ -602,7 +613,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white w-[15%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[15%] ${isEditing ? "py-2" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
                     {isEditing ? (
                         <AutoResizeTextarea
@@ -615,7 +626,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white w-[15%] ${isEditing ? "p-1" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[15%] ${isEditing ? "py-2" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <AutoResizeTextarea
@@ -659,12 +670,15 @@ export function ClipRow({
                                         e.preventDefault();
                                         e.stopPropagation();
 
+                                        const clickedUrl = url.trim();
+
                                         // 1. Build List of References (Rich Objects)
                                         const refItems = renderedRefs.map(rUrl => {
-                                            const isVideo = rUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+                                            const cleanUrl = rUrl.trim();
+                                            const isVideo = cleanUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
                                             return {
-                                                id: rUrl,
-                                                url: rUrl,
+                                                id: cleanUrl,
+                                                url: cleanUrl,
                                                 type: isVideo ? 'video' : 'image',
                                                 title: isVideo ? 'Reference Video' : 'Reference Image',
                                                 isReference: true,
@@ -682,7 +696,7 @@ export function ClipRow({
 
                                             const resultItem = {
                                                 id: `result-${clip.id}`,
-                                                url: clip.resultUrl,
+                                                url: clip.resultUrl.trim(),
                                                 type: resultType,
                                                 title: getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "") || 'Result',
                                                 isReference: false,
@@ -691,11 +705,10 @@ export function ClipRow({
                                             };
 
                                             // Prepend Result to Playlist
-                                            // The user wants to see the result available even if they clicked a ref
                                             fullPlaylist = [resultItem, ...refItems];
                                         }
 
-                                        onPlay(url, fullPlaylist);
+                                        onPlay(clickedUrl, fullPlaylist);
                                     }}
                                     draggable="true"
                                     onDragStart={(e) => {
@@ -741,9 +754,9 @@ export function ClipRow({
                                 title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
                                 isThumbnail={!!clip.thumbnailPath}
                                 contentType={
-                                    clip.thumbnailPath
-                                        ? 'image'
-                                        : (clip.resultUrl?.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'video' : 'image')
+                                    (clip.resultUrl?.match(/\.(mp4|mov|webm|mkv)($|\?)/i) || clip.model?.toLowerCase().includes('veo') || clip.model?.toLowerCase().includes('kling') || clip.model?.toLowerCase().includes('minimax') || clip.model?.toLowerCase().includes('luma'))
+                                        ? 'video'
+                                        : 'image'
                                 }
                                 onPlay={(url) => {
                                     const allRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);

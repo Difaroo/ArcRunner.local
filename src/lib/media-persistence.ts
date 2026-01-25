@@ -3,8 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { generateThumbnail } from './thumbnail-generator';
 
-const MEDIA_DIR = path.join(process.cwd(), 'public', 'media', 'library');
-const CLIPS_DIR = path.join(process.cwd(), 'public', 'media', 'clips');
+const MEDIA_DIR = path.join(process.cwd(), 'storage', 'media', 'library');
+const CLIPS_DIR = path.join(process.cwd(), 'storage', 'media', 'clips');
 
 // Ensure directories exist
 if (!fs.existsSync(MEDIA_DIR)) {
@@ -15,11 +15,11 @@ if (!fs.existsSync(CLIPS_DIR)) {
 }
 
 export async function persistLibraryImage(remoteUrl: string, itemId: string, customFilename?: string): Promise<{ localPath: string, thumbnailPath: string | null }> {
-    return persistMedia(remoteUrl, itemId, MEDIA_DIR, '/media/library', customFilename);
+    return persistMedia(remoteUrl, itemId, MEDIA_DIR, '/api/media/library', customFilename);
 }
 
 export async function persistClipMedia(remoteUrl: string, clipId: string, customFilename?: string): Promise<{ localPath: string, thumbnailPath: string | null }> {
-    return persistMedia(remoteUrl, clipId, CLIPS_DIR, '/media/clips', customFilename);
+    return persistMedia(remoteUrl, clipId, CLIPS_DIR, '/api/media/clips', customFilename);
 }
 
 // Refactored shared logic

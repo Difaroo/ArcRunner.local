@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.25.0 (Viewer Stability & Prompt Fixes)
+- [x] **Smart Sideload**: Universal Viewer keeps open and advances to next results when moving items to refs.
+- [x] **Ref Unlink**: Unlinking references properly detaches generic media and closes viewer.
+- [x] **Prompt Logic**: Fixed Location Image Resolution (broadened to include Refs/Generated and robust naming).
+- [x] **UI Polish**: Aligned Edit/Display padding for Clip Rows.
+
 ## 🚀 Released v0.24.0 (Stability & Persistence)
 - [x] **Camera Persistence**: Fixed bug where Camera and Style fields were not saving due to frontend whitelist.
 - [x] **Location Persistence**: Fixed "bouncing back" issue in Prod via Caching analysis.

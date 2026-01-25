@@ -1,4 +1,12 @@
-# ArcRunner Playbook & SOPs
+# ArcRunner Playbook
+> [!CAUTION]
+> **CRITICAL RULE: NO DIRECT WORK ON PRODUCTION**
+> *   **Do NOT** fix, debug, or experiment on the Production Server (Port 3001).
+> *   **Do NOT** restart `arcrunner-prod` unless explicitly instructed for a Release.
+> *   All works happens in **DEV (Port 3000)**.
+> *   Prod is "Sacred Ground" - it should only run stable, released code.
+
+ & SOPs
 
 ## 🎯 Workflow Modes
 

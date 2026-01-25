@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         const validFields = [
             'title', 'character', 'location', 'style', 'camera',
             'action', 'dialog', 'refImageUrls', 'seed', 'model', 'sortOrder',
-            'negativePrompt', 'isHiddenInStoryboard', 'explicitRefUrls' // Added explicitRefUrls
+            'negativePrompt', 'isHiddenInStoryboard', 'explicitRefUrls', 'scene' // Added scene explicitly
         ];
 
         const prismaData: any = {};

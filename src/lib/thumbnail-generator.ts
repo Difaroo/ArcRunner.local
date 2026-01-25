@@ -25,7 +25,7 @@ if (ffmpegPath && fs.existsSync(ffmpegPath)) {
     console.error("CRITICAL ERROR: ffmpeg binary not found!");
 }
 
-const THUMBNAIL_DIR = path.join(process.cwd(), 'public', 'thumbnails');
+const THUMBNAIL_DIR = path.join(process.cwd(), 'storage', 'media', 'thumbnails');
 
 // Ensure directory exists
 if (!fs.existsSync(THUMBNAIL_DIR)) {
@@ -35,7 +35,7 @@ if (!fs.existsSync(THUMBNAIL_DIR)) {
 export async function generateThumbnail(videoUrl: string, clipId: string): Promise<string | null> {
     return new Promise((resolve, reject) => {
         const filename = `thumb_${clipId}_${Date.now()}.jpg`;
-        const publicPath = `/thumbnails/${filename}`;
+        const publicPath = `/api/media/thumbnails/${filename}`;
 
         // Simple extension check (robust for standard URLs)
         const isImage = videoUrl.match(/\.(jpg|jpeg|png|webp|gif)($|\?)/i) || videoUrl.includes('flux');

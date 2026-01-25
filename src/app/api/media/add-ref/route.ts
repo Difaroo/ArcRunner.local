@@ -51,8 +51,13 @@ export async function POST(req: NextRequest) {
         if (sourceClipId) {
             const srcId = parseInt(sourceClipId, 10);
             if (!isNaN(srcId)) {
+                // FIX: Must also match URL to avoid picking old history items!
+                // We use findFirst but constrain by URL.
                 existingMedia = await db.media.findFirst({
-                    where: { resultForClipId: srcId }
+                    where: {
+                        resultForClipId: srcId,
+                        url: url
+                    }
                 });
             }
         }
@@ -108,7 +113,10 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // Check if already a reference for this clip
+        // FIX: User requested "Change of Relationship" (Move), not Copy.
+        // We revert to MOVE logic, but keep the strict URL check to ensure we target the correct image.
+
+        // Check if ALREADY exists as a REFERENCE for this clip
         if (existingMedia.referenceForClipId === clipId) {
             return NextResponse.json(
                 { error: 'This image is already a reference for this clip' },
@@ -123,7 +131,7 @@ export async function POST(req: NextRequest) {
                 referenceForClipId: clipId,
                 resultForClipId: null, // Clear result association - it's now a reference
                 category: 'REFERENCE',
-                episodeId: targetClip.episodeId  // Update to target clip's episode
+                episodeId: targetClip.episodeId
             }
         });
 
@@ -142,7 +150,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        console.log(`[AddRef] Moved Media ${updatedMedia.id}: resultForClipId=${existingMedia.resultForClipId} → referenceForClipId=${clipId}`);
+        console.log(`[AddRef] Moved Media ${updatedMedia.id}: resultForClipId=${existingMedia.resultForClipId} -> referenceForClipId=${clipId}`);
 
         return NextResponse.json({
             success: true,

@@ -142,17 +142,33 @@ export class GenerateManager {
         }
 
         const libraryItems = await db.studioItem.findMany({
-            where: { seriesId: input.seriesId }
+            where: { seriesId: input.seriesId },
+            include: {
+                media: {
+                    // FIX: Allow REFERENCE and GENERATED categories for library images, not just Studio Uploads
+                    // where: { category: 'STUDIO_UPLOAD' }, 
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            }
         });
 
         const seriesLib: Record<string, string> = {};
         libraryItems.forEach(item => {
-            if (item.name && item.refImageUrl) {
-                seriesLib[item.name.toLowerCase()] = item.refImageUrl;
+            // Media-First Logic: Prefer Media table, fallback to Legacy CSV
+            const mediaUrl = (item.media && item.media.length > 0) ? item.media[0].url : item.refImageUrl;
+
+            if (item.name && mediaUrl) {
+                seriesLib[item.name.toLowerCase()] = mediaUrl;
             }
         });
 
-        const findLib = (name: string) => seriesLib[name.toLowerCase()];
+        const findLib = (name: string) => {
+            if (!name) return undefined;
+            const k = name.toLowerCase().trim();
+            // Robust Lookup: Exact -> Space-to-Underscore -> Underscore-to-Space
+            return seriesLib[k] || seriesLib[k.replace(/ /g, '_')] || seriesLib[k.replace(/_/g, ' ')];
+        };
 
         // Resolve! Nano/Veo get ALL images, others (Flux legacy?) get SINGLE
         const resolveMode = (apiType === 'nano' || apiType === 'veo') ? 'all' : 'single';

@@ -336,9 +336,9 @@ export function UniversalMediaViewer({
                         </Button>
                     </div>
 
-                    {/* Bottom Left: Title Info - Transparent BG */}
-                    <div className="absolute bottom-4 left-4 z-50 pointer-events-none">
-                        <h3 className="text-white/90 font-medium text-lg drop-shadow-md px-3 py-1 rounded">
+                    {/* Top Left: Title Info - Transparent BG */}
+                    <div className="absolute top-4 left-4 z-50 pointer-events-none">
+                        <h3 className="text-white/90 font-medium text-lg drop-shadow-md px-3 py-1 rounded bg-black/20 backdrop-blur-sm">
                             {currentItem.title}
                         </h3>
                     </div>

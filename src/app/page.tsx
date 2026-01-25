@@ -1043,18 +1043,59 @@ export default function Home() {
 
       if (clip) {
         if (isResult) {
-          // RESULT UNLINK: Clear resultUrl but keep media in Media table
-          setClips(prev => prev.map(c =>
-            c.id.toString() === clip.id.toString()
-              ? { ...c, resultUrl: '', thumbnailPath: '' }
-              : c
-          ));
+          // RESULT UNLINK: Call API to detach + Clear local state
+          try {
+            await fetch('/api/media/unlink', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url,
+                clipId: clip.id,
+                isResult: true
+              })
+            });
+
+            // Update Local State
+            setClips(prev => prev.map(c =>
+              c.id.toString() === clip.id.toString()
+                ? { ...c, resultUrl: '', thumbnailPath: '', status: 'Ready' }
+                : c
+            ));
+
+            // Close Viewer
+            setPlayingVideoUrl(null);
+            notifyWrite();
+
+          } catch (e) {
+            console.error("Failed to unlink result", e);
+            alert("Failed to unlink result");
+          }
         } else {
-          // REFERENCE UNLINK: Remove from CSV
+          // REFERENCE UNLINK
+
+          // 1. Unlink Media Record (Best Effort)
+          try {
+            await fetch('/api/media/unlink', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url,
+                clipId: clip.id,
+                isResult: false
+              })
+            });
+          } catch (e) {
+            console.error("Failed to detach media record", e);
+          }
+
+          // 2. Remove from CSV (Legacy + UI)
           const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
           const targetPath = normalizeUrl(url);
           const next = currentRefs.filter(r => normalizeUrl(r) !== targetPath).join(',');
           await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
+
+          // 3. Close Viewer
+          setPlayingVideoUrl(null);
         }
       }
 
@@ -1157,7 +1198,8 @@ export default function Home() {
       scene: newScene,
       sortOrder: newSortOrder,
       status: 'Ready',
-      resultUrl: '',
+      resultUrl: parentClip.resultUrl, // Fix: Copy result logic
+      thumbnailPath: parentClip.thumbnailPath, // Fix: Copy thumbnail path
       taskId: '',
       refImageUrls: '',
       explicitRefUrls: parentClip.explicitRefUrls // Keep explicit refs
@@ -1656,110 +1698,72 @@ export default function Home() {
             setPlayingVideoUrl(null); // Close player
           } else if (uniqueId.startsWith('lib-')) {
             const id = uniqueId.replace('lib-', '');
-            markLibraryItemDeleted(id);
-            setPlayingVideoUrl(null); // Close player
-            await fetch('/api/library', {
-              method: 'DELETE',
+            await markLibraryItemDeleted(id);
+          }
+        }}
+        onAddAsRef={async (url, targetClipId, mode, sourceClipId) => {
+          // Robust Sideload Implementation
+          console.log('[Viewer] AddAsRef:', { url, targetClipId, mode, sourceClipId });
+
+          try {
+            const res = await fetch('/api/media/add-ref', {
+              method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id })
+              body: JSON.stringify({
+                url,
+                targetClipId: targetClipId || sourceClipId, // If direct sideload, target is source
+                sourceClipId: sourceClipId // Optional, for cleaning up resultUrl
+              })
             });
+
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Failed to add reference');
+            }
+
+            const data = await res.json();
+
+            // Refresh Data to reflect changes (moved result -> ref)
+            await refreshData();
+
+            // If it was a move (Sideload), we might want to close the viewer or update the playlist
+            // But refreshData should handle the UI state.
+            // SMART ADVANCE: If other results exist, show next one. Else close.
+            const getUrl = (i: any) => (i && typeof i === 'object') ? i.url : i;
+            // Filter out the current moved url
+            const newPlaylist = playlist.filter(p => getUrl(p) !== url);
+
+            if (newPlaylist.length > 0) {
+              // Stay Open: Advance index
+              // If current was 0, next is 0 (after shift). If last, go to new last.
+              const nextIndex = currentPlayIndex >= newPlaylist.length ? newPlaylist.length - 1 : currentPlayIndex;
+              const nextItem = newPlaylist[nextIndex];
+              const nextUrl = getUrl(nextItem);
+
+              if (nextUrl) {
+                setPlaylist(newPlaylist);
+                setPlayingVideoUrl(nextUrl);
+                setCurrentPlayIndex(nextIndex);
+              } else {
+                setPlayingVideoUrl(null);
+              }
+            } else {
+              setPlayingVideoUrl(null); // Close viewer as context is empty
+            }
+
+          } catch (error) {
+            console.error('[Viewer] AddRef Failed:', error);
+            alert('Failed to add reference: ' + (error as Error).message);
           }
         }}
         onUnlink={handleUnlink}
-        clips={clips}
         ownerClipId={(() => {
-          // Find clip that owns the playing result (for direct add-as-ref on result images)
+          // Find clip that owns the playing result (fallback for direct add-as-ref on result images)
           const ownerClip = clips.find(c => c.resultUrl === playingVideoUrl);
           return ownerClip?.id.toString();
         })()}
-        onAddAsRef={async (imageUrl, targetClipId, action = 'move', sourceClipId) => {
-          try {
-            // Route to appropriate API based on action
-            const endpoint = action === 'copy' ? '/api/media/copy-ref' : '/api/media/add-ref';
 
-            const res = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: imageUrl, targetClipId, sourceClipId })
-            });
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || `Failed to ${action} reference`);
-
-            // CRITICAL: Notify that a write occurred
-            notifyWrite();
-
-            // OPTIMISTIC UPDATE: Modify local state directly to preserve scroll position
-            // Instead of refreshData() which resets scroll, we update just the affected clip(s)
-            setClips(prevClips => prevClips.map(clip => {
-              const clipIdStr = clip.id.toString();
-
-              // Target clip: Add the image to its refs
-              if (clipIdStr === targetClipId.toString()) {
-                const normUrl = normalizeUrl(imageUrl);
-
-                // 1. CSV Update (Legacy)
-                const currentRefs = (clip.refImageUrls || '').split(',').filter(Boolean);
-                const existsInCsv = currentRefs.some(r => normalizeUrl(r) === normUrl);
-                if (!existsInCsv) {
-                  currentRefs.push(imageUrl);
-                }
-
-                // 2. Media References Update (Rich)
-                // Fix: Check for duplicates before adding to prevent consistent UI duplication
-                let nextMediaRefs = clip.mediaReferences || [];
-                // @ts-ignore
-                const existsInMedia = nextMediaRefs.some(m => normalizeUrl(m.url) === normUrl);
-
-                if (!existsInMedia) {
-                  nextMediaRefs = [...nextMediaRefs, {
-                    url: imageUrl,
-                    id: `temp-${Date.now()}`,
-                    type: 'IMAGE',
-                    category: 'REFERENCE'
-                  }];
-                }
-
-                return {
-                  ...clip,
-                  refImageUrls: currentRefs.join(','),
-                  mediaReferences: nextMediaRefs as any
-                };
-              }
-
-              // Source clip (if move): Clear its resultUrl
-              if (action === 'move' && sourceClipId && clipIdStr === sourceClipId.toString()) {
-                return {
-                  ...clip,
-                  resultUrl: '',
-                  thumbnailPath: ''
-                };
-              }
-
-              return clip;
-            }));
-
-            // NO refreshData() - preserves scroll position!
-            // The next manual refresh or navigation will sync with server.
-
-            // Switch context to target clip's episode (only if different)
-            const targetClip = clips.find(c => c.id.toString() === targetClipId.toString());
-            if (targetClip && targetClip.episode) {
-              const epIndex = sortedEpKeys.indexOf(targetClip.episode);
-              if (epIndex !== -1 && (epIndex + 1) !== currentEpisode) {
-                setCurrentEpisode(epIndex + 1);
-              }
-            }
-
-            // Close viewer
-            setPlayingVideoUrl(null);
-            setPlaylist([]);
-
-          } catch (e: any) {
-            console.error('[AddAsRef] Error:', e);
-            alert(`Failed to ${action} reference: ${e.message}`);
-          }
-        }}
       />
 
       {/* Header */}
@@ -2188,7 +2192,13 @@ export default function Home() {
                   setPlayingVideoUrl(url);
                   if (contextPlaylist && contextPlaylist.length > 0) {
                     setPlaylist(contextPlaylist);
-                    setCurrentPlayIndex(contextPlaylist.indexOf(url));
+                    // Handle Rich Playlist (UniversalMediaItem[])
+                    if (typeof contextPlaylist[0] === 'object') {
+                      const index = contextPlaylist.findIndex((p: any) => p.url === url);
+                      setCurrentPlayIndex(index !== -1 ? index : 0);
+                    } else {
+                      setCurrentPlayIndex(contextPlaylist.indexOf(url));
+                    }
                   } else {
                     setPlaylist([url]);
                     setCurrentPlayIndex(0);

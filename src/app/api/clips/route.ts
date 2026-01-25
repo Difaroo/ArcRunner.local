@@ -265,21 +265,31 @@ export async function POST(req: Request) {
         });
 
         // Async Thumbnail Generation
-        // @ts-ignore
         if (newClip.resultUrl) {
-            // @ts-ignore
+            // 1. Generate Thumbnail (Async)
             generateThumbnail(newClip.resultUrl, newClip.id.toString())
                 .then(async (thumbnailPath) => {
                     if (thumbnailPath) {
                         await db.clip.update({
-                            // @ts-ignore
                             where: { id: newClip.id },
                             data: { thumbnailPath }
                         });
-                        // @ts-ignore
                         console.log(`Thumbnail generated for NEW clip ${newClip.id}: ${thumbnailPath}`);
                     }
                 });
+
+            // 2. Create Media Record (CRITICAL for GET to see it)
+            // We trust the URL provided (Cloning/Sideloading scenario)
+            await db.media.create({
+                data: {
+                    url: newClip.resultUrl,
+                    type: 'VIDEO', // Default to Video for Results upon cloning, or check ext? 
+                    // Actually, let's assume video if usually generated. Or regex.
+                    category: 'RESULT',
+                    resultForClipId: newClip.id,
+                    episodeId: dbEpisode.id
+                }
+            });
         }
 
         return NextResponse.json({
