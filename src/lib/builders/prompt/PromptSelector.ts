@@ -48,19 +48,18 @@ export class PromptSelector {
 
         let selectedImages: string[] = [];
 
-        // --- KLING: Latest Ref Image Only ---
+        // --- KLING: Latest Filtered Ref Image Only ---
         if (isKlingModel) {
-            if (explicitImages && explicitImages.length > 0) {
-                // explicitImages[0] is latest (reverse sorted)
-                selectedImages = [explicitImages[0]];
+            // STRICT RULE: Kling requires Manual Reference Image. No Fallbacks.
+            // Robustness: Filter out failed uploads ("") or short junk
+            const validExplicit = explicitImages?.filter(u => u && u.length > 5) || [];
+
+            if (validExplicit.length > 0) {
+                // validExplicit[0] is latest (reverse sorted)
+                selectedImages = [validExplicit[0]];
                 refImgIndices.push(1);
-            } else if (characterImages && characterImages.length > 0) {
-                selectedImages = [characterImages[0]];
-                charImgIndices[0] = 1;
-            } else if (locationImages && locationImages.length > 0) {
-                selectedImages = [locationImages[0]];
-                locImgIdx = 1;
             }
+            // If no explicit ref, selectedImages remains [], causing Builder to throw Validation Error.
         }
         // --- S2E: Start + End Frames ---
         else if (isS2E) {

@@ -96,7 +96,7 @@ When resolving multiple images for generation, the system fills slots in this pr
 -   **Minimalist Schema**: Kling uses a special "Minimalist" prompt structure.
     -   **Content**: Only the `Action` and `Camera` instructions are sent as text.
     -   **Visuals**: Visual details (Characters, Locations) are derived **100%** from the Reference Image. Text bios are omitted to prevent token bloat and hallucinations.
-    -   **Implication**: You MUST provide a Reference Image (or rely on the auto-resolved Location/Character images) for Kling to work correctly.
+    -   **Strict Requirement (v0.25+)**: You MUST provide a **Manual Reference Image** (Drag & Drop or Upload). The system will now Block generation (Error 400) if no explicit reference is found, to prevent wasted credits. Studio Defaults (Characters/Locations) are **NOT supported** for this model.
 -   **Explicit Resolution**: Fix applied (v0.17.4) allowing local "Generated Clips" (`/media/clips/`) to be used as Reference Images without error.
 
 ### Start Frame Intelligence (v0.17.3 - Image Models Only)
@@ -138,7 +138,7 @@ Refine your clips with seamless Drag & Drop actions directly in the standard vie
 ### Architecture Note: Media-First (v0.23.0)
 As of v0.23.0, the system stores all media links in a relational `Media` table directly linked to Episodes.
 -   **Episode-Based Ownership**: Media items belong to an Episode, not just a Clip. This means "unlinking" a media item from a clip does not delete it; it returns to the Episode Gallery.
--   **Unified Playlist**: Clicking a Reference Image in the Clip Table now opens a playlist that *includes* the Result (if one exists), allowing for seamless swiping between Result and References.
+-   **Unified Playlist**: Clicking a Reference Image in the Clip Table now opens a playlist that *includes* the Result, Explicit References, and all resolved Character/Location images, allowing for seamless swiping throughout the entire row context.
 -   **Safe Unlinking**: Unlinking a Result now correctly clears the "ghost" thumbnail and resets the Clip status to Ready, ensuring you never see stale data.
 -   **Legacy CSV columns** (`resultUrl`, `refImageUrls`) are **deprecated** and no longer written to.
 

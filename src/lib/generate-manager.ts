@@ -140,7 +140,52 @@ export class GenerateManager {
                 }
             }
         }
+        console.log(`[GenerateManager] StartTask: Model='${model}' -> ApiStrategy='${apiType}' -> ConfigID='${config.id}'`);
 
+        // --- DB SOURCE OF TRUTH ---
+        // Fetch the Clip + MediaReferences directly from DB to ensure we have the correct files.
+        // Do not trust the frontend 'refImageUrls' string blindly.
+        const dbClip = await db.clip.findUnique({
+            where: { id: parseInt(String(input.clipId)) },
+            include: { mediaReferences: true }
+        });
+
+        if (!dbClip) throw new Error(`Clip ID ${input.clipId} not found in DB`);
+
+        // Merge DB data back into input context if needed, or just use it below
+        // input.clip = dbClip; // Caution: dbClip might have different shape/types than InputClip interface?
+
+        // --- RESOLVER PHASE ---
+        // 2. Resolve Explicit References from Media Relations (The "One True Place")
+        let explicitRefPaths: string[] = [];
+
+        if (dbClip.mediaReferences && dbClip.mediaReferences.length > 0) {
+            // Sort by CreatedAt Descending (Latest First)
+            const sortedRefs = dbClip.mediaReferences.sort((a, b) => {
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
+
+            // Extract valid paths
+            explicitRefPaths = sortedRefs.map(m => {
+                // FAST PATH: If we have a valid Remote URL, use it to avoid expensive re-upload (Timeout Fix)
+                if (m.url && m.url.startsWith('http')) {
+                    return m.url;
+                }
+                // PREFER localPath if it exists (Absolute connection to disk)
+                if (m.localPath && fs.existsSync(m.localPath)) {
+                    return m.localPath;
+                }
+                // Fallback to URL (Local /api/ path)
+                return m.url;
+            });
+            console.log(`[GenerateManager] Resolved ${explicitRefPaths.length} Media References from DB Relations.`);
+        } else {
+            // Fallback to Legacy CSV if no relations (Backward Compat)
+            const rawExplicit = (input.clip.refImageUrls || "").split(',').map((s: string) => s.trim()).filter(Boolean).reverse();
+            explicitRefPaths = rawExplicit;
+        }
+
+        // ... ensureList logic will handle both Absolute Paths and URLs ...
         const libraryItems = await db.studioItem.findMany({
             where: { seriesId: input.seriesId },
             include: {
@@ -297,10 +342,9 @@ export class GenerateManager {
             const rawLocUrls = locationImageUrls; // From shared-resolver
             const publicLocImages = await ensureList(rawLocUrls);
 
-            // Explicit Images (Clip Refs) - Note: shared-resolver mixing explicit+lib is tricky.
-            // resolveClipImages returns 'explicitRefs' as comma-joined string.
-            const rawExplicit = (input.clip.explicitRefUrls || input.clip.refImageUrls || "").split(',').map((s: string) => s.trim()).filter(Boolean);
-            const publicExplicitImages = await ensureList(rawExplicit);
+            // Explicit Images (Prioritize DB Media Relations)
+            // We resolved 'explicitRefPaths' earlier from the DB Source of Truth.
+            const publicExplicitImages = await ensureList(explicitRefPaths);
 
             // Legacy Fallback (keeping fullRefs for safety if needed, but PromptConstructor should use granular)
             let publicImageUrls: string[] = [];
@@ -485,7 +529,6 @@ export class GenerateManager {
             throw error;
         }
     }
-
     // Helper: Build basic prompt if not provided
     private buildPrompt(clip: any, model?: string): string {
         return `Cinematic shot. ${clip.action || ''} ${clip.dialog ? `Character says: "${clip.dialog}"` : ''}. ${clip.style || ''}. ${clip.camera || ''}. High quality.`;
@@ -516,25 +559,62 @@ export class GenerateManager {
     /**
      * Resolves local URLs (starting with /api/) to public URLs by uploading to Kie.
      */
-    private async ensurePublicUrl(url: string): Promise<string> {
+    private async ensurePublicUrl(rawUrl: string): Promise<string> {
+        const url = rawUrl.trim();
         if (url.startsWith('http')) return encodeURI(url);
 
-        // Detect Local Path
+        // Detect Absolute Path (from DB localPath)
         let filePath = '';
-        if (url.startsWith('/api/media/uploads/')) {
-            const filename = url.replace('/api/media/uploads/', '');
+        if (path.isAbsolute(url) && fs.existsSync(url)) {
+            filePath = url;
+        }
+        // Detect Local URL Path
+        else if (url.startsWith('/api/media/uploads/')) {
+            const filename = decodeURIComponent(url.replace('/api/media/uploads/', ''));
             filePath = path.join(process.cwd(), 'storage/media/uploads', filename);
         } else if (url.startsWith('/api/images/')) {
-            const filename = url.replace('/api/images/', '');
+            const filename = decodeURIComponent(url.replace('/api/images/', ''));
             filePath = path.join(process.cwd(), 'storage/media/uploads', filename);
         } else if (url.startsWith('/media/library/')) {
             // Fix: Map /media/library to public/media/library
-            const filename = url.replace('/media/library/', '');
+            const filename = decodeURIComponent(url.replace('/media/library/', ''));
             filePath = path.join(process.cwd(), 'public/media/library', filename);
         } else if (url.startsWith('/media/clips/')) {
             // Fix: Map /media/clips to public/media/clips (Legacy/Generated paths)
-            const filename = url.replace('/media/clips/', '');
+            const filename = decodeURIComponent(url.replace('/media/clips/', ''));
             filePath = path.join(process.cwd(), 'public/media/clips', filename);
+        } else if (url.startsWith('/api/media/clips/')) {
+            // Fix: Map /api/media/clips to storage/media/clips (Found via search)
+            const filename = decodeURIComponent(url.replace('/api/media/clips/', ''));
+            filePath = path.join(process.cwd(), 'storage/media/clips', filename);
+        } else if (url.startsWith('/media/uploads/')) {
+            // Fix: Missing Handler for legacy direct uploads path
+            const filename = decodeURIComponent(url.replace('/media/uploads/', ''));
+            // Check both Public and Storage locations
+            const publicPath = path.join(process.cwd(), 'public/media/uploads', filename);
+            const storagePath = path.join(process.cwd(), 'storage/media/uploads', filename); // Fallback
+            filePath = fs.existsSync(publicPath) ? publicPath : storagePath;
+        }
+
+        // --- ROBUSTNESS: Fuzzy Search if path not resolved or file missing ---
+        if (!filePath || !fs.existsSync(filePath)) {
+            const basename = decodeURIComponent(path.basename(url));
+            const candidateDirs = [
+                path.join(process.cwd(), 'storage/media/uploads'),
+                path.join(process.cwd(), 'storage/media/generated'),
+                path.join(process.cwd(), 'public/media/clips'),
+                path.join(process.cwd(), 'public/media/library'),
+                path.join(process.cwd(), 'public/media/uploads')
+            ];
+
+            for (const dir of candidateDirs) {
+                const candidate = path.join(dir, basename);
+                if (fs.existsSync(candidate)) {
+                    // console.log(`[GenerateManager] Fuzzy Resolved '${url}' -> '${candidate}'`);
+                    filePath = candidate;
+                    break;
+                }
+            }
         }
 
         if (filePath && fs.existsSync(filePath)) {

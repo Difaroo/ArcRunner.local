@@ -699,7 +699,7 @@ export default function Home() {
     setSelectedIds,
     toggleSelect,
     toggleSelectAll
-  } = useSharedSelection(activeClips);
+  } = useSharedSelection(activeClips, 'episode_selection');
 
   // --- Library Selection Logic ---
   // Determine displayed library items

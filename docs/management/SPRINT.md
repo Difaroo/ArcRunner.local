@@ -1,9 +1,7 @@
 # SPRINT BACKLOG
 
-## Current Sprint (Next)
-- [ ] **Mobile View**: Responsive polish for tablet usage.
-- [ ] **Prompt Playground**: Dedicated sandbox for testing prompt structures.
+## Current Sprint (v0.25.x+)
+- [ ] Planning next tasks...
 
 ## Backlog
 See [BACKLOG.md](./BACKLOG.md)
-

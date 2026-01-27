@@ -2,6 +2,21 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-26: v0.25.1 - Peregrine (Strict Refs & Performance)
+
+### Context
+A critical fix release enforcing data integrity for Kling generation and resolving batch performance bottlenecks. It also restores the full "Chevrons" capability for cycling through all attached media.
+
+### Changes
+- **Kling Strict Mode**:
+    - **Validation**: Enforces presence of **Explicit Reference Images** (Drag & Drop) for Kling generation. Returns 400 Bad Request if missing, preventing failed credits.
+    - **Performance**: Optimizes batch processing by using existing Remote URLs (`http`) from the DB instead of re-uploading local files, eliminating 30s timeouts.
+- **Universal Viewer**:
+    - **Playlist Restoration**: Fixed `ClipRow` logic to restore cycling through *all* attached images: Result Video -> Explicit Refs -> Character Refs -> Location Refs.
+- **Verification**:
+    - **Tested**: Render functions tested for Nano and Kling (Confirmed Working). Veo pending.
+- **Version Bump**: 0.25.0 -> 0.25.1.
+
 ## 2026-01-25: v0.25.0 - Peregrine (Viewer Stability & Prompt Fixes)
 
 ### Context

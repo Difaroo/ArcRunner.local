@@ -32,30 +32,20 @@ export class PayloadBuilderKling implements PayloadBuilder {
         }
 
         // 2. Image Handling
-        // STRICT REQUIREMENT: Kling only uses EXPLICIT Reference Images.
-        // It does NOT use implied Character/Location images from the Studio.
-        const selectedImages: string[] = [];
+        // 2. Image Handling
+        // RELAXED CONSTRAINT: Use centralized PromptSelector logic.
+        // It prioritizes Explicit > Character > Location and limits to 1 image for Kling.
+        let selectedImages = imageUrls;
 
-        // User Request: "I don't want to remove chars and location... bc I may need to rerender in nano again."
-        // Solution: If an Explicit Image (Ref Image) exists, force Kling to use THAT instead of the Character/Location image.
-
-        // Robustness: Filter out empty strings that might creep in from "zombie" references or UI artifacts
-        const validExplicit = (context.explicitImages || [])
-            .filter(u => u && u.trim().length > 0);
-
-        if (validExplicit.length > 0) {
-            console.log(`[PayloadBuilderKling] Using Explicit Reference: ${validExplicit[0]}`);
-            selectedImages.push(validExplicit[0]);
-        } else {
-            // If no explicit image, we CANNOT proceed.
-            console.warn('[PayloadBuilderKling] No Explicit Reference Image found (filtered empty).');
+        if (!selectedImages || selectedImages.length === 0) {
+            console.warn('[PayloadBuilderKling] No Image resolved.');
             throw new Error('Kling requires a Manual Reference Image (Sideload/Paste). Studio Defaults (Characters/Locations) are not supported for this model.');
         }
 
-        // Just sanity check, though logic above guarantees 1
+        // Defensive: Kling API only accepts 1 image
         if (selectedImages.length > 1) {
-            console.warn(`[PayloadBuilderKling] Multiple explicit images found? Using first only.`);
-            selectedImages.splice(1);
+            console.warn(`[PayloadBuilderKling] Multiple images resolved for Kling? Using first only.`);
+            selectedImages = [selectedImages[0]];
         }
 
         // 3. Duration Logic
@@ -98,9 +88,23 @@ export class PayloadBuilderKling implements PayloadBuilder {
             model: model,
             input: {
                 prompt: finalPrompt || "Video", // Fallback
-                image_urls: selectedImages,
+
+                // Unified Image Field
+                image: selectedImages[0],
+                image_urls: selectedImages, // Legacy Array support
+                start_image: selectedImages[0], // Explicit I2V
+
+                // Standard Fields
+                aspect_ratio: input.aspectRatio || "16:9",
+                resolution: "1080p",
+                mode: 'std', // Standard Mode (often required)
+                cfg_scale: 0.5, // Standard Guidance
+
                 sound: sound,
-                duration: duration
+                duration: duration,
+
+                // Always send negative_prompt (even if empty) to satisfy validator
+                negative_prompt: negativePrompt || ""
             }
         };
         console.log('[PayloadBuilderKling] Final Payload:', JSON.stringify(payload, null, 2));

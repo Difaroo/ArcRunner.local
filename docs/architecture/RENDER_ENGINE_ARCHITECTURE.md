@@ -1,4 +1,4 @@
-# ArcRunner Render Engine Architecture (v0.17.1)
+# ArcRunner Render Engine Architecture (v0.25.1)
 
 ## Architecture Overview
 The ArcRunner Render Engine is a high-availability polling infrastructure designed to bridge the gap between a stateful React UI and the asynchronous Kie.ai Generation API. It prioritizes **Data Integrity**, **Self-Healing**, and **User Visibility**.
@@ -40,20 +40,20 @@ A critical defensive layer ensuring UI edits do not corrupt generation data.
 -   **Frontend**: `ClipRow` ignores system fields (`resultUrl`, `status`) during text edits.
 -   **Backend**: API Route (`/update_clip`) rejects any payload attempting to overwrite protected fields during a "Generation" cycle.
 
-### 4. Universal Media Viewer (v0.17.1)
+### 4. Universal Media Viewer (v0.25.1)
 The centralized display engine.
 -   **Hybrid Playlist**: Constructs a unified playlist of [Result URL, Explicit Refs, Auto-Resolved Refs] for comprehensive review.
--   **Smart Actions**: "Sideload" and "Unlink" actions now correctly append/remove URLs from the persistence layer without overwriting existing data.
-    *   **Sideload Purity**: When sideloading (using "Airplay" icon), the system filters out auto-resolved Studio images (Characters/Locations) from the snapshot, preventing "Studio Defaults" from being baked into the explicit reference list.
--   **Z-Index Layout**: High-priority overlay (`z-[9999]`), but strictly below Critical Alerts (`z-[10000]`).
+-   **Full Cycle**: Restored capability to cycle through ALL attached images (Characters, Locations, References, Results) in one go.
+-   **Smart Actions**: "Sideload" and "Unlink" actions correctly append/remove URLs from the persistence layer.
 
 ## Reference Logic (Evolution)
 -   **v0.1**: Single URL.
 -   **v0.10**: Comma-Separated String (`url1,url2`).
--   **v0.16**: "Hybrid" Logic:
-    -   `explicitRefUrls`: User-added images (Always Shown).
-    -   `refImageUrls`: Legacy/Resolved images (Filtered if duplicates).
--   **v0.17**: **Unified Sync**: Edit Mode now writes to BOTH fields to ensure backward compatibility while preserving explicit user intent.
+-   **v0.16**: "Hybrid" Logic (Explicit vs Legacy).
+-   **v0.25 (Strict Mode)**: 
+    -   **Kling**: Requires **Explicit Media Relation** (Drag & Drop) or fails validation (400 Bad Request). No implicit fallback to Characters.
+    -   **Flux/Nano**: Supports hybrid/implicit references.
+    -   **Performance**: DB Relations with valid Remote URLs (`http`) are used directly, bypassing the 30s upload phase to prevent Batch Timeouts.
 
 ## Download Strategy (v0.17.1)
 -   **Format**: `[SCENE] [TITLE] [VER].ext` (e.g., `3.1 Explosion v1.mp4`).

@@ -30,6 +30,12 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error('API Error:', error);
+
+        // Return 400/422 for known validation errors to avoid "Internal Server Error" panic
+        if (error.message.includes('Kling requires') || error.message.includes('Builder Error')) {
+            return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+
         return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
     }
 }

@@ -359,6 +359,15 @@ export class KlingStrategy implements KieStrategy {
     getType(): 'flux' | 'veo' | 'nano' | 'kling' { return 'kling'; }
 
     async createTask(payload: KlingPayload): Promise<{ taskId: string, rawData: any }> {
+        // DEBUG: Write payload to file for analysis
+        try {
+            const logPath = path.join(process.cwd(), 'debug_kling_payload.json');
+            fs.writeFileSync(logPath, JSON.stringify(payload, null, 2));
+            console.log(`[KlingStrategy] Payload dumped to ${logPath}`);
+        } catch (e) {
+            console.error('[KlingStrategy] Failed to write debug log', e);
+        }
+
         const res = await kieFetch<any>('/jobs/createTask', { method: 'POST', body: payload });
         const taskId = res.data?.taskId || res.taskId || res.jobId || res.task_id || '';
         return { taskId, rawData: res };

@@ -708,6 +708,16 @@ export function ClipRow({
                                             fullPlaylist = [resultItem, ...refItems];
                                         }
 
+                                        // 3. Append Character/Location Images (Restore missing items)
+                                        const charItems = (clip.characterImageUrls || []).map(u => ({
+                                            id: u, url: u, type: 'image' as const, title: 'Character Ref', isReference: true
+                                        }));
+                                        const locItems = (clip.locationImageUrls || []).map(u => ({
+                                            id: u, url: u, type: 'image' as const, title: 'Location Ref', isReference: true
+                                        }));
+
+                                        fullPlaylist = [...fullPlaylist, ...charItems, ...locItems];
+
                                         onPlay(clickedUrl, fullPlaylist);
                                     }}
                                     draggable="true"
@@ -759,8 +769,13 @@ export function ClipRow({
                                         : 'image'
                                 }
                                 onPlay={(url) => {
-                                    const allRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);
-                                    const fullPlaylist = [url, ...allRefs];
+                                    // RESTORED: Include Characters and Locations in Playlist
+                                    const explicitRefs = getCleanExplicitRefs();
+                                    const charImages = clip.characterImageUrls || [];
+                                    const locImages = clip.locationImageUrls || [];
+
+                                    // Unified Playlist: Result -> Explicit -> Chars -> Locs
+                                    const fullPlaylist = [url, ...explicitRefs, ...charImages, ...locImages].filter(Boolean);
                                     onPlay(url, fullPlaylist);
                                 }}
                                 className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
