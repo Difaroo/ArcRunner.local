@@ -94,8 +94,14 @@ export class NanoSchema implements PromptSchema {
         if (locationAsset) {
             const locIndex = manifest.slots.location;
             const imgRef = locIndex > 0 ? `: IMAGE ${locIndex}` : "";
-            // Removed inline negatives
-            prompt += `LOCATION: ${locationAsset.name}${imgRef}: [${locationAsset.description}].\n\n`;
+
+            // COHERENCE FIX: Inject strict adherence to the image to prevent hallucination
+            let desc = locationAsset.description;
+            if (locIndex > 0) {
+                desc = `Strictly follow the composition, architecture, and crowd layout of IMAGE ${locIndex}. Use IMAGE ${locIndex} as the absolute ground truth for the scene background and lighting. ${desc}`;
+            }
+
+            prompt += `LOCATION: ${locationAsset.name}${imgRef}: [${desc}].\n\n`;
         } else if (input.clip.location) {
             prompt += `LOCATION: ${input.clip.location}: [${input.clip.location}].\n\n`;
         }

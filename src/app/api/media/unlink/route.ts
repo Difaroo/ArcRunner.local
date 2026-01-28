@@ -69,21 +69,25 @@ export async function POST(req: NextRequest) {
 
         if (isResult) {
             updateData.resultForClipId = null;
-            console.log(`[Unlink] Detaching RESULT Media ${media.id} from Clip ${media.resultForClipId}`);
+            console.log(`[Unlink] Detaching RESULT Media ${media.id} from Clip ${media.resultForClipId || clipIdNum}`);
 
-            // CRITICAL: Also update the Clip to clear legacy fields and thumbnail
-            // The frontend relies on thumbnailPath/resultUrl, so we must clear them.
-            if (media.resultForClipId) {
+            // CRITICAL: Update the Clip to clear legacy fields.
+            // FALCON FIX: Use the requested clipId (if available) as the primary target 
+            // to ensure we clear the specific clip user interacted with, 
+            // even if the Media record was already partially detached/orphaned.
+            const targetClipId = media.resultForClipId || clipIdNum;
+
+            if (targetClipId) {
                 await db.clip.update({
-                    where: { id: media.resultForClipId },
+                    where: { id: targetClipId },
                     data: {
                         resultUrl: '',
                         thumbnailPath: '',
-                        taskId: '', // Clear task ID so polling stops/resets
-                        status: 'Ready' // Reset status to Ready
+                        taskId: '', // Clear task ID
+                        status: 'Ready' // Reset status
                     }
                 });
-                console.log(`[Unlink] Cleared Clip ${media.resultForClipId} fields (thumbnail, result, status)`);
+                console.log(`[Unlink] Cleared Clip ${targetClipId} fields (thumbnail, result, status)`);
             }
 
         } else {

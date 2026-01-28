@@ -6,8 +6,8 @@ const manager = new GenerateManager();
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        // page.tsx sends: { clip, library, model, aspectRatio, rowIndex, seed }
-        const { clip, model, aspectRatio, seed, startFrame } = body;
+        // page.tsx sends: { clip, library, model, aspectRatio, rowIndex, seed, sound }
+        const { clip, model, aspectRatio, seed, startFrame, sound } = body;
 
         // Validate inputs
         if (!clip || !clip.id) {
@@ -21,6 +21,7 @@ export async function POST(req: Request) {
             aspectRatio: aspectRatio,
             seed: seed ? parseInt(String(seed)) : undefined,
             startFrame: startFrame,
+            sound: sound,
             clip: clip
         };
 

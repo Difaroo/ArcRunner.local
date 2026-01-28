@@ -3,6 +3,7 @@ import { Clip } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Eye, EyeOff } from "lucide-react"
 import { MediaDisplay } from "@/components/media/MediaDisplay"
+import { parseStringList } from "@/lib/utils/string-helpers"
 
 interface StoryboardCardProps {
     clip: Clip
@@ -13,7 +14,18 @@ interface StoryboardCardProps {
 export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: StoryboardCardProps) {
     const isHidden = clip.isHiddenInStoryboard;
 
+    // Helper: Determine Display Image (Result > Thumbnail > First Ref)
+    const getDisplayImage = () => {
+        if (clip.thumbnailPath) return { url: clip.thumbnailPath, isFallback: false };
+        if (clip.resultUrl) return { url: clip.resultUrl, isFallback: false };
 
+        const refs = parseStringList(clip.explicitRefUrls || clip.refImageUrls || '');
+        if (refs.length > 0) return { url: refs[0], isFallback: true };
+
+        return null;
+    };
+
+    const displayImage = getDisplayImage();
 
     if (printLayout === '6x1') {
         return (
@@ -21,15 +33,15 @@ export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: Stor
                 {/* 1. Thumbnail Column */}
                 <div className="w-[160px] flex-shrink-0">
                     <div className={`aspect-video w-full rounded overflow-hidden border border-black bg-white ${isHidden ? 'opacity-50 grayscale' : ''}`}>
-                        {clip.thumbnailPath || clip.resultUrl ? (
+                        {displayImage ? (
                             <MediaDisplay
-                                url={clip.thumbnailPath || clip.resultUrl!}
-                                originalUrl={clip.resultUrl || undefined}
+                                url={displayImage.url}
+                                originalUrl={displayImage.isFallback ? undefined : clip.resultUrl}
                                 model={clip.model || ''}
                                 title={clip.title || clip.scene || 'Clip'}
                                 // onPlay removed to use internal modal
-                                isThumbnail={!!clip.thumbnailPath}
-                                className="w-full h-full object-cover"
+                                isThumbnail={!displayImage.isFallback && !!clip.thumbnailPath}
+                                className={`w-full h-full object-cover ${displayImage.isFallback ? 'opacity-90' : ''}`}
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gray-100">
@@ -52,7 +64,7 @@ export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: Stor
                 {/* 4. Dialog Column */}
                 <div className="flex-1 text-xs font-sans pt-1 text-black leading-relaxed border-l border-gray-200 pl-4">
                     {clip.dialog && (
-                        <span>&quot;{clip.dialog}&quot;</span>
+                        <span>{clip.dialog}</span>
                     )}
                 </div>
 
@@ -106,15 +118,15 @@ export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: Stor
                         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-2"></div>
                         <span className="text-xs font-mono text-primary animate-pulse">GENERATING</span>
                     </div>
-                ) : (clip.thumbnailPath || clip.resultUrl ? (
+                ) : (displayImage ? (
                     <MediaDisplay
-                        url={clip.thumbnailPath || clip.resultUrl!}
-                        originalUrl={clip.resultUrl || undefined}
+                        url={displayImage.url}
+                        originalUrl={displayImage.isFallback ? undefined : clip.resultUrl}
                         model={clip.model || ''}
                         title={clip.title || clip.scene || 'Clip'}
                         // onPlay removed to use internal modal
-                        isThumbnail={!!clip.thumbnailPath}
-                        className="w-full h-full object-cover"
+                        isThumbnail={!displayImage.isFallback && !!clip.thumbnailPath}
+                        className={`w-full h-full object-cover ${displayImage.isFallback ? 'opacity-90' : ''}`}
                     />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-stone-700 bg-transparent print:!bg-white print:!bg-none [print-color-adjust:economy]">
@@ -131,7 +143,7 @@ export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: Stor
             {/* Dialog (Hidden in Landscape 3x2 Print) */}
             {clip.dialog && (
                 <div className={`mt-2 text-xs font-sans print:text-stone-600 ${isHidden ? 'text-stone-700' : 'text-stone-400'} ${printLayout === '3x2' ? 'print:hidden' : ''}`}>
-                    &quot;{clip.dialog}&quot;
+                    {clip.dialog}
                 </div>
             )}
         </div>

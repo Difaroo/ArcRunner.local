@@ -2,6 +2,26 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-28: v0.26.0 - Peregrine (Strict Sort & Integrity)
+
+### Context
+A feature and stability release addressing the Media Gallery's sorting logic and generation integrity. We implemented "Strict Clip-Order Sorting" using Raw SQL to ensure the gallery perfectly mirrors the Episode Board's drag-and-drop order. We also hardened the generation pipeline to prevent "Start Frame" logic from accidentally filtering out valid characters.
+
+### Features
+- **Strict Media Sorting (Raw SQL)**:
+    - **Logic**: Replaced ORM sorting with a Raw SQL query: `Series -> Episode -> Clip SortOrder -> Time`.
+    - **Benefit**: "Result" videos and "Reference" images for the same scene now always appear together, interleaved correctly even after reordering scenes.
+- **Generation Logic**:
+    - **Start Frame Fix**: Disabled aggressive character filtering in `GenerateManager`. Characters are now always attached to the payload, preventing false negatives where "Name (Suffix)" mismatches caused characters to be dropped.
+    - **Media Integrity**: Updated `GenerateManager` to ensure all generated results create a `Media` record with an `episodeId`, fixing visibility bugs in the gallery.
+- **Data Safety**:
+    - **Unlink Logic**: Updated `handleUnlink` (Studio Item Context) to remove the Studio Item's *Name* from clipped metadata fields instead of deleting the asset itself.
+
+### Version Bump
+- **Minor**: 0.25.1 -> 0.26.0.
+
+---
+
 ## 2026-01-26: v0.25.1 - Peregrine (Strict Refs & Performance)
 
 ### Context

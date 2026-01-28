@@ -72,20 +72,52 @@ export function ClipTable({
     const [orderedClips, setOrderedClips] = useState(clips)
 
     useEffect(() => {
-        // Smarter Update: Preserve current sort order, but update data content
         setOrderedClips(currentOrdered => {
             const clipMap = new Map(clips.map(c => [c.id, c]))
 
-            // 1. Update existing items in their current order
-            const updated = currentOrdered
-                .filter(c => clipMap.has(c.id))
-                .map(c => clipMap.get(c.id)!)
+            // 1. Refresh existing items with new data (preserve current order)
+            const updatedOrdered = currentOrdered
+                .map(c => clipMap.get(c.id))
+                .filter((c): c is Clip => !!c);
 
-            // 2. Identify and Append new items (additions)
             const currentIds = new Set(currentOrdered.map(c => c.id))
             const newItems = clips.filter(c => !currentIds.has(c.id))
 
-            return [...updated, ...newItems]
+            if (newItems.length === 0) {
+                // If only updates/deletions happened, return updated list
+                if (updatedOrdered.length === currentOrdered.length) return updatedOrdered; // No structural changes, just data updates? Actually reference equality check is better but this is fine.
+                return updatedOrdered;
+            }
+
+            // 2. Smart Insertion: Insert new items relative to their position in source 'clips'
+            let finalOrdered = [...updatedOrdered];
+
+            newItems.forEach(newItem => {
+                // Find index in source 'clips'
+                const sourceIndex = clips.findIndex(c => c.id === newItem.id);
+
+                if (sourceIndex <= 0) {
+                    // Start of list or not found (safety)
+                    finalOrdered.unshift(newItem);
+                } else {
+                    // Find preceding neighbor in source list
+                    const neighbor = clips[sourceIndex - 1];
+                    // Find where that neighbor is in our local ordered list
+                    const neighborIndex = finalOrdered.findIndex(c => c.id === neighbor.id);
+
+                    if (neighborIndex !== -1) {
+                        // Insert immediately after the neighbor
+                        finalOrdered.splice(neighborIndex + 1, 0, newItem);
+                    } else {
+                        // Neighbor key missing from ordered list? (Complex case)
+                        // Fallback: Append to end or try to find next neighbor?
+                        // Simplest robust fallback: Push to end.
+                        finalOrdered.push(newItem);
+                    }
+                }
+            });
+
+            return finalOrdered;
         })
     }, [clips])
 

@@ -117,7 +117,9 @@ export class GenerateManager {
                     input.clip.action = firstSentence;
 
                     // CHARACTER INTELLIGENCE: Filter Characters based on First Sentence
-                    // Goal: Prevent "Character Bleeding" (e.g. Character mentioned later in action appearing in start frame)
+                    // DISABLED (v0.18): Causing false negatives with partial name matches (e.g. "Name (Suffix)" vs "Name").
+                    // Better to bleed characters than to miss them.
+                    /*
                     if (input.clip.character) {
                         const originalChars = input.clip.character.split(',').map(s => s.trim()).filter(Boolean);
                         const filteredChars = originalChars.filter(charName => {
@@ -133,6 +135,7 @@ export class GenerateManager {
                         console.log(`[GenerateManager] Start Frame Intelligence: Filtering Characters.\nOriginal: ${originalChars.join(', ')}\nFiltered: ${filteredChars.join(', ')}`);
                         input.clip.character = filteredChars.join(', ');
                     }
+                    */
 
                 } else {
                     // No punctuation? Use whole string but log it
@@ -550,10 +553,36 @@ export class GenerateManager {
     }
 
     private async updateResult(clipId: string, result: string, status: string) {
-        await db.clip.update({
-            where: { id: parseInt(clipId) },
-            data: { resultUrl: result, status } // Now we update resultUrl only on success
+        const id = parseInt(clipId);
+
+        // 1. Update Clip (Legacy + Status)
+        const updatedClip = await db.clip.update({
+            where: { id },
+            data: { resultUrl: result, status }
         });
+
+        // 2. Create Media Record (Source of Truth)
+        if (result && status === 'Done') {
+            try {
+                // Infer type from URL extension or default to VIDEO for generation results if uncertain?
+                const isImage = result.match(/\.(png|jpg|jpeg|webp)($|\?)/i);
+
+                await db.media.create({
+                    data: {
+                        url: result,
+                        type: isImage ? 'IMAGE' : 'VIDEO',
+                        category: 'RESULT',
+                        // Link to Clip
+                        resultForClipId: id,
+                        // Link to Episode (CRITICAL for Sorting)
+                        episodeId: updatedClip.episodeId
+                    }
+                });
+                console.log(`[GenerateManager] Created Media record for Clip ${id}`);
+            } catch (e) {
+                console.error(`[GenerateManager] Failed to create Media record:`, e);
+            }
+        }
     }
 
     /**

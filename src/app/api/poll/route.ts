@@ -273,7 +273,7 @@ export async function POST(req: Request) {
                                 where: { id: idInt },
                                 data: {
                                     status: 'Done',
-                                    ...(thumbnailPath ? { thumbnailPath } : {})
+                                    thumbnailPath: thumbnailPath || ''
                                 }
                             });
 

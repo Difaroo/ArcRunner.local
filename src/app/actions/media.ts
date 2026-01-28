@@ -10,43 +10,103 @@ export type MediaFilter = {
     episodeId?: string;
 };
 
+import { Prisma } from '@prisma/client';
+
 export async function fetchMedia(filter: MediaFilter, page = 1, limit = 50) {
-    const where: any = {};
+    // 1. Build Dynamic WHERE Conditions
+    const conditions: Prisma.Sql[] = [];
 
-    if (filter.type) where.type = filter.type;
-    if (filter.category) where.category = filter.category;
-
-    // SIMPLIFIED: Use direct episodeId on Media table (after migration)
-    // Previously this required complex OR joins through Clip/StudioItem relations
-    if (filter.episodeId) {
-        where.episodeId = filter.episodeId;
-    } else if (filter.seriesId) {
-        // For series-level filtering, we still need to join through episode
-        where.episode = {
-            seriesId: filter.seriesId
-        };
+    if (filter.type) {
+        conditions.push(Prisma.sql`m.type = ${filter.type}`);
+    }
+    if (filter.category) {
+        conditions.push(Prisma.sql`m.category = ${filter.category}`);
     }
 
-    const items = await db.media.findMany({
-        where,
-        orderBy: [
-            // Primary: Sort by associated clip's sortOrder (matches Episode view)
-            { resultForClip: { sortOrder: 'asc' } },
-            // Fallback: createdAt for media without clip association
-            { createdAt: 'desc' }
-        ],
-        take: limit,
-        skip: (page - 1) * limit,
-        include: {
-            resultForClip: { include: { episode: true } },
-            referenceForClip: { include: { episode: true } },
-            studioItem: true
+    // Episode/Series Filtering
+    // Note: We prioritize the direct Episode link on Media if available, 
+    // but we join tables to be safe for sorting anyway.
+    if (filter.episodeId) {
+        conditions.push(Prisma.sql`m.episodeId = ${filter.episodeId}`);
+    } else if (filter.seriesId) {
+        // Filter by Series (via Episode relation)
+        conditions.push(Prisma.sql`e.seriesId = ${filter.seriesId}`);
+    }
+
+    const whereClause = conditions.length > 0
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+        : Prisma.sql``;
+
+    // 2. Fetch IDs with Strict Sort Order
+    // Sort Priority:
+    // 1. Series Name (Grouping)
+    // 2. Episode Number (Grouping)
+    // 3. Clip Sort Order (Interleaving Results & Refs)
+    // 4. Creation Date (Fallback/Secondary)
+    const offset = (page - 1) * limit;
+
+    const idsQuery = Prisma.sql`
+        SELECT m.id
+        FROM Media m
+        LEFT JOIN Episode e ON m.episodeId = e.id
+        LEFT JOIN Series s ON e.seriesId = s.id
+        LEFT JOIN Clip cRes ON m.resultForClipId = cRes.id
+        LEFT JOIN Clip cRef ON m.referenceForClipId = cRef.id
+        ${whereClause}
+        ORDER BY 
+            s.name ASC,
+            e.number ASC,
+            -- Coalesce sort orders: Matches visualization logic
+            -- Use a large number (999999) for nulls so unlinked items fall to bottom
+            COALESCE(cRes.sortOrder, cRef.sortOrder, 999999) ASC,
+            m.createdAt DESC
+        LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const countQuery = Prisma.sql`
+        SELECT COUNT(m.id) as total
+        FROM Media m
+        LEFT JOIN Episode e ON m.episodeId = e.id
+        LEFT JOIN Series s ON e.seriesId = s.id
+        ${whereClause}
+    `;
+
+    try {
+        const [rawIds, rawCount] = await Promise.all([
+            db.$queryRaw<{ id: string }[]>(idsQuery),
+            db.$queryRaw<{ total: bigint }[]>(countQuery)
+        ]);
+
+        const ids = (rawIds as any[]).map(r => r.id);
+        const total = Number((rawCount as any[])[0]?.total || 0);
+
+        // 3. Hydrate Objects
+        // We fetch full objects for the IDs we found
+        const itemsMap = new Map();
+        if (ids.length > 0) {
+            const items = await db.media.findMany({
+                where: { id: { in: ids } },
+                include: {
+                    resultForClip: { include: { episode: true } },
+                    referenceForClip: { include: { episode: true } },
+                    studioItem: true,
+                    // Optionally include episode directly if needed for UI, generally standardized on Result/Ref links
+                    episode: true
+                }
+            });
+            items.forEach(item => itemsMap.set(item.id, item));
         }
-    });
 
-    const total = await db.media.count({ where });
+        // 4. Re-Apply Sort Order
+        // The IN query doesn't guarantee order, so we map back to original ID list
+        const orderedItems = ids.map(id => itemsMap.get(id)).filter(Boolean);
 
-    return { items, total, page, totalPages: Math.ceil(total / limit) };
+        return { items: orderedItems, total, page, totalPages: Math.ceil(total / limit) };
+
+    } catch (e) {
+        console.error("Error fetching media:", e);
+        return { items: [], total: 0, page, totalPages: 0 };
+    }
 }
 
 export async function deleteMedia(mediaId: string) {

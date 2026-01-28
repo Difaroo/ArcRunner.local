@@ -383,6 +383,8 @@ export function LibraryRow({
                                                 url: m.url || m.localPath || '',
                                                 type: m.type.toLowerCase(),
                                                 title: item.name,
+                                                description: item.description,
+                                                action: undefined, // Explicitly undefined to override potential clip matches in page.tsx resolver
                                                 isReference: true,
                                                 ownerClipId: `lib-${item.id}`, // Context ID for Unlink (Namespaced)
                                                 deleteIcon: 'minus' // Explicitly request Unlink icon
@@ -395,6 +397,8 @@ export function LibraryRow({
                                                     url: item.refImageUrl,
                                                     type: 'image',
                                                     title: item.name,
+                                                    description: item.description,
+                                                    action: undefined, // Explicitly undefined
                                                     isReference: true,
                                                     ownerClipId: `lib-${item.id}`,
                                                     deleteIcon: 'minus'

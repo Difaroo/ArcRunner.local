@@ -764,9 +764,18 @@ export function ClipRow({
                                 title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
                                 isThumbnail={!!clip.thumbnailPath}
                                 contentType={
-                                    (clip.resultUrl?.match(/\.(mp4|mov|webm|mkv)($|\?)/i) || clip.model?.toLowerCase().includes('veo') || clip.model?.toLowerCase().includes('kling') || clip.model?.toLowerCase().includes('minimax') || clip.model?.toLowerCase().includes('luma'))
-                                        ? 'video'
-                                        : 'image'
+                                    (() => {
+                                        const urls = parseStringList(clip.resultUrl || '');
+                                        const primaryUrl = urls[0] || '';
+                                        const isVideoExt = primaryUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+                                        const isVideoModel = (clip.model?.toLowerCase().includes('veo') || clip.model?.toLowerCase().includes('kling') || clip.model?.toLowerCase().includes('minimax') || clip.model?.toLowerCase().includes('luma'));
+
+                                        // If extension is explicit image, force image.
+                                        if (primaryUrl.match(/\.(png|jpg|jpeg|webp)($|\?)/i)) return 'image';
+
+                                        // Otherwise fallback to extension check OR model check
+                                        return (isVideoExt || isVideoModel) ? 'video' : 'image';
+                                    })()
                                 }
                                 onPlay={(url) => {
                                     // RESTORED: Include Characters and Locations in Playlist

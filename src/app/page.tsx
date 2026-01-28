@@ -1010,7 +1010,11 @@ export default function Home() {
 
   const handleUnlink = async (url: string, contextId?: string, isResult?: boolean) => {
     // 1. Studio Context (using Namespaced ID from LibraryRow)
-    if (contextId && contextId.startsWith('lib-')) {
+    // ONLY VALID if we are truly editing the Library directly (Library View)
+    // If we are in Episode View (contextId matches a clip), we prioritize Clip Editing.
+    const isLibraryViewLogic = contextId && contextId.startsWith('lib-') && !clips.some(c => c.id.toString() === contextId);
+
+    if (isLibraryViewLogic && contextId) {
       const studioId = contextId.replace('lib-', '');
       const item = libraryItems.find(i => i.id === studioId);
 
@@ -1035,8 +1039,15 @@ export default function Home() {
         refreshData();
       }
     } else {
-      // 2. Clip Context (Preserving Existing Logic)
-      const clipId = contextId; // contextId is clipId for clips
+      // 2. Clip Context (Episode View)
+      // Even if the URL is from a Studio Item, we want to unlink the ASSOCIATION (Name) from the clip.
+      let clipId = contextId; // contextId should be clipId for clips
+
+      // Fallback: If contextId was passed as 'lib-ID' but we are actually in a Clip (via ownerClipId fallback in Viewer),
+      // we need to find the clip.
+      // But wait! In Viewer props, I set ownerClipId = clip.id. So contextId IS clip.id.
+      // So 'clipId' should be valid.
+
       const clip = clipId
         ? clips.find(c => c.id.toString() === clipId.toString())
         : clips.find(c => (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url));
@@ -1073,6 +1084,50 @@ export default function Home() {
         } else {
           // REFERENCE UNLINK
 
+          // STUDIO ITEM CHECK: Is this URL from a Studio Item?
+          // If so, remove the Name from Character/Location fields.
+          const studioItem = libraryItems.find(i => (i.refImageUrl === url) || ((i as any).media || []).some((m: any) => m.url === url || m.localPath === url));
+
+          if (studioItem) {
+            console.log(`[Unlink] Detected Studio Item match: ${studioItem.name} (${studioItem.type})`);
+            const updates: Partial<Clip> = {};
+            let modified = false;
+
+            // Helper to clean list
+            const removeFromList = (listStr: string | null, validName: string) => {
+              if (!listStr) return "";
+              const arr = listStr.split(',').map(s => s.trim()).filter(Boolean);
+              const next = arr.filter(s => s.toLowerCase() !== validName.toLowerCase()).join(', ');
+              return next;
+            };
+
+            // Check Character Field
+            if (studioItem.type === 'LIB_CHARACTER') {
+              const nextChars = removeFromList(clip.character, studioItem.name);
+              if (nextChars !== (clip.character || "")) {
+                updates.character = nextChars;
+                modified = true;
+              }
+            }
+            // Check Location Field
+            if (studioItem.type === 'LIB_LOCATION') {
+              const nextLoc = removeFromList(clip.location, studioItem.name);
+              if (nextLoc !== (clip.location || "")) {
+                updates.location = nextLoc;
+                modified = true;
+              }
+            }
+
+            if (modified) {
+              await handleSave(clip.id, updates);
+              // Do NOT setPlayingVideoUrl(null) - Let user stay in viewer? Or close?
+              // Standard behavior is close on delete.
+              setPlayingVideoUrl(null);
+              return; // Stop processing explicit refs (Studio items aren't explicit usually)
+            }
+          }
+
+          // STANDARD EXPLICIT REF UNLINK
           // 1. Unlink Media Record (Best Effort)
           try {
             await fetch('/api/media/unlink', {
@@ -1099,7 +1154,7 @@ export default function Home() {
         }
       }
 
-      // Database Relation Update
+      // Database Relation Update (Generic)
       try {
         await fetch('/api/media/unlink', {
           method: 'POST',
@@ -1639,7 +1694,9 @@ export default function Home() {
           const type = (isImageExt || isImageModel) ? 'image' : 'video';
 
           // Namespace IDs
-          const uniqueId = clip ? `clip-${clip.id}` : (lib ? `lib-${lib.id}` : `url-${url}`);
+          // Fix: If it is a Library Item and NOT the main result (i.e. it's a reference), use Lib ID to allow editing Description
+          const isResult = clip && clip.resultUrl === url;
+          const uniqueId = (lib && !isResult) ? `lib-${lib.id}` : (clip ? `clip-${clip.id}` : `url-${url}`);
 
           // Title Logic
           let displayTitle = 'Media';
@@ -1660,7 +1717,8 @@ export default function Home() {
             url: url,
             type: type,
             title: displayTitle,
-            action: clip?.action,
+            // Fix: Hide action if we are effectively editing the library item context
+            action: (lib && !isResult) ? undefined : clip?.action,
             description: lib?.description,
             canDelete: true, // Controlled by isReference check in Viewer
             isReference: isReference,
@@ -1907,7 +1965,7 @@ export default function Home() {
                 </div>
               )
             }
-            className="border-t border-white/5 border-b-0 print:mb-8"
+            className="border-t border-white/5 border-b-0 print:hidden"
           >
             {currentView === 'series' && (
               <div className="flex items-center gap-4">
@@ -2070,7 +2128,21 @@ export default function Home() {
                 <Button
                   variant="default"
                   size="icon"
-                  onClick={() => window.print()}
+                  onClick={() => {
+                    // Set Document Title for PDF Filename
+                    const epTitle = seriesEpisodeTitles[currentEpKey] || '';
+                    const cleanTitle = epTitle.trim();
+                    const docName = `${currentEpKey} ${cleanTitle} Storyboard`.trim();
+                    const prevTitle = document.title;
+
+                    document.title = docName;
+                    window.print();
+
+                    // Restore title after a delay (to ensure dialog captures it)
+                    setTimeout(() => {
+                      document.title = prevTitle;
+                    }, 2000);
+                  }}
                   className="h-8 w-8"
                   title="Export PDF"
                 >
@@ -2169,6 +2241,9 @@ export default function Home() {
                 clips={activeClips}
                 onToggleHide={(clipId, hidden) => handleSave(clipId, { isHiddenInStoryboard: hidden })}
                 printLayout={printLayout}
+                seriesTitle={seriesList.find(s => s.id === currentSeriesId)?.title}
+                episodeTitle={seriesEpisodeTitles[currentEpKey] || currentEpKey}
+                episodeNumber={currentEpKey}
               />
             ) : (
               <ClipTable
