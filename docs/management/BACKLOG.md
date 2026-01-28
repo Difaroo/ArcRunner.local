@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.26.0 (Strict Sort & Integrity)
+- [x] **Strict Media Sorting (Raw SQL)**: Implemented Series->Episode->ClipOrder sorting to mirror Drag-and-Drop.
+- [x] **Start Frame Fix**: Disabled aggressive character filtering in `GenerateManager` (false negatives).
+- [x] **Media Integrity**: Ensured `episodeId` population on all generated results.
+- [x] **Unlink Logic**: Fixed Start Frame/Location "Unlink" behavior (removing name vs deleting asset).
+
 ## 🚀 Released v0.25.0 (Viewer Stability & Prompt Fixes)
 - [x] **Smart Sideload**: Universal Viewer keeps open and advances to next results when moving items to refs.
 - [x] **Ref Unlink**: Unlinking references properly detaches generic media and closes viewer.
