@@ -40,6 +40,7 @@ interface ClipTableProps {
         cameras: string[]
     }
     onResolveImage?: (name: string) => string | undefined
+    onStudioAssetClick?: (name: string, type: 'CHARACTER' | 'LOCATION') => void
     seriesTitle: string
 }
 
@@ -59,6 +60,7 @@ export function ClipTable({
     onDuplicate,
     uniqueValues,
     onResolveImage,
+    onStudioAssetClick,
     seriesTitle
 }: ClipTableProps) {
     // ... (skip down to SortableContext)
@@ -204,6 +206,7 @@ export function ClipTable({
                                     saving={saving}
                                     uniqueValues={uniqueValues}
                                     onResolveImage={onResolveImage}
+                                    onStudioAssetClick={onStudioAssetClick}
                                     seriesTitle={seriesTitle}
                                 />
                             ))}

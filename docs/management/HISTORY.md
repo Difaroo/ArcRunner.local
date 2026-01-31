@@ -2,6 +2,37 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-01-31: v0.27.0 - Peregrine (Studio Viewer & Navigation)
+
+### Context
+A feature and stability release enhancing Studio asset interactions and resolving critical navigation consistency issues. Users can now view Studio assets (characters/locations) directly from clip rows, and episode navigation maintains proper state across all views.
+
+### Features
+- **Studio Asset Viewer Integration**:
+    - **Character Click-to-View**: Character thumbnails in clip rows now open the Studio Asset Viewer on click, matching location functionality.
+    - **Smart Chevron Logic**: Universal Viewer chevrons only appear when multiple media items exist (`playlist.length > 1`), preventing navigation UI for single-image assets.
+    - **Validation Filter**: Studio asset viewer filters out invalid media entries (empty URLs) to ensure clean playlists.
+
+### Bug Fixes
+- **Generate Validation**: Updated `handleGenerateSelected` to check `mediaReferences` array instead of legacy string fields (`explicitRefUrls`, `refImageUrls`). Clips now correctly blocked from generation if missing reference images, preventing API errors.
+- **Media Page Flash**: Added `key` prop to `LibraryTable` (`key={library-${currentSeriesId}-${currentEpKey}}`) to force component remount on episode change, eliminating flash of stale episode data.
+- **Episode Navigation Consistency**:
+    - **Media → Episode**: Navigation now passes `episodeId` and `seriesId` in URL parameters when returning from media view.
+    - **Main Page URL Handling**: Added logic to read episode/series from URL params and set state accordingly, maintaining episode context across navigation.
+
+### Technical Details
+- **Episode ID Resolution**: Media page uses UUID-based episode IDs, main page uses integer episode numbers. Added mapping logic to find episode by UUID and extract number from `id` field.
+- **Backward Compatibility**: Generate validation includes fallback to legacy string fields for clips not yet migrated to Media table.
+
+### Version Bump
+- **Minor**: 0.26.0 → 0.27.0.
+
+---
+
+# Project History & Architecture Log
+
+This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
+
 ## 2026-01-28: v0.26.0 - Peregrine (Strict Sort & Integrity)
 
 ### Context

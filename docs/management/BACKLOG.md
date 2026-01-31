@@ -10,6 +10,13 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.27.0 (Studio Viewer & Navigation)
+- [x] **Studio Asset Viewer**: Character thumbnails now open Universal Viewer (matching location behavior).
+- [x] **Chevron Logic**: Fixed chevrons showing for single-image assets.
+- [x] **Generate Validation**: Fixed validation to check Media table instead of legacy string fields.
+- [x] **Media Flash Fix**: Eliminated flash of stale episode data when changing episodes.
+- [x] **Navigation Consistency**: Episode state now persists when navigating Media → Episode.
+
 ## 🚀 Released v0.26.0 (Strict Sort & Integrity)
 - [x] **Strict Media Sorting (Raw SQL)**: Implemented Series->Episode->ClipOrder sorting to mirror Drag-and-Drop.
 - [x] **Start Frame Fix**: Disabled aggressive character filtering in `GenerateManager` (false negatives).

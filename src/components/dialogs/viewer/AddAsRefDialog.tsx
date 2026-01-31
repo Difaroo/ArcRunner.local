@@ -52,7 +52,7 @@ export function AddAsRefDialog({
 
     // Sort and group clips by episode
     const groupedClips = useMemo(() => {
-        // Sort by episode number, then scene number
+        // Sort by episode number, then sortOrder (matches episode clips view)
         const sorted = [...clips].sort((a, b) => {
             // episode is an object (relation) from Prisma: { number: int, ... }
             const epNumA = (a as any).episode?.number || 1;
@@ -60,9 +60,10 @@ export function AddAsRefDialog({
 
             if (epNumA !== epNumB) return epNumA - epNumB
 
-            const sceneA = parseFloat(a.scene || '0') || 0
-            const sceneB = parseFloat(b.scene || '0') || 0
-            return sceneA - sceneB
+            // Use sortOrder for visual consistency with main clips view
+            const orderA = a.sortOrder || 0
+            const orderB = b.sortOrder || 0
+            return orderA - orderB
         })
 
         // Group by episode

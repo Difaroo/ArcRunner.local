@@ -21,6 +21,7 @@ export interface Clip {
     sortOrder?: number;
     model?: string;
     isHiddenInStoryboard?: boolean;
+    isSelected?: boolean;
     thumbnailPath?: string;
     negativePrompt?: string | null;
     mediaReferences?: Media[]; // Phase 4: Normalized Relations

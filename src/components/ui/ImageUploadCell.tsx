@@ -60,9 +60,9 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
             const data = await res.json();
             const newUrl = data.url;
 
-            // Prepend to existing URLs so it shows up first
+            // Append to existing URLs (since display reverses, appending makes it show first)
             const currentUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean) : [];
-            const newUrls = [newUrl, ...currentUrls];
+            const newUrls = [...currentUrls, newUrl];
             onChange(newUrls.join(','));
 
         } catch (err: any) {

@@ -38,6 +38,7 @@ export interface UniversalMediaItem {
     isReference?: boolean; // If true, Minus icon (Unlink) appears instead of Trash (Delete) for context
     canDelete?: boolean;
     deleteIcon?: 'trash' | 'minus'; // Override icon (e.g. use 'minus' for "Clear Result" even if not a reference)
+    ownerClipId?: string;  // Context ID for routing unlink (lib-XX for Studio, clipId for Clips)
 }
 
 interface UniversalMediaViewerProps {
@@ -281,9 +282,9 @@ export function UniversalMediaViewer({
                                                 e.stopPropagation();
                                                 // UNIFIED: Both refs and results call onUnlink
                                                 // Pass item type so handler knows which field to clear
-                                                // @ts-ignore - dynamic prop
                                                 const contextId = currentItem.ownerClipId;
                                                 const isResult = !currentItem.isReference;
+                                                console.log('[UniversalViewer Unlink] contextId:', contextId, 'isResult:', isResult, 'url:', currentItem.url);
                                                 onUnlink(currentItem.url, contextId, isResult);
                                             }}
                                         >

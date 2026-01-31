@@ -117,25 +117,36 @@ export class GenerateManager {
                     input.clip.action = firstSentence;
 
                     // CHARACTER INTELLIGENCE: Filter Characters based on First Sentence
-                    // DISABLED (v0.18): Causing false negatives with partial name matches (e.g. "Name (Suffix)" vs "Name").
-                    // Better to bleed characters than to miss them.
-                    /*
+                    // Goal: Prevent "Character Bleeding" (e.g. Character mentioned later in action appearing in start frame)
+                    // Re-Enabled v0.26.1: Improved logic to handle "Name (Suffix)" variations.
                     if (input.clip.character) {
                         const originalChars = input.clip.character.split(',').map(s => s.trim()).filter(Boolean);
+
                         const filteredChars = originalChars.filter(charName => {
-                            // Strict Case-Insensitive Check
-                            // We use word boundary check logic roughly by checking inclusion.
-                            // Ideally regex \bName\b but names can be complex. simpler includes() is safer for now.
-                            return firstSentence.toLowerCase().includes(charName.toLowerCase());
+                            const actionText = firstSentence.toLowerCase();
+                            const fullCharName = charName.toLowerCase();
+
+                            // Strategy 1: Exact Match (Case-Insensitive)
+                            if (actionText.includes(fullCharName)) return true;
+
+                            // Strategy 2: Root Name Match (e.g. "Ptolomeos" from "Ptolomeos (Leader)")
+                            // We split by '(' to handle studio suffices.
+                            const rootName = fullCharName.split('(')[0].trim();
+                            if (rootName.length > 2 && actionText.includes(rootName)) return true;
+
+                            return false;
                         });
 
                         // Rule: If we filtered everything out, should we keep NONE? Yes.
                         // If the action is "The fire burns.", we don't want Afsaar just because she's in the scene metadata.
+                        // Exception: If NO characters match, and there IS a character listed, maybe we should warn? 
+                        // For now we trust the logic.
 
-                        console.log(`[GenerateManager] Start Frame Intelligence: Filtering Characters.\nOriginal: ${originalChars.join(', ')}\nFiltered: ${filteredChars.join(', ')}`);
-                        input.clip.character = filteredChars.join(', ');
+                        if (filteredChars.length !== originalChars.length) {
+                            console.log(`[GenerateManager] Start Frame Intelligence: Filtered Characters.\nOriginal: ${originalChars.join(', ')}\nFiltered: ${filteredChars.join(', ')}`);
+                            input.clip.character = filteredChars.join(', ');
+                        }
                     }
-                    */
 
                 } else {
                     // No punctuation? Use whole string but log it

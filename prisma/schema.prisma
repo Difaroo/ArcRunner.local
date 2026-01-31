@@ -126,6 +126,7 @@ model Clip {
   thumbnailPath   String?  // Local static path
   previewUrl      String?  // Temp Kie link
   isHiddenInStoryboard Boolean @default(false)
+  isSelected      Boolean  @default(false) // Persistent selection state
   taskId          String?  // Kie.ai Task ID
   
   // Relations

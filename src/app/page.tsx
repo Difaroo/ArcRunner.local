@@ -130,7 +130,27 @@ export default function Home() {
     if (view && ['series', 'script', 'library', 'clips', 'settings', 'storyboard'].includes(view)) {
       setCurrentView(view as any);
     }
-  }, []);
+
+    // Handle episode/series navigation from media page
+    const episodeId = params.get('episodeId');
+    const seriesId = params.get('seriesId');
+
+    if (seriesId && setCurrentSeriesId) {
+      setCurrentSeriesId(seriesId);
+    }
+
+    if (episodeId && allEpisodes.length > 0) {
+      // episodeId from media page is UUID, map to episode number
+      const ep = allEpisodes.find(e => e.uuid === episodeId || e.id === episodeId);
+      if (ep) {
+        // Extract episode number from id field (e.g., "1", "2", "3")
+        const epNum = parseInt(ep.id);
+        if (!isNaN(epNum)) {
+          setCurrentEpisode(epNum);
+        }
+      }
+    }
+  }, [allEpisodes, setCurrentSeriesId]);
 
 
 
@@ -736,13 +756,17 @@ export default function Home() {
     if (config?.validation?.explicitReference) {
       // Find invalid clips
       const invalidClips = toGen.filter(c => {
-        // Logic must match 'resolveClipImages': Check Explicit first, strictly.
-        // If explicitRefUrls IS defined (even empty), use it. Else fallback to refImageUrls.
+        // PRIMARY CHECK: Media Table References (Phase 4 Architecture)
+        const hasMediaRefs = c.mediaReferences && c.mediaReferences.length > 0;
+
+        // FALLBACK: Legacy string fields (for backward compatibility)
         const explicitStr = (c.explicitRefUrls !== undefined && c.explicitRefUrls !== null)
           ? c.explicitRefUrls
           : (c.refImageUrls || '');
+        const hasLegacyRefs = explicitStr.trim().length > 0;
 
-        return explicitStr.trim().length === 0;
+        // Clip is invalid if BOTH checks fail
+        return !hasMediaRefs && !hasLegacyRefs;
       });
 
       if (invalidClips.length > 0) {
@@ -1006,6 +1030,56 @@ export default function Home() {
 
   const handleDeleteLibraryItem = (id: string) => {
     markLibraryItemDeleted(id);
+  };
+
+  // --- Studio Asset Viewer Integration ---
+  const fetchStudioAsset = async (name: string, type: 'CHARACTER' | 'LOCATION') => {
+    try {
+      const res = await fetch(`/api/studio?name=${encodeURIComponent(name)}&type=LIB_${type}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (error) {
+      console.error(`[fetchStudioAsset] Failed to fetch ${type} "${name}":`, error);
+      return null;
+    }
+  };
+
+  const handleStudioAssetView = async (name: string, type: 'CHARACTER' | 'LOCATION') => {
+    const asset = await fetchStudioAsset(name, type);
+
+    if (!asset) {
+      alert(`${type.toLowerCase().charAt(0).toUpperCase() + type.toLowerCase().slice(1)} "${name}" not found in Studio`);
+      return;
+    }
+
+    if (!asset.media || asset.media.length === 0) {
+      alert(`${type.toLowerCase().charAt(0).toUpperCase() + type.toLowerCase().slice(1)} "${name}" has no reference images`);
+      return;
+    }
+
+    // Build rich playlist from Studio asset media - filter out invalid entries
+    const richPlaylist = asset.media
+      .filter((m: any) => m.url || m.localPath) // Only include items with valid URLs
+      .map((m: any) => ({
+        id: m.id,
+        url: m.url || m.localPath || '',
+        type: (m.type || 'IMAGE').toLowerCase() as 'video' | 'image',
+        title: asset.name,
+        description: asset.description || '',
+        isReference: true,
+        ownerClipId: `${type === 'CHARACTER' ? 'char' : 'loc'}-${asset.name}`
+      }));
+
+    if (richPlaylist.length === 0) {
+      alert(`${type.toLowerCase().charAt(0).toUpperCase() + type.toLowerCase().slice(1)} "${name}" has no valid reference images`);
+      return;
+    }
+
+    // Open Universal Viewer using standard pattern
+    const firstUrl = richPlaylist[0].url;
+    setPlayingVideoUrl(firstUrl);
+    setPlaylist(richPlaylist);
+    setCurrentPlayIndex(0);
   };
 
   const handleUnlink = async (url: string, contextId?: string, isResult?: boolean) => {
@@ -2208,6 +2282,7 @@ export default function Home() {
               />
             ) : currentView === 'library' ? (
               <LibraryTable
+                key={`library-${currentSeriesId}-${currentEpKey}`}
                 items={currentLibraryItems}
                 onSave={handleLibrarySave}
                 selectedItems={selectedLibraryIds}
@@ -2282,6 +2357,7 @@ export default function Home() {
                 uniqueValues={uniqueValues}
                 onDelete={handleDeleteClip}
                 onDuplicate={handleDuplicateClip}
+                onStudioAssetClick={handleStudioAssetView}
                 seriesTitle={seriesList.find(s => s.id === currentSeriesId)?.title || 'Series'}
               />
             )}

@@ -58,6 +58,7 @@ interface ClipRowProps {
     onDelete: (id: string) => void
     onDuplicate: (id: string) => void
     onResolveImage?: (name: string) => string | undefined
+    onStudioAssetClick?: (name: string, type: 'CHARACTER' | 'LOCATION') => void
     seriesTitle: string
 }
 
@@ -76,6 +77,7 @@ export function ClipRow({
     onDelete,
     onDuplicate,
     onResolveImage,
+    onStudioAssetClick,
     seriesTitle
 }: ClipRowProps) {
     const [editValues, setEditValues] = useState<Partial<Clip>>({})
@@ -439,15 +441,19 @@ export function ClipRow({
                             {/* Edit Mode Preview */}
                             {isEditing && onResolveImage ? (
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                    {parseStringList(editValues.character || "").map((char, i) => {
-                                        const url = onResolveImage(char);
+                                    {parseStringList(clip.character || "").map((char, i) => {
+                                        const url = onResolveImage?.(char);
                                         if (!url) return null;
                                         return (
                                             <img
                                                 key={`${char}-${i}`}
                                                 src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                                 alt={char}
-                                                className="w-[32px] h-[32px] object-cover rounded border border-white/10 shadow-sm opacity-50"
+                                                className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm cursor-pointer hover:opacity-75 transition-opacity"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onStudioAssetClick?.(char, 'CHARACTER');
+                                                }}
                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                                 title={char}
                                             />
@@ -481,15 +487,27 @@ export function ClipRow({
                             }
                             {clip.characterImageUrls && clip.characterImageUrls.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                    {clip.characterImageUrls.map((url, i) => (
-                                        <img
-                                            key={i}
-                                            src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                            alt="Char Ref"
-                                            className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm"
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                        />
-                                    ))}
+                                    {clip.characterImageUrls.map((url, i) => {
+                                        // Get character name from URL index
+                                        const chars = parseStringList(clip.character || "");
+                                        const charName = chars[i] || chars[0]; // Fallback to first if index mismatch
+                                        return (
+                                            <img
+                                                key={i}
+                                                src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
+                                                alt="Char Ref"
+                                                className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm cursor-pointer hover:opacity-75 transition-opacity"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (charName) {
+                                                        onStudioAssetClick?.(charName, 'CHARACTER');
+                                                    }
+                                                }}
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                title={charName}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -526,15 +544,16 @@ export function ClipRow({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             )}
-                            {/* Edit Mode Preview (Added for consistency) */}
+                            {/* Edit Mode Preview - Location Thumb (Fixed: inline, not absolute) */}
                             {isEditing && onResolveImage && (editValues.location || "").trim().length > 0 && (
-                                <div className="absolute top-full left-0 mt-1 z-10">
+                                <div className="flex flex-wrap gap-1 mt-1">
                                     {(() => {
                                         const locName = (editValues.location || "").trim();
                                         const url = onResolveImage(locName);
                                         if (!url) return null;
                                         return (
                                             <img
+                                                key={locName}
                                                 src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
                                                 alt={locName}
                                                 className="w-[32px] h-[32px] object-cover rounded border border-white/10 shadow-sm opacity-50"
@@ -555,8 +574,15 @@ export function ClipRow({
                                         <img
                                             key={i}
                                             src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                            alt="Loc Ref"
-                                            className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm"
+                                            alt={"Loc Ref"}
+                                            className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm cursor-pointer hover:opacity-75 transition-opacity"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const locationName = clip.location?.trim();
+                                                if (locationName) {
+                                                    onStudioAssetClick?.(locationName, 'LOCATION');
+                                                }
+                                            }}
                                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                         />
                                     ))}
@@ -710,10 +736,10 @@ export function ClipRow({
 
                                         // 3. Append Character/Location Images (Restore missing items)
                                         const charItems = (clip.characterImageUrls || []).map(u => ({
-                                            id: u, url: u, type: 'image' as const, title: 'Character Ref', isReference: true
+                                            id: u, url: u, type: 'image' as const, title: 'Character Ref', isReference: true, ownerClipId: clip.id.toString()
                                         }));
                                         const locItems = (clip.locationImageUrls || []).map(u => ({
-                                            id: u, url: u, type: 'image' as const, title: 'Location Ref', isReference: true
+                                            id: u, url: u, type: 'image' as const, title: 'Location Ref', isReference: true, ownerClipId: clip.id.toString()
                                         }));
 
                                         fullPlaylist = [...fullPlaylist, ...charItems, ...locItems];

@@ -292,6 +292,42 @@ export async function POST(req: Request) {
             });
         }
 
+        // 3. Duplicate Reference Media from source clip (NEW)
+        // @ts-ignore - sourceClipId passed from frontend during duplication
+        if (clip.sourceClipId) {
+            const sourceId = parseInt(clip.sourceClipId);
+
+            if (!isNaN(sourceId)) {
+                // Find all reference Media for source clip
+                const sourceReferences = await db.media.findMany({
+                    where: {
+                        referenceForClipId: sourceId,
+                        category: 'REFERENCE'
+                    }
+                });
+
+                // Create duplicates for new clip
+                for (const ref of sourceReferences) {
+                    await db.media.create({
+                        data: {
+                            url: ref.url,
+                            localPath: ref.localPath,
+                            type: ref.type,
+                            category: 'REFERENCE',
+                            referenceForClipId: newClip.id,
+                            episodeId: dbEpisode.id,
+                            mimeType: ref.mimeType,
+                            size: ref.size,
+                            width: ref.width,
+                            height: ref.height
+                        }
+                    });
+                }
+
+                console.log(`[Duplicate] Copied ${sourceReferences.length} reference Media records to clip ${newClip.id}`);
+            }
+        }
+
         return NextResponse.json({
             success: true,
             clip: {

@@ -208,7 +208,20 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
             {/* 1. ArcRunner Branding Header */}
             <MainHeader currentView="media" onViewChange={(v) => {
                 if (v === 'media') return;
-                window.location.href = '/?view=' + v;
+
+                // Build URL with current filter state to preserve episode context
+                const params = new URLSearchParams();
+                params.set('view', v);
+
+                if (initialFilter.seriesId) {
+                    params.set('seriesId', initialFilter.seriesId);
+                }
+
+                if (initialFilter.episodeId) {
+                    params.set('episodeId', initialFilter.episodeId);
+                }
+
+                window.location.href = `/?${params.toString()}`;
             }} />
 
             {/* 2. Global Navigation (Standard) */}

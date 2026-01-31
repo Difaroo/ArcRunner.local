@@ -1,12 +1,12 @@
 {
   "model": "kling-2.6/image-to-video",
   "input": {
-    "prompt": "STYLE: [Masterpiece illustrative ANIME, dark, arabian, fantasy, cinematic, with impressionist painted texture.\n\nCHARACTERS: ESSENTIAL: REFERENCE IMAGES define: Facial Proportions and Style; Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality. Render cel-shading, Material Properties & Textures with impressionist random oil paint strokes, very fine hand-drawn black outlines, detailed crumples in fabric. \n\nBACKGROUND: ESSENTIAL: Impressionist, large broad brush wet oil paint strokes with NO OUTLINES. Expressive, organic abstract surfaces, in earthy tones, ochres, shadowed blues.]\n\nACTION: [Reverse time sequence: the flesh-eating Ghul staggers backwards, slowly sinking backwards into the earth — dirt and bone fragments rise up from the ground and slide back onto its body, and he sinks down into the ground until only his skull is visible, resting on the floor. The Ghuls skins eyes and teeth recede and slithers away leaving a bleached human skull.  A fully formed orchid is growing out of the eye socket]. [ Character says: \"DAJAA: Ya qamri alom ahmeni\"]\n\nCAMERA: [Moonlit close framing as a creature or form slowly emerges from darkness; tight composition with creeping reveal and shallow depth-of-field.]",
-    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/288_1769379461108.png",
+    "prompt": "STYLE: [Masterpiece illustrative ANIME, dark, arabian, fantasy, cinematic, with impressionist painted texture.\n\nCHARACTERS: ESSENTIAL: REFERENCE IMAGES define: Facial Proportions and Style; Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality. Render cel-shading, Material Properties & Textures with impressionist random oil paint strokes, very fine hand-drawn black outlines, detailed crumples in fabric. \n\nBACKGROUND: ESSENTIAL: Impressionist, large broad brush wet oil paint strokes with NO OUTLINES. Expressive, organic abstract surfaces, in earthy tones, ochres, shadowed blues.]\n\nACTION: [ESSENTIAL: Camera tracks round 180 degrees to Very close-up on AFSAAR’s face, her eyes unblinking. We see her speak and her lips move.\nShe lift The dagger is fully visible and centered, held upright directly in front of the Afsaar face, close to the camera. Her hand grips the dagger clearly, showing ownership. \n]. [ Character says: \"Afsaar speaks: Saheeh, qairan talabi al-akhir anni arabbitik bihatha al-khanjar\"]\n\nCAMERA: [Close shot with intimate framing on character action; shallow depth of field isolates faces and hands; minimal camera movement to heighten empathy.]",
+    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/Demon_dagger_start.png",
     "image_urls": [
-      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/288_1769379461108.png"
+      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/Demon_dagger_start.png"
     ],
-    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/288_1769379461108.png",
+    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/Demon_dagger_start.png",
     "aspect_ratio": "16:9",
     "resolution": "1080p",
     "mode": "std",
