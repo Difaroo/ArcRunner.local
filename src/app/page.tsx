@@ -1738,6 +1738,46 @@ export default function Home() {
     handleViewChange('library');
   };
 
+  const handleAddReference = async (clipId: string, url: string, type: 'IMAGE' | 'VIDEO') => {
+    // 1. Optimistic Update
+    setClips(prev => prev.map(c => {
+      if (c.id !== clipId) return c;
+      const currentCsv = c.explicitRefUrls || c.refImageUrls || '';
+      const currentRefs = currentCsv.split(',').map(s => s.trim()).filter(Boolean);
+      if (currentRefs.includes(url)) return c;
+
+      const newCsv = [...currentRefs, url].join(',');
+
+      // Mock Media for immediate UI
+      const newMediaRef = {
+        id: Date.now(), // Temp ID
+        url,
+        type,
+        category: 'REFERENCE',
+        createdAt: new Date().toISOString()
+      } as any;
+
+      return {
+        ...c,
+        explicitRefUrls: newCsv,
+        mediaReferences: [...(c.mediaReferences || []), newMediaRef]
+      };
+    }));
+
+    try {
+      const res = await fetch('/api/media/add-ref', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetClipId: clipId, url, type })
+      });
+      if (!res.ok) throw new Error('API Error');
+      notifyWrite();
+    } catch (e) {
+      console.error("Add Ref Failed", e);
+      refreshData(); // Revert
+    }
+  };
+
   return (
     <div className="flex h-screen w-full flex-col bg-background font-display text-foreground">
       {/* Custom Video Player Modal */}
@@ -2372,6 +2412,7 @@ export default function Home() {
                 onDuplicate={handleDuplicateClip}
                 onStudioAssetClick={handleStudioAssetView}
                 onResolveImage={resolveImage}
+                onAddReference={handleAddReference}
                 seriesTitle={seriesList.find(s => s.id === currentSeriesId)?.title || 'Series'}
               />
             )}

@@ -147,15 +147,25 @@ const createStore: StateCreator<AppState> = (set, get) => ({
                 }
 
                 if (data.series) {
-                    updates.seriesList = data.series || [];
+                    updates.seriesList = (data.series || []).map((s: any) => ({
+                        ...s,
+                        title: s.name || s.title || 'Untitled Series'
+                    }));
 
                     // Auto-select first series if invalid
                     const currentId = state.currentSeriesId;
-                    const exists = (data.series || []).find((s: Series) => s.id === currentId);
+                    const exists = updates.seriesList?.find((s: Series) => s.id === currentId);
 
-                    if (!exists && data.series && data.series.length > 0) {
-                        updates.currentSeriesId = data.series[0].id; // Default to first
+                    if (!exists && updates.seriesList && updates.seriesList.length > 0) {
+                        updates.currentSeriesId = updates.seriesList[0].id; // Default to first
                     }
+                }
+
+                if (data.episodes) {
+                    updates.allEpisodes = (data.episodes || []).map((e: any) => ({
+                        ...e,
+                        series: e.seriesId || e.series
+                    }));
                 }
 
                 return updates;

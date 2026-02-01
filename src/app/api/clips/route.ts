@@ -252,14 +252,13 @@ export async function POST(req: Request) {
                 action: clip.action,
                 dialog: clip.dialog,
                 status: clip.status || 'Ready',
-                refImageUrls: clip.explicitRefUrls || '', // Store explicit only
+                // refImageUrls: clip.explicitRefUrls || '', // LEGACY: Removed
                 episodeId: dbEpisode.id,
                 sortOrder: clip.sortOrder || 0,
                 // @ts-ignore
                 negativePrompt: clip.negativePrompt || '',
                 // If initializing with a resultUrl (rare for new clips, but refined here)
-                // @ts-ignore
-                resultUrl: clip.resultUrl || undefined,
+                // resultUrl: clip.resultUrl || undefined, // LEGACY: Removed
             },
             include: { episode: true }
         });
@@ -370,11 +369,10 @@ export async function PUT(req: Request) {
                 action: clip.action,
                 dialog: clip.dialog,
                 status: clip.status,
-                refImageUrls: clip.explicitRefUrls,
+                // refImageUrls: clip.explicitRefUrls, // LEGACY: Removed
                 // @ts-ignore
                 negativePrompt: clip.negativePrompt,
-                // @ts-ignore
-                resultUrl: clip.resultUrl,
+                // resultUrl: clip.resultUrl, // LEGACY: Removed
                 isHiddenInStoryboard: clip.isHiddenInStoryboard
             }
         });

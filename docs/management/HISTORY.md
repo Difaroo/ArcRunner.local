@@ -2,6 +2,23 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-01: v0.28.0 - Peregrine (Legacy CSV Abolition)
+
+### Context
+This milestone release marks the final abolition of the Legacy CSV Architecture (`refImageUrls`, `resultUrl`). The system now runs in **Strict Mode**, using the Relational `Media` table as the Single Source of Truth for all references and results. This ensures absolute data integrity and zero "ghost data".
+
+### Key Changes
+-   **Architecture**:
+    -   **Strict Mode**: The API now completely ignores legacy CSV columns. Writes to these columns have been stripped.
+    -   **Relational Source**: `ClipRow` and `MediaService` derive all state from `mediaReferences` relations.
+-   **Frontend**:
+    -   **Add-Ref API**: Drag-and-Drop actions now hit the `/api/media/add-ref` endpoint directly, bypassing legacy partial updates.
+-   **Verification**:
+    -   **Ghost Test**: Automated browser testing injected fake data into legacy columns and confirmed it remains invisible to the user.
+-   **Version Bump**: 0.27.1 -> 0.28.0.
+
+---
+
 ## 2026-02-01: v0.27.1 - Peregrine (Robust Unlinking & History)
 
 ### Context

@@ -41,6 +41,7 @@ interface ClipTableProps {
     }
     onResolveImage?: (name: string) => string | undefined
     onStudioAssetClick?: (name: string, type: 'CHARACTER' | 'LOCATION') => void
+    onAddReference?: (clipId: string, url: string, type: 'IMAGE' | 'VIDEO') => Promise<void>
     seriesTitle: string
 }
 
@@ -61,6 +62,7 @@ export function ClipTable({
     uniqueValues,
     onResolveImage,
     onStudioAssetClick,
+    onAddReference,
     seriesTitle
 }: ClipTableProps) {
     // ... (skip down to SortableContext)
@@ -207,6 +209,7 @@ export function ClipTable({
                                     uniqueValues={uniqueValues}
                                     onResolveImage={onResolveImage}
                                     onStudioAssetClick={onStudioAssetClick}
+                                    onAddReference={onAddReference}
                                     seriesTitle={seriesTitle}
                                 />
                             ))}

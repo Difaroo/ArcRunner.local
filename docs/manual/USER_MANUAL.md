@@ -140,6 +140,6 @@ As of v0.23.0, the system stores all media links in a relational `Media` table d
 -   **Episode-Based Ownership**: Media items belong to an Episode, not just a Clip. This means "unlinking" a media item from a clip does not delete it; it returns to the Episode Gallery.
 -   **Unified Playlist**: Clicking a Reference Image in the Clip Table now opens a playlist that *includes* the Result, Explicit References, and all resolved Character/Location images, allowing for seamless swiping throughout the entire row context.
 -   **Safe Unlinking**: Unlinking a Result now correctly clears the "ghost" thumbnail and resets the Clip status to Ready, ensuring you never see stale data.
--   **Legacy CSV columns** (`resultUrl`, `refImageUrls`) are **deprecated** and no longer written to.
+-   **Legacy CSV columns** (`resultUrl`, `refImageUrls`) are **Dead**. As of v0.28.0, the system strictly ignores these columns. Any data found there is considered "Ghost Data" and is not displayed.
 
 

@@ -59,6 +59,7 @@ interface ClipRowProps {
     onDuplicate: (id: string) => void
     onResolveImage?: (name: string) => string | undefined
     onStudioAssetClick?: (name: string, type: 'CHARACTER' | 'LOCATION') => void
+    onAddReference?: (clipId: string, url: string, type: 'IMAGE' | 'VIDEO') => Promise<void>
     seriesTitle: string
 }
 
@@ -78,6 +79,7 @@ export function ClipRow({
     onDuplicate,
     onResolveImage,
     onStudioAssetClick,
+    onAddReference,
     seriesTitle
 }: ClipRowProps) {
     const [editValues, setEditValues] = useState<Partial<Clip>>({})
@@ -140,19 +142,27 @@ export function ClipRow({
                 const newUrls = [...currentUrls, droppedUrl];
                 const newUrlsStr = joinStringList(newUrls);
 
-                // 1. Optimistic Update
+                // 1. Optimistic Update (Local UI)
                 setOptimisticRefs(newUrls);
 
-                // 2. Persist with Error Handling
+                // 2. Persist using Relation API (New Architecture)
                 try {
-                    await onSave(clip.id, {
-                        explicitRefUrls: newUrlsStr,
-                        refImageUrls: newUrlsStr
-                    });
+                    if (onAddReference) {
+                        // Auto-detect type (basic)
+                        const isVideo = droppedUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+                        await onAddReference(clip.id, droppedUrl, isVideo ? 'VIDEO' : 'IMAGE');
+                    } else {
+                        // Fallback (Should not happen if parent implements it)
+                        console.warn("onAddReference prop missing, falling back to legacy save");
+                        await onSave(clip.id, {
+                            explicitRefUrls: newUrlsStr,
+                            refImageUrls: newUrlsStr
+                        });
+                    }
                 } catch (err) {
-                    console.error("Save Failed, Reverting Optimistic UI", err);
-                    setOptimisticRefs(null); // Revert to Props
-                    alert("Failed to save reference. Please try again.");
+                    console.error("Add Reference Failed", err);
+                    setOptimisticRefs(null); // Revert
+                    alert("Failed to add reference. Please try again.");
                 }
             }
         }

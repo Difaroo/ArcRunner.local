@@ -31,9 +31,11 @@ The heartbeat of the engine.
 -   **Result Ordering**: Ensures the newest result is always prepended to the CSV list.
 -   **Unified Route**: `api/generate` now handles all models, ensuring consistent features (like Start Frame logic) across Flux, Nano, and Video models.
 
-### 5. Persistence Model (Phase 3 Migration Protection)
-Since the system is in a "Dual-Write / Kill-Switch" phase where legacy columns may not be perfectly synced:
--   **Authoritative Response**: The `api/update_clip` route returns the *intended* state of reference columns based on `MediaService` transactions, rather than blindly returning potentially stale DB columns. This prevents "Zombie Images" on the frontend.
+### 5. Persistence Model (Relational Architecture)
+Since v0.28.0, the system enforces a **Strict Single Source of Truth**:
+-   **Media Table**: All references and results are stored here.
+-   **Legacy Columns**: `Clip.refImageUrls` and `Clip.resultUrl` are **ignored** (Read-Only/Dead). API writes to them have been stripped.
+-   **Authoritative Response**: The `api/update_clip` route returns the computed state from `Media` relations.
 
 ### 3. Data Integrity Firewall (v0.16.5)
 A critical defensive layer ensuring UI edits do not corrupt generation data.
@@ -51,9 +53,11 @@ The centralized display engine.
 -   **v0.10**: Comma-Separated String (`url1,url2`).
 -   **v0.16**: "Hybrid" Logic (Explicit vs Legacy).
 -   **v0.25 (Strict Mode)**: 
-    -   **Kling**: Requires **Explicit Media Relation** (Drag & Drop) or fails validation (400 Bad Request). No implicit fallback to Characters.
-    -   **Flux/Nano**: Supports hybrid/implicit references.
-    -   **Performance**: DB Relations with valid Remote URLs (`http`) are used directly, bypassing the 30s upload phase to prevent Batch Timeouts.
+    -   **Kling**: Requires **Explicit Media Relation** (Drag & Drop) or fails validation (400 Bad Request).
+    -   **Performance**: DB Relations with valid Remote URLs (`http`) are used directly, bypassing the 30s upload phase.
+-   **v0.28 (Legacy Removal)**:
+    -   **Strict Isolation**: The system now completely ignores legacy CSV columns.
+    -   **Ghost Test Verified**: Injected data in legacy columns is invisible to the UI.
 
 ## Download Strategy (v0.17.1)
 -   **Format**: `[SCENE] [TITLE] [VER].ext` (e.g., `3.1 Explosion v1.mp4`).

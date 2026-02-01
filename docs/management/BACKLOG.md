@@ -10,6 +10,13 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.28.0 (Legacy CSV Removal)
+- [x] **Legacy Removal**: Stopped writing to `refImageUrls` and `resultUrl` CSV columns.
+- [x] **Strict Media-First**: Frontend/Backend now strictly read from `Media` table.
+- [x] **Frontend Fix**: Added `onAddReference` API to `ClipRow` for direct relational writes.
+- [x] **Verification**: "Ghost Test" passed (legacy data invisible).
+- [x] **Security**: Automated browser testing confirmed Strict Mode.
+
 ## 🚀 Released v0.27.0 (Studio Viewer & Navigation)
 - [x] **Studio Asset Viewer**: Character thumbnails now open Universal Viewer (matching location behavior).
 - [x] **Chevron Logic**: Fixed chevrons showing for single-image assets.

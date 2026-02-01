@@ -79,7 +79,7 @@ export function MainHeader({ currentView, onViewChange, loading, error }: MainHe
             {/* Right Side: Status */}
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 text-sm">
-                    <span className="text-xs text-muted-foreground">v0.27.1</span>
+                    <span className="text-xs text-muted-foreground">v0.28.0</span>
                     <span className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Status</span>
                     <div className={`w-2 h-2 rounded-full ${loading ? 'bg-yellow-500 animate-pulse' : error ? 'bg-destructive' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}></div>
                     <span className="font-medium text-foreground">{loading ? 'Syncing...' : error ? 'Error' : 'Connected'}</span>

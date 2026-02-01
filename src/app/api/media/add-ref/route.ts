@@ -90,21 +90,8 @@ export async function POST(req: NextRequest) {
                 }
             });
 
-            // Sync CSV
-            const addUrlToCsv = (current: string | null, urlToAdd: string) => {
-                const list = (current || '').split(',').map(s => s.trim()).filter(Boolean);
-                if (!list.includes(urlToAdd)) {
-                    return [...list, urlToAdd].join(',');
-                }
-                return current || '';
-            };
-
-            await db.clip.update({
-                where: { id: clipId },
-                data: {
-                    refImageUrls: addUrlToCsv(targetClip.refImageUrls, url)
-                }
-            });
+            // Sync CSV - REMOVED (Strict Relational Mode)
+            // await db.clip.update({ ... refImageUrls ... });
             if (sourceClipId) {
                 const srcClipId = parseInt(sourceClipId, 10);
                 if (!isNaN(srcClipId)) {
@@ -113,6 +100,10 @@ export async function POST(req: NextRequest) {
                     // We import normalizeUrl helper inline or duplicate safely?
                     // We'll trust exact match for now as resultUrl usually comes from same system.
                     if (srcClip && srcClip.resultUrl === url) {
+                        // LEGACY Cleanup: kept for now to avoid ghost results on old clips, 
+                        // but strictly we should move to Media-only.
+                        // Actually, if we clear resultUrl, we assume the frontend reads Media.
+                        // Let's keep this cleanup to keep DB clean, but NOT write new CSV refs.
                         await db.clip.update({
                             where: { id: srcClipId },
                             data: { resultUrl: null, thumbnailPath: null }
@@ -153,27 +144,9 @@ export async function POST(req: NextRequest) {
             }
         });
 
-        // CRITICAL: Update Sync - Add URL to Clip.refImageUrls
-        // This ensures the frontend grid (which reads these legacy fields) updates immediately.
-        const addUrlToCsv = (current: string | null, urlToAdd: string) => {
-            const list = (current || '').split(',').map(s => s.trim()).filter(Boolean);
-            if (!list.includes(urlToAdd)) {
-                return [...list, urlToAdd].join(',');
-            }
-            return current || '';
-        };
-
-        const nextRefs = addUrlToCsv(targetClip.refImageUrls, url);
-
-        if (nextRefs !== targetClip.refImageUrls) {
-            await db.clip.update({
-                where: { id: clipId },
-                data: {
-                    refImageUrls: nextRefs
-                }
-            });
-            console.log(`[AddRef] Synced CSV fields for Clip ${clipId}`);
-        }
+        // LEGACY Sync REMOVED
+        // const addUrlToCsv ... 
+        // await db.clip.update ...
 
         // CRITICAL: If this was previously a RESULT, update the OLD clip to clear legacy fields
         // This prevents "ghost" thumbnails where the clip still thinks it has a result.
@@ -182,6 +155,10 @@ export async function POST(req: NextRequest) {
             await db.clip.update({
                 where: { id: existingMedia.resultForClipId },
                 data: {
+                    // resultUrl: '', // Strict Mode: Do not zero out if we stop reading it? 
+                    // Actually, we SHOULD clear it to prevent confusion if someone reads DB directly.
+                    // But for consistency with "Stop Writing", we might leave it.
+                    // Let's clear it, as it's a cleanup of OLD state, not creation of NEW legacy state.
                     resultUrl: '',
                     thumbnailPath: '',
                     taskId: '',
