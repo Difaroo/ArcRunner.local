@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Loader2, Trash2, MinusCircle, Check, X, ChevronLeft, ChevronRight, Save, Download, ImagePlus } from "lucide-react";
+import { Loader2, Trash2, MinusCircle, Check, X, ChevronLeft, ChevronRight, Save, Download, ImagePlus, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadFile } from '@/lib/download-utils';
 import {
@@ -189,15 +189,27 @@ export function UniversalMediaViewer({
     };
 
     const handleDeleteClick = async () => {
-        // If it's a reference image (Unlink) OR an explicit 'minus' icon (Clear), we do it immediately (Low Risk)
-        if ((currentItem.isReference && onUnlink)) {
-            onUnlink(currentItem.url);
-        } else if (currentItem.deleteIcon === 'minus' && onDelete) {
-            // Low risk 'Clear' action - No dialog needed
+        if (!currentItem) return;
+
+        // UNLINK: For reference images or results with 'minus' icon
+        if (currentItem.isReference && onUnlink) {
+            const contextId = currentItem.ownerClipId;
+            const isResult = false; // References are never results
+            console.log('[UniversalViewer] Unlinking reference:', { url: currentItem.url, contextId, isResult });
+            await onUnlink(currentItem.url, contextId, isResult);
+            onClose(); // Close viewer after unlinking
+            return;
+        }
+
+        // CLEAR RESULT: Low-risk action with 'minus' icon
+        if (currentItem.deleteIcon === 'minus' && onDelete) {
             await onDelete(currentItem.id);
             onClose();
-        } else if (onDelete) {
-            // If it's a root asset (Delete), we show Dialog (High Risk)
+            return;
+        }
+
+        // DELETE: High-risk permanent deletion - show confirmation dialog
+        if (onDelete) {
             setShowDeleteDialog(true);
         }
     };
@@ -235,7 +247,8 @@ export function UniversalMediaViewer({
                     {/* Top Controls Overlay - Always Visible */}
                     <div className="absolute top-0 right-0 p-4 flex gap-2 z-50 bg-gradient-to-b from-black/60 to-transparent">
                         {/* Add as Ref Image - Different behavior for Results vs Refs */}
-                        {isImage && onAddAsRef && (
+                        {/* ENABLED FOR BOTH IMAGES AND VIDEOS */}
+                        {(isImage || isVideo) && onAddAsRef && (
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -259,11 +272,15 @@ export function UniversalMediaViewer({
                                                 }
                                             }}
                                         >
-                                            <ImagePlus className="h-5 w-5" />
+                                            {isVideo && !currentItem.isReference ? (
+                                                <Film className="h-5 w-5" />
+                                            ) : (
+                                                <ImagePlus className="h-5 w-5" />
+                                            )}
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        {currentItem.isReference ? 'Copy/Move to clip' : 'Add as ref image'}
+                                        {currentItem.isReference ? 'Copy/Move to clip' : 'Add as reference'}
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>

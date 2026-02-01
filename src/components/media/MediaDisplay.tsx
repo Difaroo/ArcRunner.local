@@ -15,6 +15,7 @@ interface MediaDisplayProps {
     onUseAsRef?: (url: string) => void
     onUpdate?: (id: string, updates: any) => Promise<void> | void
     onDelete?: (id: string) => Promise<void> | void
+    onUnlink?: (url: string) => Promise<void> | void // Separate handler for unlinking references
     isReference?: boolean // Override context
 }
 
@@ -31,6 +32,7 @@ export function MediaDisplay({
     onUseAsRef, // Destructure new prop
     onUpdate,
     onDelete,
+    onUnlink, // Destructure unlink handler
     isReference = false // Default to false (Root Asset) unless specified
 }: MediaDisplayProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -144,9 +146,11 @@ export function MediaDisplay({
                             play_circle
                         </span>
                     ) : (
-                        <span className="material-symbols-outlined text-white/80 text-[20px] drop-shadow-lg group-hover:scale-110 transition-transform opacity-0 group-hover:opacity-100">
-                            visibility
-                        </span>
+                        !isReference && (
+                            <span className="material-symbols-outlined text-white/80 text-[20px] drop-shadow-lg group-hover:scale-110 transition-transform opacity-0 group-hover:opacity-100">
+                                visibility
+                            </span>
+                        )
                     )}
                 </div>
             </div>
@@ -164,10 +168,10 @@ export function MediaDisplay({
                 initialIndex={allUrls.indexOf(effectiveOriginalUrl || '')}
                 onUpdate={onUpdate ? async (id, updates) => { await onUpdate(id, updates); } : undefined}
                 // Map Delete logic:
-                // If Reference: Pass Delete as Unlock (Minus Button)
-                // If Root: Pass Delete as Delete (Trash Button)
+                // If Reference: Pass Unlink handler (Minus Button)
+                // If Root: Pass Delete handler (Trash Button)
                 onDelete={!isReference && onDelete ? async (id) => { await onDelete(id); } : undefined}
-                onUnlink={isReference && onDelete ? async (url) => { if (onDelete) await onDelete(url); } : undefined}
+                onUnlink={isReference && onUnlink ? async (url) => { if (onUnlink) await onUnlink(url); } : undefined}
             />
         </>
     )

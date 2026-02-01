@@ -166,9 +166,9 @@ export function AddAsRefDialog({
                 onKeyDown={handleKeyDown}
             >
                 <DialogHeader className="gap-2">
-                    <DialogTitle className="text-stone-100 font-normal text-xl">Add as ref image</DialogTitle>
+                    <DialogTitle className="text-stone-100 font-normal text-xl">Add as reference</DialogTitle>
                     <DialogDescription className="text-stone-400">
-                        Add this image as a reference in clip.
+                        Add this media as a reference in clip.
                     </DialogDescription>
                 </DialogHeader>
 

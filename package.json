@@ -1,6 +1,6 @@
 {
   "name": "arcrunner-local",
-  "version": "0.27.0",
+  "version": "0.27.1",
   "private": true,
   "scripts": {
     "dev": "npx -y kill-port 3000 && npx prisma generate && next dev -p 3000",
@@ -12,7 +12,8 @@
     "test:ui": "playwright test",
     "test:ui:debug": "playwright test --debug",
     "migrate:dev": "export $(grep -v '^#' .env.development | xargs) && prisma migrate dev",
-    "migrate:deploy": "./scripts/deploy-migration.sh"
+    "migrate:deploy": "./scripts/deploy-migration.sh",
+    "watch:clips": "npx tsx scripts/watch-clips.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

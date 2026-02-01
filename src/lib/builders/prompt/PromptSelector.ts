@@ -63,10 +63,10 @@ export class PromptSelector {
         }
         // --- S2E: Start + End Frames ---
         else if (isS2E) {
-            // S2E STRICT: Image 1 = Start, Image 2 = End
-            // Source: explicitImages only
+            // S2E STRICT: Refs are LIFO (newest first), so [1]=START, [0]=END
+            // Reverse order for correct playback: [1, 0] → [START, END]
             if (explicitImages && explicitImages.length >= 2) {
-                selectedImages = [explicitImages[0], explicitImages[1]];
+                selectedImages = [explicitImages[1], explicitImages[0]];
             } else if (explicitImages && explicitImages.length === 1) {
                 selectedImages = [explicitImages[0]];
                 refImgIndices.push(1);

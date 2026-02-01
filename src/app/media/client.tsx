@@ -136,14 +136,20 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
         const playlist = initialItems.map(item => {
             let itemTitle = 'Media';
 
+            // Handle result clips
             if (item.resultForClip) {
-                // Try to resolve Series Name from SeriesList if possible
                 const seriesId = episodeList.find(e => e.id === item.resultForClip.episodeId)?.seriesId;
                 const sName = seriesList.find(s => s.id === seriesId)?.name || 'Series';
-
-                // Use Standardized Filename (strip extension for Display Title)
                 itemTitle = getClipFilename(item.resultForClip, sName).replace(/\.[^/.]+$/, "");
-            } else if (item.studioItem) {
+            }
+            // Handle reference clips
+            else if (item.referenceForClip) {
+                const seriesId = episodeList.find(e => e.id === item.referenceForClip.episodeId)?.seriesId;
+                const sName = seriesList.find(s => s.id === seriesId)?.name || 'Series';
+                itemTitle = getClipFilename(item.referenceForClip, sName).replace(/\.[^/.]+$/, "");
+            }
+            // Handle studio items
+            else if (item.studioItem) {
                 itemTitle = item.studioItem.name;
             }
 
@@ -175,7 +181,12 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
 
     const handleAddAsRef = async (url: string, targetClipId: string, action: 'copy' | 'move' = 'move', sourceClipId?: string) => {
         try {
-            const res = await fetch('/api/media/add-ref', {
+            // Route to correct endpoint based on action
+            const endpoint = action === 'copy'
+                ? '/api/media/copy-ref'  // Duplicate Media record
+                : '/api/media/add-ref';   // Move existing Media record
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url, targetClipId, sourceClipId })

@@ -2,6 +2,28 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-01: v0.27.1 - Peregrine (Robust Unlinking & History)
+
+### Context
+A critical stability release addressing the fragility of the "Unlink" action and ensuring complete data integrity for generation history. Previous versions had issues where unlinking a reference could accidentally hide the Result video or leave orphaned database records. This release also introduces a "Full History" playlist in the Universal Viewer.
+
+### Key Fixes
+- **Robust Unlinking**:
+    - **Studio Assets**: Fixed a bug where unlinking a Studio Asset (Character/Location) failed to remove the database relation unless the page was refreshed.
+    - **Result Integrity**: Fixed a regression where unlinking a Reference Image sometimes caused the Result Video to disappear from the UI.
+    - **UI Feedback**: Unlinking now provides instant visual feedback (removal) without requiring a reload.
+- **History "Time Machine"**:
+    - **Playlist Stack**: The Universal Viewer now builds a comprehensive playlist of ALL historical results (not just the latest one). Users can swipe back to see previous generations for the same clip.
+    - **Data Safety**: Reverted the experimental "Result Demotion" logic. Historical results are now safely stored as a stacked history in the `resultUrl` CSV (soon to be pure Media relations) without being miscategorized as input references.
+- **Viewer Polish**:
+    - **Icons**: Added distinct "Film" icon for Video Results and removed the confusing "Eye" icon from Reference thumbnails.
+
+### Technical
+- **Refactoring**: Consolidated duplicate unlinking logic in `page.tsx`.
+- **Version Bump**: 0.27.0 -> 0.27.1.
+
+---
+
 ## 2026-01-31: v0.27.0 - Peregrine (Studio Viewer & Navigation)
 
 ### Context

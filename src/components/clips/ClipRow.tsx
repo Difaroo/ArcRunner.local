@@ -687,75 +687,74 @@ export function ClipRow({
                     >
                         {renderedRefs.length > 0 ? (
                             renderedRefs.slice(0, 9).map((url, i) => (
-                                <img
-                                    key={url}
-                                    src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                    alt={`Ref ${i + 1}`}
-                                    className="w-[24px] h-[24px] object-cover rounded shadow-sm cursor-pointer hover:opacity-80 transition-opacity active:cursor-grabbing"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
+                                <div key={url} className="w-[24px] h-[24px]">
+                                    <MediaDisplay
+                                        url={url}
+                                        title={`Ref ${i + 1}`}
+                                        className="w-full h-full object-cover rounded shadow-sm hover:opacity-80 transition-opacity"
+                                        isReference={true}
+                                        contentType="auto" // Let it auto-detect video vs image
+                                        onPlay={(clickedUrl) => {
+                                            // 1. Build List of References (Rich Objects)
+                                            const refItems = renderedRefs.map(rUrl => {
+                                                const cleanUrl = rUrl.trim();
+                                                const isVideo = cleanUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+                                                return {
+                                                    id: cleanUrl,
+                                                    url: cleanUrl,
+                                                    type: (isVideo ? 'video' : 'image') as 'video' | 'image',
+                                                    title: isVideo ? 'Reference Video' : 'Reference Image',
+                                                    isReference: true,
+                                                    ownerClipId: clip.id.toString()
+                                                };
+                                            });
 
-                                        const clickedUrl = url.trim();
+                                            // 2. Build Result Items (History Support)
+                                            let fullPlaylist = [...refItems];
+                                            const resultUrls = parseStringList(clip.resultUrl || '');
 
-                                        // 1. Build List of References (Rich Objects)
-                                        const refItems = renderedRefs.map(rUrl => {
-                                            const cleanUrl = rUrl.trim();
-                                            const isVideo = cleanUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
-                                            return {
-                                                id: cleanUrl,
-                                                url: cleanUrl,
-                                                type: isVideo ? 'video' : 'image',
-                                                title: isVideo ? 'Reference Video' : 'Reference Image',
-                                                isReference: true,
-                                                ownerClipId: clip.id
-                                            };
-                                        });
+                                            if (resultUrls.length > 0 && (clip.status === 'Done' || clip.status === 'Saved' || clip.status === 'Ready')) {
+                                                const resultItems = resultUrls.map((resUrl, idx) => {
+                                                    const isResVideo = resUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+                                                    // Only use the stored thumbnail for the MOST RECENT result (index 0)
+                                                    const thumb = idx === 0 ? clip.thumbnailPath : undefined;
 
-                                        // 2. Build Result Item (if exists)
-                                        let fullPlaylist = [...refItems];
+                                                    // Versioning Title: Most recent is base title, older ones get (vX)
+                                                    // Logic: If 3 results, idx 0 = (Latest), idx 1 = (v2), idx 2 = (v1)
+                                                    // Actually, simplified: "Result (History N)"
+                                                    const baseTitle = getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "") || 'Result';
+                                                    const verTitle = idx === 0 ? baseTitle : `${baseTitle} (History ${idx})`;
 
-                                        if (clip.resultUrl && (clip.status === 'Done' || clip.status === 'Saved' || clip.status === 'Ready')) {
-                                            const resultType = clip.thumbnailPath
-                                                ? 'image'
-                                                : (clip.resultUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'video' : 'image');
+                                                    return {
+                                                        id: `result-${clip.id}-${idx}`,
+                                                        url: resUrl,
+                                                        type: (isResVideo ? 'video' : 'image') as 'video' | 'image',
+                                                        title: verTitle,
+                                                        isReference: false,
+                                                        ownerClipId: clip.id.toString(),
+                                                        thumbnailPath: thumb
+                                                    };
+                                                });
 
-                                            const resultItem = {
-                                                id: `result-${clip.id}`,
-                                                url: clip.resultUrl.trim(),
-                                                type: resultType,
-                                                title: getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "") || 'Result',
-                                                isReference: false,
-                                                ownerClipId: clip.id,
-                                                thumbnailPath: clip.thumbnailPath
-                                            };
+                                                // Prepend Results to Playlist
+                                                fullPlaylist = [...resultItems, ...refItems];
+                                            }
 
-                                            // Prepend Result to Playlist
-                                            fullPlaylist = [resultItem, ...refItems];
-                                        }
+                                            // 3. Append Character/Location Images
+                                            const charItems = (clip.characterImageUrls || []).map(u => ({
+                                                id: u, url: u, type: 'image' as const, title: 'Character Ref', isReference: true, ownerClipId: clip.id.toString()
+                                            }));
+                                            const locItems = (clip.locationImageUrls || []).map(u => ({
+                                                id: u, url: u, type: 'image' as const, title: 'Location Ref', isReference: true, ownerClipId: clip.id.toString()
+                                            }));
 
-                                        // 3. Append Character/Location Images (Restore missing items)
-                                        const charItems = (clip.characterImageUrls || []).map(u => ({
-                                            id: u, url: u, type: 'image' as const, title: 'Character Ref', isReference: true, ownerClipId: clip.id.toString()
-                                        }));
-                                        const locItems = (clip.locationImageUrls || []).map(u => ({
-                                            id: u, url: u, type: 'image' as const, title: 'Location Ref', isReference: true, ownerClipId: clip.id.toString()
-                                        }));
+                                            fullPlaylist = [...fullPlaylist, ...charItems, ...locItems];
 
-                                        fullPlaylist = [...fullPlaylist, ...charItems, ...locItems];
-
-                                        onPlay(clickedUrl, fullPlaylist);
-                                    }}
-                                    draggable="true"
-                                    onDragStart={(e) => {
-                                        e.dataTransfer.setData('text/plain', url);
-                                        e.dataTransfer.effectAllowed = 'copy';
-                                        console.log('Drag Start (Display Ref):', url);
-                                    }}
-                                    onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
-                                />
+                                            onPlay(clickedUrl, fullPlaylist);
+                                        }}
+                                    // Pass specific delete handler if needed, but MediaDisplay usually handles internal logic
+                                    />
+                                </div>
                             ))
                         ) : (
                             <div className="w-full h-full flex items-center justify-end text-stone-600 text-[10px] px-2 opacity-50 group-hover:opacity-100">
@@ -784,8 +783,9 @@ export function ClipRow({
                                 </div>
                             )}
                             <MediaDisplay
-                                url={clip.thumbnailPath || clip.resultUrl}
-                                originalUrl={clip.resultUrl}
+                                // Safe URL Extraction for single display: Use ParseStringList[0]
+                                url={clip.thumbnailPath || parseStringList(clip.resultUrl)[0]}
+                                originalUrl={parseStringList(clip.resultUrl)[0]}
                                 model={clip.model}
                                 title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
                                 isThumbnail={!!clip.thumbnailPath}

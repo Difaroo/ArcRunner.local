@@ -76,17 +76,35 @@ export async function POST(req: NextRequest) {
         if (!existingMedia) {
             // No existing Media - this is likely a result image stored on Clip.resultUrl
             // Create new Media record as reference with episodeId
+            // Detect type based on extension
+            const isVideo = url.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+            const mediaType = isVideo ? 'VIDEO' : 'IMAGE';
+
             const newMedia = await db.media.create({
                 data: {
                     url: url,
-                    type: 'IMAGE',
+                    type: mediaType,
                     category: 'REFERENCE',
                     referenceForClipId: clipId,
                     episodeId: targetClip.episodeId  // Direct episode ownership
                 }
             });
 
-            // If sourceClipId provided, clear its resultUrl to complete the "move"
+            // Sync CSV
+            const addUrlToCsv = (current: string | null, urlToAdd: string) => {
+                const list = (current || '').split(',').map(s => s.trim()).filter(Boolean);
+                if (!list.includes(urlToAdd)) {
+                    return [...list, urlToAdd].join(',');
+                }
+                return current || '';
+            };
+
+            await db.clip.update({
+                where: { id: clipId },
+                data: {
+                    refImageUrls: addUrlToCsv(targetClip.refImageUrls, url)
+                }
+            });
             if (sourceClipId) {
                 const srcClipId = parseInt(sourceClipId, 10);
                 if (!isNaN(srcClipId)) {
@@ -134,6 +152,28 @@ export async function POST(req: NextRequest) {
                 episodeId: targetClip.episodeId
             }
         });
+
+        // CRITICAL: Update Sync - Add URL to Clip.refImageUrls
+        // This ensures the frontend grid (which reads these legacy fields) updates immediately.
+        const addUrlToCsv = (current: string | null, urlToAdd: string) => {
+            const list = (current || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (!list.includes(urlToAdd)) {
+                return [...list, urlToAdd].join(',');
+            }
+            return current || '';
+        };
+
+        const nextRefs = addUrlToCsv(targetClip.refImageUrls, url);
+
+        if (nextRefs !== targetClip.refImageUrls) {
+            await db.clip.update({
+                where: { id: clipId },
+                data: {
+                    refImageUrls: nextRefs
+                }
+            });
+            console.log(`[AddRef] Synced CSV fields for Clip ${clipId}`);
+        }
 
         // CRITICAL: If this was previously a RESULT, update the OLD clip to clear legacy fields
         // This prevents "ghost" thumbnails where the clip still thinks it has a result.

@@ -467,7 +467,15 @@ export default function Home() {
           ...updates, // FORCE USER UPDATES (Prevent Stale Revert)
           // CRITICAL FIX: Sync explicitRefUrls with the DB refImageUrls (which is now properly explicit in API)
           explicitRefUrls: data.clip.explicitRefUrls || data.clip.refImageUrls // Use Explicit if available (preferred), fallback only if old API
-        } : c));
+        } : c).map(c => {
+          // Post-Update Re-Resolution (Success Path)
+          // Ensure derived fields are updated immediately using the fresh data
+          if (c.id === clipId) {
+            const { characterImageUrls, locationImageUrls } = resolveClipImages(c, findLibUrl, 'single');
+            return { ...c, characterImageUrls, locationImageUrls };
+          }
+          return c;
+        }));
       } else {
         // Fallback: Optimistic update with robust trimming
         setClips(prev => prev.map(c => {
@@ -663,6 +671,9 @@ export default function Home() {
   }, [allSeriesAssets]);
 
   const findLibUrl = (name: string) => seriesLibraryMap[name.toLowerCase()];
+
+  // Helper for Edit Mode Thumbnails
+  const resolveImage = (name: string) => findLibUrl(name);
 
   const activeClips = useMemo(() => {
     return rawActiveClips
@@ -1083,6 +1094,14 @@ export default function Home() {
   };
 
   const handleUnlink = async (url: string, contextId?: string, isResult?: boolean) => {
+    // Defensive: Validate required parameters
+    if (!url) {
+      console.error('[Unlink] Missing required parameter: url');
+      return;
+    }
+
+    console.log(`[Unlink] url=${url?.substring(0, 50)}... contextId=${contextId} isResult=${isResult}`);
+
     // 1. Studio Context (using Namespaced ID from LibraryRow)
     // ONLY VALID if we are truly editing the Library directly (Library View)
     // If we are in Episode View (contextId matches a clip), we prioritize Clip Editing.
@@ -1112,134 +1131,125 @@ export default function Home() {
 
         refreshData();
       }
-    } else {
-      // 2. Clip Context (Episode View)
-      // Even if the URL is from a Studio Item, we want to unlink the ASSOCIATION (Name) from the clip.
-      let clipId = contextId; // contextId should be clipId for clips
+      return; // Early exit for library context
+    }
 
-      // Fallback: If contextId was passed as 'lib-ID' but we are actually in a Clip (via ownerClipId fallback in Viewer),
-      // we need to find the clip.
-      // But wait! In Viewer props, I set ownerClipId = clip.id. So contextId IS clip.id.
-      // So 'clipId' should be valid.
+    // 2. Clip Context (Episode View)
+    // Even if the URL is from a Studio Item, we want to unlink the ASSOCIATION (Name) from the clip.
+    const clipId = contextId; // contextId should be clipId for clips
 
-      const clip = clipId
-        ? clips.find(c => c.id.toString() === clipId.toString())
-        : clips.find(c => (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url));
+    // Find the clip - prefer contextId, fallback to URL search
+    const clip = clipId
+      ? clips.find(c => c.id.toString() === clipId.toString())
+      : clips.find(c => (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url));
 
-      if (clip) {
-        if (isResult) {
-          // RESULT UNLINK: Call API to detach + Clear local state
-          try {
-            await fetch('/api/media/unlink', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                url,
-                clipId: clip.id,
-                isResult: true
-              })
-            });
+    if (!clip) {
+      console.error('[Unlink] Could not find clip for contextId:', contextId);
+      return;
+    }
 
-            // Update Local State
-            setClips(prev => prev.map(c =>
-              c.id.toString() === clip.id.toString()
-                ? { ...c, resultUrl: '', thumbnailPath: '', status: 'Ready' }
-                : c
-            ));
-
-            // Close Viewer
-            setPlayingVideoUrl(null);
-            notifyWrite();
-
-          } catch (e) {
-            console.error("Failed to unlink result", e);
-            alert("Failed to unlink result");
-          }
-        } else {
-          // REFERENCE UNLINK
-
-          // STUDIO ITEM CHECK: Is this URL from a Studio Item?
-          // If so, remove the Name from Character/Location fields.
-          const studioItem = libraryItems.find(i => (i.refImageUrl === url) || ((i as any).media || []).some((m: any) => m.url === url || m.localPath === url));
-
-          if (studioItem) {
-            console.log(`[Unlink] Detected Studio Item match: ${studioItem.name} (${studioItem.type})`);
-            const updates: Partial<Clip> = {};
-            let modified = false;
-
-            // Helper to clean list
-            const removeFromList = (listStr: string | null, validName: string) => {
-              if (!listStr) return "";
-              const arr = listStr.split(',').map(s => s.trim()).filter(Boolean);
-              const next = arr.filter(s => s.toLowerCase() !== validName.toLowerCase()).join(', ');
-              return next;
-            };
-
-            // Check Character Field
-            if (studioItem.type === 'LIB_CHARACTER') {
-              const nextChars = removeFromList(clip.character, studioItem.name);
-              if (nextChars !== (clip.character || "")) {
-                updates.character = nextChars;
-                modified = true;
-              }
-            }
-            // Check Location Field
-            if (studioItem.type === 'LIB_LOCATION') {
-              const nextLoc = removeFromList(clip.location, studioItem.name);
-              if (nextLoc !== (clip.location || "")) {
-                updates.location = nextLoc;
-                modified = true;
-              }
-            }
-
-            if (modified) {
-              await handleSave(clip.id, updates);
-              // Do NOT setPlayingVideoUrl(null) - Let user stay in viewer? Or close?
-              // Standard behavior is close on delete.
-              setPlayingVideoUrl(null);
-              return; // Stop processing explicit refs (Studio items aren't explicit usually)
-            }
-          }
-
-          // STANDARD EXPLICIT REF UNLINK
-          // 1. Unlink Media Record (Best Effort)
-          try {
-            await fetch('/api/media/unlink', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                url,
-                clipId: clip.id,
-                isResult: false
-              })
-            });
-          } catch (e) {
-            console.error("Failed to detach media record", e);
-          }
-
-          // 2. Remove from CSV (Legacy + UI)
-          const currentRefs = (clip.explicitRefUrls || clip.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-          const targetPath = normalizeUrl(url);
-          const next = currentRefs.filter(r => normalizeUrl(r) !== targetPath).join(',');
-          await handleSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
-
-          // 3. Close Viewer
-          setPlayingVideoUrl(null);
-        }
-      }
-
-      // Database Relation Update (Generic)
+    // === RESULT UNLINK ===
+    if (isResult) {
       try {
         await fetch('/api/media/unlink', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, clipId, isResult })
+          body: JSON.stringify({
+            url,
+            clipId: clip.id,
+            isResult: true
+          })
         });
+
+        // Update Local State
+        setClips(prev => prev.map(c =>
+          c.id.toString() === clip.id.toString()
+            ? { ...c, resultUrl: '', thumbnailPath: '', status: 'Ready' }
+            : c
+        ));
+
+        setPlayingVideoUrl(null);
         notifyWrite();
+
       } catch (e) {
-        console.error('Failed to unlink media relation', e);
+        console.error("Failed to unlink result", e);
+        alert("Failed to unlink result");
       }
+      return; // Done with result unlink
     }
+
+    // === REFERENCE UNLINK ===
+
+    // Check if this is a Studio Item reference
+    const studioItem = libraryItems.find(i =>
+      (i.refImageUrl === url) ||
+      ((i as any).media || []).some((m: any) => m.url === url || m.localPath === url)
+    );
+
+    // If it's a studio item, remove the name from character/location fields
+    if (studioItem) {
+      console.log(`[Unlink] Detected Studio Item match: ${studioItem.name} (${studioItem.type})`);
+      const updates: Partial<Clip> = {};
+
+      // Helper to remove name from comma-separated list
+      const removeFromList = (listStr: string | null, nameToRemove: string) => {
+        if (!listStr) return "";
+        const arr = listStr.split(',').map(s => s.trim()).filter(Boolean);
+        return arr.filter(s => s.toLowerCase() !== nameToRemove.toLowerCase()).join(', ');
+      };
+
+      // Remove from Character field if it's a character
+      if (studioItem.type === 'LIB_CHARACTER') {
+        const nextChars = removeFromList(clip.character, studioItem.name);
+        if (nextChars !== (clip.character || "")) {
+          updates.character = nextChars;
+        }
+      }
+
+      // Remove from Location field if it's a location
+      if (studioItem.type === 'LIB_LOCATION') {
+        const nextLoc = removeFromList(clip.location, studioItem.name);
+        if (nextLoc !== (clip.location || "")) {
+          updates.location = nextLoc;
+        }
+      }
+
+      // Save character/location changes if any
+      if (Object.keys(updates).length > 0) {
+        await handleSave(clip.id, updates);
+      }
+      // Continue to unlink Media record below (don't return early)
+    }
+
+    // Unlink Media Record from database
+    try {
+      await fetch('/api/media/unlink', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          clipId: clip.id,
+          isResult: false
+        })
+      });
+    } catch (e) {
+      console.error("Failed to detach media record", e);
+    }
+
+    // Optimistic Update: Remove from local state immediately so UI reflects change
+    // The backend handles the actual DB/CSV persistence, but we want instant feedback.
+    setClips(prev => prev.map(c => {
+      if (c.id === clip.id) {
+        const currentRefs = (c.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
+        const nextRefs = currentRefs.filter(r => r !== url).join(',');
+        return { ...c, refImageUrls: nextRefs };
+      }
+      return c;
+    }));
+
+    // Close Viewer and notify
+    setPlayingVideoUrl(null);
+    notifyWrite();
   };
 
   const handleDeleteClip = (id: string) => {
@@ -1361,11 +1371,14 @@ export default function Home() {
         });
       }
 
-      // 7. Create Clip
+      // 7. Create Clip (with sourceClipId for reference image duplication)
       const res = await fetch('/api/clips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clip: newClip })
+        body: JSON.stringify({
+          clip: newClip,
+          sourceClipId: id  // Enable backend to copy reference Media records
+        })
       });
 
       const data = await res.json();
@@ -2358,6 +2371,7 @@ export default function Home() {
                 onDelete={handleDeleteClip}
                 onDuplicate={handleDuplicateClip}
                 onStudioAssetClick={handleStudioAssetView}
+                onResolveImage={resolveImage}
                 seriesTitle={seriesList.find(s => s.id === currentSeriesId)?.title || 'Series'}
               />
             )}
