@@ -1,18 +1,18 @@
 {
   "model": "kling-2.6/image-to-video",
   "input": {
-    "prompt": "STYLE: [Masterpiece illustrative ANIME, dark, arabian, fantasy, cinematic, with impressionist painted texture.\n\nCHARACTERS: ESSENTIAL: REFERENCE IMAGES define: Facial Proportions and Style; Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality. Render cel-shading, Material Properties & Textures with impressionist random oil paint strokes, very fine hand-drawn black outlines, detailed crumples in fabric. \n\nBACKGROUND: ESSENTIAL: Impressionist, large broad brush wet oil paint strokes with NO OUTLINES. Expressive, organic abstract surfaces, in earthy tones, ochres, shadowed blues.]\n\nACTION: [CAMERA: Single continuous take. Wide frame.\n\nACTION (EXACT):\n\nAFSAAR enters frame from screen left.\n\nAFSAAR speaks the provided dialogue line. Her lips visibly move in sync with the spoken words.\n\nOn the far edge of screen right, DAJAA is attacked from behind by a ghoul, struggling.\n\nAfter speaking, AFSAAR thrusts her open palm forward.\n\nA powerful magical blast surges from AFSAAR’s hand and hits the ghoul attacking DAJAA.\n\nThe ghoul is destroyed by the impact and thrown off DAJAA.\n\nDAJAA is freed.\n\nNEGATIVE CONSTRAINTS (STRICT):\n\nDo not omit spoken dialogue.\n\nDo not show AFSAAR silent or off-screen during dialogue.\n\nDo not replace dialogue with narration.\n\nDo not morph, blend, or substitute characters.\n\nDo not move DAJAA from screen right.\n\nNo cuts. No retiming.]. [ Character says: \"AFSAAR: We see her speak her lips move: Ood ila al-thalam!!!\"]\n\nCAMERA: [Moonlit mid-shot action framing with controlled camera drift; balanced composition allowing spell effects and physical movement to read clearly.]",
-    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/233_1769374358325.png",
+    "prompt": "STYLE: [Masterpiece illustrative ANIME, dark, arabian, fantasy, cinematic, with impressionist painted texture.\n\nCHARACTERS: ESSENTIAL: REFERENCE IMAGES define: Facial Proportions and Style; Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality. Render cel-shading, Material Properties & Textures with impressionist random oil paint strokes, very fine hand-drawn black outlines, detailed crumples in fabric. \n\nBACKGROUND: ESSENTIAL: Impressionist, large broad brush wet oil paint strokes with NO OUTLINES. Expressive, organic abstract surfaces, in earthy tones, ochres, shadowed blues.]\n\nACTION: [Camera pulls back smoothly as Afsaar walks out of the shadows into extreme close up of Afsaar talking.\n\n]. []\n\nCAMERA: [Close shot with intimate framing on character action; shallow depth of field isolates faces and hands; minimal camera movement to heighten empathy.]\n\nNO: [Do not make her walk fast she must be slow.Her lips do not move].",
+    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/Afsaar_with_Horse.png",
     "image_urls": [
-      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/233_1769374358325.png"
+      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/Afsaar_with_Horse.png"
     ],
-    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/233_1769374358325.png",
+    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/Afsaar_with_Horse.png",
     "aspect_ratio": "16:9",
     "resolution": "1080p",
     "mode": "std",
     "cfg_scale": 0.5,
-    "sound": true,
+    "sound": false,
     "duration": "5",
-    "negative_prompt": ""
+    "negative_prompt": "Do not make her walk fast she must be slow.Her lips do not move"
   }
 }

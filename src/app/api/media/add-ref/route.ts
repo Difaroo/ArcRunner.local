@@ -15,7 +15,7 @@ import { normalizeUrl } from "@/lib/utils";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { url, targetClipId, sourceClipId } = body;
+        const { url, targetClipId, sourceClipId, action } = body; // Added 'action' param
 
         if (!url || !targetClipId) {
             return NextResponse.json(
@@ -51,8 +51,6 @@ export async function POST(req: NextRequest) {
         if (sourceClipId) {
             const srcId = parseInt(sourceClipId, 10);
             if (!isNaN(srcId)) {
-                // FIX: Must also match URL to avoid picking old history items!
-                // We use findFirst but constrain by URL.
                 existingMedia = await db.media.findFirst({
                     where: {
                         resultForClipId: srcId,
@@ -122,52 +120,50 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // FIX: User requested "Change of Relationship" (Move), not Copy.
-        // We revert to MOVE logic, but keep the strict URL check to ensure we target the correct image.
+        // 4. Move or Copy Logic
+        const isSameClipResult = existingMedia.resultForClipId === clipId;
+        const isOrphan = !existingMedia.referenceForClipId && !existingMedia.resultForClipId;
+        const isExplicitMove = action === 'move';
+        const shouldMove = isSameClipResult || isOrphan || isExplicitMove;
 
-        // Check if ALREADY exists as a REFERENCE for this clip
-        if (existingMedia.referenceForClipId === clipId) {
-            return NextResponse.json(
-                { error: 'This image is already a reference for this clip' },
-                { status: 409 }
-            );
+        if (!shouldMove) {
+            // COPY
+            console.log(`[AddRef] COPY strategy: Duplicating Media ${existingMedia.id}`);
+            const newMedia = await db.media.create({
+                data: {
+                    url: existingMedia.url,
+                    localPath: existingMedia.localPath,
+                    type: existingMedia.type,
+                    mimeType: existingMedia.mimeType,
+                    size: existingMedia.size,
+                    width: existingMedia.width,
+                    height: existingMedia.height,
+                    category: 'REFERENCE',
+                    referenceForClipId: clipId,
+                    episodeId: targetClip.episodeId
+                }
+            });
+            return NextResponse.json({ success: true, action: 'copied', mediaId: newMedia.id, clipId: clipId });
         }
 
-        // MOVE: Update existing record - set as reference, clear result association
+        // MOVE
         const updatedMedia = await db.media.update({
             where: { id: existingMedia.id },
             data: {
                 referenceForClipId: clipId,
-                resultForClipId: null, // Clear result association - it's now a reference
+                resultForClipId: null,
                 category: 'REFERENCE',
                 episodeId: targetClip.episodeId
             }
         });
 
-        // LEGACY Sync REMOVED
-        // const addUrlToCsv ... 
-        // await db.clip.update ...
-
-        // CRITICAL: If this was previously a RESULT, update the OLD clip to clear legacy fields
-        // This prevents "ghost" thumbnails where the clip still thinks it has a result.
+        // Clear legacy result fields on old owner
         if (existingMedia.resultForClipId) {
-            console.log(`[AddRef] Clearing legacy result fields for Clip ${existingMedia.resultForClipId}`);
             await db.clip.update({
                 where: { id: existingMedia.resultForClipId },
-                data: {
-                    // resultUrl: '', // Strict Mode: Do not zero out if we stop reading it? 
-                    // Actually, we SHOULD clear it to prevent confusion if someone reads DB directly.
-                    // But for consistency with "Stop Writing", we might leave it.
-                    // Let's clear it, as it's a cleanup of OLD state, not creation of NEW legacy state.
-                    resultUrl: '',
-                    thumbnailPath: '',
-                    taskId: '',
-                    status: 'Ready'
-                }
+                data: { resultUrl: '', thumbnailPath: '', taskId: '', status: 'Ready' }
             });
         }
-
-        console.log(`[AddRef] Moved Media ${updatedMedia.id}: resultForClipId=${existingMedia.resultForClipId} -> referenceForClipId=${clipId}`);
 
         return NextResponse.json({
             success: true,
@@ -186,3 +182,11 @@ export async function POST(req: NextRequest) {
     }
 }
 
+// Helper to avoid import issues
+function parseStringList(val: string | null | undefined): string[] {
+    if (!val) return [];
+    return val.split(',').map(s => s.trim()).filter(Boolean);
+}
+function joinStringList(list: string[]): string {
+    return list.join(',');
+}

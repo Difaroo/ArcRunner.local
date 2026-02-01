@@ -1,0 +1,421 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - heading "ARCRUNNER" [level=1] [ref=e6]
+          - generic [ref=e7]: 0.27.1 Peregrine
+        - navigation [ref=e9]:
+          - button "Series" [ref=e10] [cursor=pointer]
+          - button "Script" [ref=e11] [cursor=pointer]
+          - button "Studio" [ref=e12] [cursor=pointer]
+          - button "Episode" [ref=e13] [cursor=pointer]
+          - button "Media" [ref=e14] [cursor=pointer]
+          - button "Storyboard" [ref=e15] [cursor=pointer]
+          - button "Settings" [ref=e16] [cursor=pointer]
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]: v0.28.0
+          - generic [ref=e20]: Status
+          - generic [ref=e22]: Connected
+        - button "refresh" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]: refresh
+    - navigation [ref=e27]:
+      - button "Ep 1" [ref=e28] [cursor=pointer]
+      - button "Ep 2" [ref=e29] [cursor=pointer]
+      - button "Ep 3" [ref=e30] [cursor=pointer]
+      - button "Ep 4" [ref=e31] [cursor=pointer]
+      - button "Ep 5" [ref=e32] [cursor=pointer]
+      - button "Ep 6" [ref=e33] [cursor=pointer]
+      - button "Ep 999" [ref=e34] [cursor=pointer]
+    - generic [ref=e35]:
+      - heading "News of High Strangeness / Ultra Radio News" [level=2] [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]: News of High Strangeness
+          - generic [ref=e39]: /
+          - generic [ref=e40]: Ultra Radio News
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - generic [ref=e44]: Studio
+          - generic [ref=e45]: 56 Assets
+        - generic [ref=e47]:
+          - button "MODEL Nano Banana Pro" [ref=e48] [cursor=pointer]:
+            - generic [ref=e49]: MODEL
+            - text: Nano Banana Pro
+          - generic [ref=e50]:
+            - generic [ref=e51]: SEED
+            - spinbutton [ref=e52]
+            - button "refresh" [ref=e53] [cursor=pointer]:
+              - generic [ref=e54]: refresh
+          - button "VIEW 16:9" [ref=e55] [cursor=pointer]:
+            - generic [ref=e56]: VIEW
+            - generic [ref=e57]: 16:9
+          - generic [ref=e58]:
+            - generic [ref=e59]: STYLE
+            - button "Anime_Cel" [ref=e60] [cursor=pointer]
+            - button "close" [ref=e61] [cursor=pointer]:
+              - generic [ref=e62]: close
+          - button "STRENGTH 5" [ref=e63] [cursor=pointer]:
+            - generic [ref=e64]: STRENGTH
+            - generic [ref=e65]: "5"
+        - generic [ref=e67]:
+          - generic [ref=e68]: 0SELECTED
+          - button "image" [disabled]:
+            - generic: image
+          - button "download" [disabled]:
+            - generic: download
+          - button "add" [ref=e70] [cursor=pointer]:
+            - generic [ref=e71]: add
+    - main [ref=e72]:
+      - table [ref=e77]:
+        - rowgroup [ref=e78]:
+          - row "EP NAME TYPE DESCRIPTION NEGATIVES NOTES REF IMG" [ref=e79]:
+            - columnheader [ref=e80]:
+              - checkbox [ref=e81] [cursor=pointer]
+            - columnheader "EP" [ref=e82]
+            - columnheader "NAME" [ref=e83]
+            - columnheader "TYPE" [ref=e84]
+            - columnheader "DESCRIPTION" [ref=e85]
+            - columnheader "NEGATIVES" [ref=e86]
+            - columnheader "NOTES" [ref=e87]
+            - columnheader "REF IMG" [ref=e88]
+            - columnheader [ref=e89]
+        - rowgroup [ref=e90]:
+          - row "1 Anime_Cel STYLE Anime cel shading; crisp black line art; high‑contrast flat colors; limited motion blur; lensing like Demon Slayer / One Piece. no photoreal skin, no painterly gradients, no smearing Use for anime look add auto_awesome" [ref=e91]:
+            - cell [ref=e92]:
+              - checkbox [ref=e93] [cursor=pointer]
+            - cell "1" [ref=e94]:
+              - generic "Click to edit" [ref=e95] [cursor=pointer]: "1"
+            - cell "Anime_Cel" [ref=e96]:
+              - generic "Click to edit" [ref=e97] [cursor=pointer]: Anime_Cel
+            - cell "STYLE" [ref=e98]:
+              - generic "Click to edit" [ref=e99] [cursor=pointer]:
+                - generic [ref=e100]: STYLE
+            - cell "Anime cel shading; crisp black line art; high‑contrast flat colors; limited motion blur; lensing like Demon Slayer / One Piece." [ref=e101]:
+              - generic "Click to edit" [ref=e102] [cursor=pointer]: Anime cel shading; crisp black line art; high‑contrast flat colors; limited motion blur; lensing like Demon Slayer / One Piece.
+            - cell "no photoreal skin, no painterly gradients, no smearing" [ref=e103]:
+              - generic "Click to edit" [ref=e104] [cursor=pointer]: no photoreal skin, no painterly gradients, no smearing
+            - cell "Use for anime look" [ref=e105]:
+              - generic "Click to edit" [ref=e106] [cursor=pointer]: Use for anime look
+            - cell "add" [ref=e107]:
+              - button "add" [ref=e109] [cursor=pointer]:
+                - generic [ref=e110]: add
+            - cell "auto_awesome" [ref=e111]:
+              - button "auto_awesome" [ref=e114] [cursor=pointer]:
+                - generic [ref=e115]: auto_awesome
+          - 'row "1 Candy_Jones CHARACTER CANDY: A hauntingly beautiful woman in her mid-20s, c. 1950. Face: Green eyes, shoulder length wavy 50''s styled auburn hair, high cheekbones, straight long nose, strong Cupid’s bow; lips medium‑full. Young, gorgeous, smart, with non-classical aristocratic features. Poised, camera‑aware, cool. Voice: American educated 50''s Pennsylvania accent and theatrical delivery. no glasses, no modern clothing logos, no tattoos, no deformed hands Primary lead character Preview download Ready" [ref=e116]':
+            - cell [ref=e117]:
+              - checkbox [ref=e118] [cursor=pointer]
+            - cell "1" [ref=e119]:
+              - generic "Click to edit" [ref=e120] [cursor=pointer]: "1"
+            - cell "Candy_Jones" [ref=e121]:
+              - generic "Click to edit" [ref=e122] [cursor=pointer]: Candy_Jones
+            - cell "CHARACTER" [ref=e123]:
+              - generic "Click to edit" [ref=e124] [cursor=pointer]:
+                - generic [ref=e125]: CHARACTER
+            - 'cell "CANDY: A hauntingly beautiful woman in her mid-20s, c. 1950. Face: Green eyes, shoulder length wavy 50''s styled auburn hair, high cheekbones, straight long nose, strong Cupid’s bow; lips medium‑full. Young, gorgeous, smart, with non-classical aristocratic features. Poised, camera‑aware, cool. Voice: American educated 50''s Pennsylvania accent and theatrical delivery." [ref=e126]':
+              - generic "Click to edit" [ref=e127] [cursor=pointer]: "CANDY: A hauntingly beautiful woman in her mid-20s, c. 1950. Face: Green eyes, shoulder length wavy 50's styled auburn hair, high cheekbones, straight long nose, strong Cupid’s bow; lips medium‑full. Young, gorgeous, smart, with non-classical aristocratic features. Poised, camera‑aware, cool. Voice: American educated 50's Pennsylvania accent and theatrical delivery."
+            - cell "no glasses, no modern clothing logos, no tattoos, no deformed hands" [ref=e128]:
+              - generic "Click to edit" [ref=e129] [cursor=pointer]: no glasses, no modern clothing logos, no tattoos, no deformed hands
+            - cell "Primary lead character" [ref=e130]:
+              - generic "Click to edit" [ref=e131] [cursor=pointer]: Primary lead character
+            - cell "Preview" [ref=e132]:
+              - img "Preview" [ref=e135] [cursor=pointer]
+            - cell "download Ready" [ref=e137]:
+              - generic [ref=e138]:
+                - button "download" [ref=e140] [cursor=pointer]:
+                  - generic [ref=e141]: download
+                - generic [ref=e143]: Ready
+          - 'row "1 Chet_Valentine CHARACTER CHET: Mid‑30s newsroom anchor; Jack Lord‑style quiff, sharp cheekbones; cheap 1960s suit and skinny tie. Facial hair: clean‑shaven. Demeanor: intense stare, deadpan wit. no beard, no piercings, no modern mics Anchor / voice‑over Preview download Ready" [ref=e144]':
+            - cell [ref=e145]:
+              - checkbox [ref=e146] [cursor=pointer]
+            - cell "1" [ref=e147]:
+              - generic "Click to edit" [ref=e148] [cursor=pointer]: "1"
+            - cell "Chet_Valentine" [ref=e149]:
+              - generic "Click to edit" [ref=e150] [cursor=pointer]: Chet_Valentine
+            - cell "CHARACTER" [ref=e151]:
+              - generic "Click to edit" [ref=e152] [cursor=pointer]:
+                - generic [ref=e153]: CHARACTER
+            - 'cell "CHET: Mid‑30s newsroom anchor; Jack Lord‑style quiff, sharp cheekbones; cheap 1960s suit and skinny tie. Facial hair: clean‑shaven. Demeanor: intense stare, deadpan wit." [ref=e154]':
+              - generic "Click to edit" [ref=e155] [cursor=pointer]: "CHET: Mid‑30s newsroom anchor; Jack Lord‑style quiff, sharp cheekbones; cheap 1960s suit and skinny tie. Facial hair: clean‑shaven. Demeanor: intense stare, deadpan wit."
+            - cell "no beard, no piercings, no modern mics" [ref=e156]:
+              - generic "Click to edit" [ref=e157] [cursor=pointer]: no beard, no piercings, no modern mics
+            - cell "Anchor / voice‑over" [ref=e158]:
+              - generic "Click to edit" [ref=e159] [cursor=pointer]: Anchor / voice‑over
+            - cell "Preview" [ref=e160]:
+              - img "Preview" [ref=e163] [cursor=pointer]
+            - cell "download Ready" [ref=e165]:
+              - generic [ref=e166]:
+                - button "download" [ref=e168] [cursor=pointer]:
+                  - generic [ref=e169]: download
+                - generic [ref=e171]: Ready
+          - row "1 CloseUp_Dramatic CAMERA Straight, square on, on face, slow push‑in; shallow depth‑of‑field; slight low angle to intensify. no extreme fisheye Good for dialogue hooks add auto_awesome" [ref=e172]:
+            - cell [ref=e173]:
+              - checkbox [ref=e174] [cursor=pointer]
+            - cell "1" [ref=e175]:
+              - generic "Click to edit" [ref=e176] [cursor=pointer]: "1"
+            - cell "CloseUp_Dramatic" [ref=e177]:
+              - generic "Click to edit" [ref=e178] [cursor=pointer]: CloseUp_Dramatic
+            - cell "CAMERA" [ref=e179]:
+              - generic "Click to edit" [ref=e180] [cursor=pointer]:
+                - generic [ref=e181]: CAMERA
+            - cell "Straight, square on, on face, slow push‑in; shallow depth‑of‑field; slight low angle to intensify." [ref=e182]:
+              - generic "Click to edit" [ref=e183] [cursor=pointer]: Straight, square on, on face, slow push‑in; shallow depth‑of‑field; slight low angle to intensify.
+            - cell "no extreme fisheye" [ref=e184]:
+              - generic "Click to edit" [ref=e185] [cursor=pointer]: no extreme fisheye
+            - cell "Good for dialogue hooks" [ref=e186]:
+              - generic "Click to edit" [ref=e187] [cursor=pointer]: Good for dialogue hooks
+            - cell "add" [ref=e188]:
+              - button "add" [ref=e190] [cursor=pointer]:
+                - generic [ref=e191]: add
+            - cell "auto_awesome" [ref=e192]:
+              - button "auto_awesome" [ref=e195] [cursor=pointer]:
+                - generic [ref=e196]: auto_awesome
+          - row "1 Crash_Zoom CAMERA Rapid crash zoom to subject; brief whip‑pan feel; handheld micro‑shake allowed. no rolling shutter wobble For reveals add auto_awesome" [ref=e197]:
+            - cell [ref=e198]:
+              - checkbox [ref=e199] [cursor=pointer]
+            - cell "1" [ref=e200]:
+              - generic "Click to edit" [ref=e201] [cursor=pointer]: "1"
+            - cell "Crash_Zoom" [ref=e202]:
+              - generic "Click to edit" [ref=e203] [cursor=pointer]: Crash_Zoom
+            - cell "CAMERA" [ref=e204]:
+              - generic "Click to edit" [ref=e205] [cursor=pointer]:
+                - generic [ref=e206]: CAMERA
+            - cell "Rapid crash zoom to subject; brief whip‑pan feel; handheld micro‑shake allowed." [ref=e207]:
+              - generic "Click to edit" [ref=e208] [cursor=pointer]: Rapid crash zoom to subject; brief whip‑pan feel; handheld micro‑shake allowed.
+            - cell "no rolling shutter wobble" [ref=e209]:
+              - generic "Click to edit" [ref=e210] [cursor=pointer]: no rolling shutter wobble
+            - cell "For reveals" [ref=e211]:
+              - generic "Click to edit" [ref=e212] [cursor=pointer]: For reveals
+            - cell "add" [ref=e213]:
+              - button "add" [ref=e215] [cursor=pointer]:
+                - generic [ref=e216]: add
+            - cell "auto_awesome" [ref=e217]:
+              - button "auto_awesome" [ref=e220] [cursor=pointer]:
+                - generic [ref=e221]: auto_awesome
+          - row "1 New Item CHARACTER + + + add auto_awesome" [ref=e222]:
+            - cell [ref=e223]:
+              - checkbox [ref=e224] [cursor=pointer]
+            - cell "1" [ref=e225]:
+              - generic "Click to edit" [ref=e226] [cursor=pointer]: "1"
+            - cell "New Item" [ref=e227]:
+              - generic "Click to edit" [ref=e228] [cursor=pointer]: New Item
+            - cell "CHARACTER" [ref=e229]:
+              - generic "Click to edit" [ref=e230] [cursor=pointer]:
+                - generic [ref=e231]: CHARACTER
+            - cell "+" [ref=e232]:
+              - generic "Click to edit" [ref=e233] [cursor=pointer]: +
+            - cell "+" [ref=e234]:
+              - generic "Click to edit" [ref=e235] [cursor=pointer]: +
+            - cell "+" [ref=e236]:
+              - generic "Click to edit" [ref=e237] [cursor=pointer]: +
+            - cell "add" [ref=e238]:
+              - button "add" [ref=e240] [cursor=pointer]:
+                - generic [ref=e241]: add
+            - cell "auto_awesome" [ref=e242]:
+              - button "auto_awesome" [ref=e245] [cursor=pointer]:
+                - generic [ref=e246]: auto_awesome
+          - row "1 Noir_1960s STYLE Noir newsroom grit; saturated but tasteful color; 1960s film grain; hard key and deep shadows. no soft HDR glow, no cartoon outlines Use for newsroom scenes add auto_awesome" [ref=e247]:
+            - cell [ref=e248]:
+              - checkbox [ref=e249] [cursor=pointer]
+            - cell "1" [ref=e250]:
+              - generic "Click to edit" [ref=e251] [cursor=pointer]: "1"
+            - cell "Noir_1960s" [ref=e252]:
+              - generic "Click to edit" [ref=e253] [cursor=pointer]: Noir_1960s
+            - cell "STYLE" [ref=e254]:
+              - generic "Click to edit" [ref=e255] [cursor=pointer]:
+                - generic [ref=e256]: STYLE
+            - cell "Noir newsroom grit; saturated but tasteful color; 1960s film grain; hard key and deep shadows." [ref=e257]:
+              - generic "Click to edit" [ref=e258] [cursor=pointer]: Noir newsroom grit; saturated but tasteful color; 1960s film grain; hard key and deep shadows.
+            - cell "no soft HDR glow, no cartoon outlines" [ref=e259]:
+              - generic "Click to edit" [ref=e260] [cursor=pointer]: no soft HDR glow, no cartoon outlines
+            - cell "Use for newsroom scenes" [ref=e261]:
+              - generic "Click to edit" [ref=e262] [cursor=pointer]: Use for newsroom scenes
+            - cell "add" [ref=e263]:
+              - button "add" [ref=e265] [cursor=pointer]:
+                - generic [ref=e266]: add
+            - cell "auto_awesome" [ref=e267]:
+              - button "auto_awesome" [ref=e270] [cursor=pointer]:
+                - generic [ref=e271]: auto_awesome
+          - row "1 Prop_1767567586393 CHARACTER + + + add auto_awesome" [ref=e272]:
+            - cell [ref=e273]:
+              - checkbox [ref=e274] [cursor=pointer]
+            - cell "1" [ref=e275]:
+              - generic "Click to edit" [ref=e276] [cursor=pointer]: "1"
+            - cell "Prop_1767567586393" [ref=e277]:
+              - generic "Click to edit" [ref=e278] [cursor=pointer]: Prop_1767567586393
+            - cell "CHARACTER" [ref=e279]:
+              - generic "Click to edit" [ref=e280] [cursor=pointer]:
+                - generic [ref=e281]: CHARACTER
+            - cell "+" [ref=e282]:
+              - generic "Click to edit" [ref=e283] [cursor=pointer]: +
+            - cell "+" [ref=e284]:
+              - generic "Click to edit" [ref=e285] [cursor=pointer]: +
+            - cell "+" [ref=e286]:
+              - generic "Click to edit" [ref=e287] [cursor=pointer]: +
+            - cell "add" [ref=e288]:
+              - button "add" [ref=e290] [cursor=pointer]:
+                - generic [ref=e291]: add
+            - cell "auto_awesome" [ref=e292]:
+              - button "auto_awesome" [ref=e295] [cursor=pointer]:
+                - generic [ref=e296]: auto_awesome
+          - row "1 Prop_1767567969822 CHARACTER + + + add auto_awesome" [ref=e297]:
+            - cell [ref=e298]:
+              - checkbox [ref=e299] [cursor=pointer]
+            - cell "1" [ref=e300]:
+              - generic "Click to edit" [ref=e301] [cursor=pointer]: "1"
+            - cell "Prop_1767567969822" [ref=e302]:
+              - generic "Click to edit" [ref=e303] [cursor=pointer]: Prop_1767567969822
+            - cell "CHARACTER" [ref=e304]:
+              - generic "Click to edit" [ref=e305] [cursor=pointer]:
+                - generic [ref=e306]: CHARACTER
+            - cell "+" [ref=e307]:
+              - generic "Click to edit" [ref=e308] [cursor=pointer]: +
+            - cell "+" [ref=e309]:
+              - generic "Click to edit" [ref=e310] [cursor=pointer]: +
+            - cell "+" [ref=e311]:
+              - generic "Click to edit" [ref=e312] [cursor=pointer]: +
+            - cell "add" [ref=e313]:
+              - button "add" [ref=e315] [cursor=pointer]:
+                - generic [ref=e316]: add
+            - cell "auto_awesome" [ref=e317]:
+              - button "auto_awesome" [ref=e320] [cursor=pointer]:
+                - generic [ref=e321]: auto_awesome
+          - row "1 Prop_1767911022443 CHARACTER + + + add auto_awesome" [ref=e322]:
+            - cell [ref=e323]:
+              - checkbox [ref=e324] [cursor=pointer]
+            - cell "1" [ref=e325]:
+              - generic "Click to edit" [ref=e326] [cursor=pointer]: "1"
+            - cell "Prop_1767911022443" [ref=e327]:
+              - generic "Click to edit" [ref=e328] [cursor=pointer]: Prop_1767911022443
+            - cell "CHARACTER" [ref=e329]:
+              - generic "Click to edit" [ref=e330] [cursor=pointer]:
+                - generic [ref=e331]: CHARACTER
+            - cell "+" [ref=e332]:
+              - generic "Click to edit" [ref=e333] [cursor=pointer]: +
+            - cell "+" [ref=e334]:
+              - generic "Click to edit" [ref=e335] [cursor=pointer]: +
+            - cell "+" [ref=e336]:
+              - generic "Click to edit" [ref=e337] [cursor=pointer]: +
+            - cell "add" [ref=e338]:
+              - button "add" [ref=e340] [cursor=pointer]:
+                - generic [ref=e341]: add
+            - cell "auto_awesome" [ref=e342]:
+              - button "auto_awesome" [ref=e345] [cursor=pointer]:
+                - generic [ref=e346]: auto_awesome
+          - row "1 Prop_1767911154561 CHARACTER + + + add auto_awesome" [ref=e347]:
+            - cell [ref=e348]:
+              - checkbox [ref=e349] [cursor=pointer]
+            - cell "1" [ref=e350]:
+              - generic "Click to edit" [ref=e351] [cursor=pointer]: "1"
+            - cell "Prop_1767911154561" [ref=e352]:
+              - generic "Click to edit" [ref=e353] [cursor=pointer]: Prop_1767911154561
+            - cell "CHARACTER" [ref=e354]:
+              - generic "Click to edit" [ref=e355] [cursor=pointer]:
+                - generic [ref=e356]: CHARACTER
+            - cell "+" [ref=e357]:
+              - generic "Click to edit" [ref=e358] [cursor=pointer]: +
+            - cell "+" [ref=e359]:
+              - generic "Click to edit" [ref=e360] [cursor=pointer]: +
+            - cell "+" [ref=e361]:
+              - generic "Click to edit" [ref=e362] [cursor=pointer]: +
+            - cell "add" [ref=e363]:
+              - button "add" [ref=e365] [cursor=pointer]:
+                - generic [ref=e366]: add
+            - cell "auto_awesome" [ref=e367]:
+              - button "auto_awesome" [ref=e370] [cursor=pointer]:
+                - generic [ref=e371]: auto_awesome
+          - row "1 Prop_1767911510291 CHARACTER + + + add auto_awesome" [ref=e372]:
+            - cell [ref=e373]:
+              - checkbox [ref=e374] [cursor=pointer]
+            - cell "1" [ref=e375]:
+              - generic "Click to edit" [ref=e376] [cursor=pointer]: "1"
+            - cell "Prop_1767911510291" [ref=e377]:
+              - generic "Click to edit" [ref=e378] [cursor=pointer]: Prop_1767911510291
+            - cell "CHARACTER" [ref=e379]:
+              - generic "Click to edit" [ref=e380] [cursor=pointer]:
+                - generic [ref=e381]: CHARACTER
+            - cell "+" [ref=e382]:
+              - generic "Click to edit" [ref=e383] [cursor=pointer]: +
+            - cell "+" [ref=e384]:
+              - generic "Click to edit" [ref=e385] [cursor=pointer]: +
+            - cell "+" [ref=e386]:
+              - generic "Click to edit" [ref=e387] [cursor=pointer]: +
+            - cell "add" [ref=e388]:
+              - button "add" [ref=e390] [cursor=pointer]:
+                - generic [ref=e391]: add
+            - cell "auto_awesome" [ref=e392]:
+              - button "auto_awesome" [ref=e395] [cursor=pointer]:
+                - generic [ref=e396]: auto_awesome
+          - row "1 Prop_1767912329636 CHARACTER + + + add auto_awesome" [ref=e397]:
+            - cell [ref=e398]:
+              - checkbox [ref=e399] [cursor=pointer]
+            - cell "1" [ref=e400]:
+              - generic "Click to edit" [ref=e401] [cursor=pointer]: "1"
+            - cell "Prop_1767912329636" [ref=e402]:
+              - generic "Click to edit" [ref=e403] [cursor=pointer]: Prop_1767912329636
+            - cell "CHARACTER" [ref=e404]:
+              - generic "Click to edit" [ref=e405] [cursor=pointer]:
+                - generic [ref=e406]: CHARACTER
+            - cell "+" [ref=e407]:
+              - generic "Click to edit" [ref=e408] [cursor=pointer]: +
+            - cell "+" [ref=e409]:
+              - generic "Click to edit" [ref=e410] [cursor=pointer]: +
+            - cell "+" [ref=e411]:
+              - generic "Click to edit" [ref=e412] [cursor=pointer]: +
+            - cell "add" [ref=e413]:
+              - button "add" [ref=e415] [cursor=pointer]:
+                - generic [ref=e416]: add
+            - cell "auto_awesome" [ref=e417]:
+              - button "auto_awesome" [ref=e420] [cursor=pointer]:
+                - generic [ref=e421]: auto_awesome
+          - row "1 Prop_1767914029564 CHARACTER + + + add auto_awesome" [ref=e422]:
+            - cell [ref=e423]:
+              - checkbox [ref=e424] [cursor=pointer]
+            - cell "1" [ref=e425]:
+              - generic "Click to edit" [ref=e426] [cursor=pointer]: "1"
+            - cell "Prop_1767914029564" [ref=e427]:
+              - generic "Click to edit" [ref=e428] [cursor=pointer]: Prop_1767914029564
+            - cell "CHARACTER" [ref=e429]:
+              - generic "Click to edit" [ref=e430] [cursor=pointer]:
+                - generic [ref=e431]: CHARACTER
+            - cell "+" [ref=e432]:
+              - generic "Click to edit" [ref=e433] [cursor=pointer]: +
+            - cell "+" [ref=e434]:
+              - generic "Click to edit" [ref=e435] [cursor=pointer]: +
+            - cell "+" [ref=e436]:
+              - generic "Click to edit" [ref=e437] [cursor=pointer]: +
+            - cell "add" [ref=e438]:
+              - button "add" [ref=e440] [cursor=pointer]:
+                - generic [ref=e441]: add
+            - cell "auto_awesome" [ref=e442]:
+              - button "auto_awesome" [ref=e445] [cursor=pointer]:
+                - generic [ref=e446]: auto_awesome
+          - 'row "1 Prop_1769965117963 LOCATION Candy’s booth at Ultra Radio. C. 1960 Classic 50’s mic in front of her, metal Ultra Radio plaque on the front of it, capitals \"ULTRA RADIO\" stacked, with black enamel background / infill. Anglepoise screen left, the only light. Behind her: A chaotic pinboard filled with yellowed clippings, vintage concert tickets, passport photos, telex messages, and CIA documents, all linked with red string - fills the background. no overhead cables, no LED panels, no modern monitors Core set Preview download Ready" [ref=e447]':
+            - cell [ref=e448]:
+              - checkbox [ref=e449] [cursor=pointer]
+            - cell "1" [ref=e450]:
+              - generic "Click to edit" [ref=e451] [cursor=pointer]: "1"
+            - cell "Prop_1769965117963" [ref=e452]:
+              - generic "Click to edit" [ref=e453] [cursor=pointer]: Prop_1769965117963
+            - cell "LOCATION" [ref=e454]:
+              - generic "Click to edit" [ref=e455] [cursor=pointer]:
+                - generic [ref=e456]: LOCATION
+            - 'cell "Candy’s booth at Ultra Radio. C. 1960 Classic 50’s mic in front of her, metal Ultra Radio plaque on the front of it, capitals \"ULTRA RADIO\" stacked, with black enamel background / infill. Anglepoise screen left, the only light. Behind her: A chaotic pinboard filled with yellowed clippings, vintage concert tickets, passport photos, telex messages, and CIA documents, all linked with red string - fills the background." [ref=e457]':
+              - generic "Click to edit" [ref=e458] [cursor=pointer]: "Candy’s booth at Ultra Radio. C. 1960 Classic 50’s mic in front of her, metal Ultra Radio plaque on the front of it, capitals \"ULTRA RADIO\" stacked, with black enamel background / infill. Anglepoise screen left, the only light. Behind her: A chaotic pinboard filled with yellowed clippings, vintage concert tickets, passport photos, telex messages, and CIA documents, all linked with red string - fills the background."
+            - cell "no overhead cables, no LED panels, no modern monitors" [ref=e459]:
+              - generic "Click to edit" [ref=e460] [cursor=pointer]: no overhead cables, no LED panels, no modern monitors
+            - cell "Core set" [ref=e461]:
+              - generic "Click to edit" [ref=e462] [cursor=pointer]: Core set
+            - cell "Preview" [ref=e463]:
+              - img "Preview" [ref=e466] [cursor=pointer]
+            - cell "download Ready" [ref=e468]:
+              - generic [ref=e469]:
+                - button "download" [ref=e471] [cursor=pointer]:
+                  - generic [ref=e472]: download
+                - generic [ref=e474]: Ready
+  - alert [ref=e475]
+```

@@ -168,7 +168,43 @@ export function ClipRow({
         }
     };
 
-    const renderedRefs = [...getEffectiveRefs()].reverse();
+    // --- UNLINK HANDLER ---
+    const handleRefUnlink = async (url: string, contextId?: string, isResult?: boolean) => {
+        try {
+            console.log(`[ClipRow] Unlinking ${url} from Clip ${clip.id}`);
+
+            // 1. Optimistic Update
+            setOptimisticRefs(prev => {
+                const current = prev || getCleanExplicitRefs();
+                return current.filter(u => u !== url);
+            });
+
+            // 2. API Call
+            const res = await fetch('/api/media/unlink', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    url,
+                    clipId: contextId || clip.id, // Use context if provided (for safety), else self
+                    isResult: !!isResult
+                })
+            });
+
+            if (!res.ok) throw new Error('Unlink failed');
+
+            // 3. Notify Parent (Trigger Save/Refresh to persist DB state to UI)
+            // Ideally, we just assume optimistic is enough until next refresh, 
+            // but triggering a save guarantees sync if user navigates away.
+            // onSave(clip.id, {}); // No-op save to trigger refresh?
+
+        } catch (e) {
+            console.error("Unlink error:", e);
+            setOptimisticRefs(null); // Revert
+            alert("Failed to unlink image.");
+        }
+    };
+
+    const renderedRefs = [...getEffectiveRefs()]; // FIX: No reverse, backend is Newest First (Desc)
 
     const {
         attributes,
@@ -210,10 +246,27 @@ export function ClipRow({
     }
 
     const handleSaveAndDownload = () => {
-        if (clip.resultUrl) {
-            const allRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);
-            const fullPlaylist = [clip.resultUrl, ...allRefs];
-            onPlay(clip.resultUrl, fullPlaylist);
+        // FALCON FIX (Cleanup): Use Relational Data exclusively for History
+        // We prefer `mediaResults` (Array of Objects) over `resultUrl` (String/CSV)
+
+        // 1. Get History from Relations
+        // `mediaResults` is sorted by createdAt desc by default in API
+        const resultHistory = clip.mediaResults
+            ? clip.mediaResults.map(m => m.url)
+            : (clip.resultUrl ? [clip.resultUrl] : []);
+
+        // 2. Get References from Relations
+        const referenceParams = clip.mediaReferences
+            ? clip.mediaReferences.map(m => m.url)
+            : parseStringList(clip.explicitRefUrls || clip.refImageUrls);
+
+        if (resultHistory.length > 0) {
+            // Combine: [Latest Result, Older Results...] + [Effective References...]
+            // Note: `resultHistory` should already be sorted Newest -> Oldest
+            const fullPlaylist = [...resultHistory, ...referenceParams];
+
+            // Play using the FIRST result (Latest) as start
+            onPlay(resultHistory[0], fullPlaylist);
             setDownloadCount(prev => prev + 1)
             onSave(clip.id, { status: 'Saved' })
         }
@@ -704,6 +757,7 @@ export function ClipRow({
                                         className="w-full h-full object-cover rounded shadow-sm hover:opacity-80 transition-opacity"
                                         isReference={true}
                                         contentType="auto" // Let it auto-detect video vs image
+                                        onUnlink={handleRefUnlink}
                                         onPlay={(clickedUrl) => {
                                             // 1. Build List of References (Rich Objects)
                                             const refItems = renderedRefs.map(rUrl => {

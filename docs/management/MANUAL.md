@@ -52,9 +52,19 @@ We have established a migration pipeline to safely promote schema changes from D
 3.  **Deploy to Prod**: Run `./scripts/deploy-migration.sh`.
     *   This script safely loads `.env.production` and applies pending migrations to `prod.db`.
 
-## 6. Server Management
+## 6. Feature Guides
 
-### 🔄 Restarting the Stack
+### History & Previous Results (Time Machine)
+The Universal Viewer now stores the full history of every generation.
+-   **Swipe Left/Right** (or click < >) to view previous versions of a clip result.
+-   The "Latest" result is always shown first.
+
+### Instant Downloads
+Downloads are now streamed directly from the internal proxy.
+-   **Zero Wait**: The "Save As" file dialog appears instantly.
+-   **Background**: Large files download in the background after you click Save.
+
+## 7. Server Management
 We have a [helper script](../scripts/restart-stack.sh) to safely kill existing processes (ports 3000/3001), rebuild Production, and restart both environments.
 
 ```bash

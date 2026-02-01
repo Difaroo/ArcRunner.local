@@ -725,12 +725,49 @@ export default function Home() {
   }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey, seriesList, loading]); // Added seriesList dependency
 
   // --- Selection Logic via Hooks ---
+  // --- Selection Logic (DB Persisted) ---
+  // Derived state from the clips themselves (Source of Truth = DB)
+  // We removed local storage persistence to rely on the 'isSelected' field.
+  const selectedIds = useMemo(() => {
+    return new Set(activeClips.filter(c => c.isSelected).map(c => c.id));
+  }, [activeClips]);
+
+  const handleClipSelect = useCallback((id: string) => {
+    const clip = activeClips.find(c => c.id === id);
+    if (clip) {
+      // Toggle and Save
+      handleSave(id, { isSelected: !clip.isSelected })
+        .catch(err => console.error("Failed to toggle selection", err));
+    }
+  }, [activeClips, handleSave]);
+
+  const handleClipSelectAll = useCallback(() => {
+    const allSelected = activeClips.length > 0 && selectedIds.size === activeClips.length;
+
+    // Toggle Logic: If all selected, deselect all. Otherwise, select all.
+    // Optimization: We could add a bulk API, but loop is fine for <50 items with optimistic updates.
+    // Actually, handling 50 promises might be jittery. 
+    // Let's do it intelligently: Find diffs.
+
+    const targetState = !allSelected;
+    const idsToUpdate = activeClips.filter(c => c.isSelected !== targetState).map(c => c.id);
+
+    // We can't easily batch this with current 'handleSave', but we can loop.
+    // To prevent UI thrashing, we might need a bulk endpoint, but for now we iterate.
+    idsToUpdate.forEach(id => {
+      handleSave(id, { isSelected: targetState });
+    });
+
+  }, [activeClips, selectedIds, handleSave]);
+
+  /*
   const {
     selectedIds,
     setSelectedIds,
     toggleSelect,
     toggleSelectAll
   } = useSharedSelection(activeClips, 'episode_selection');
+  */
 
   // --- Library Selection Logic ---
   // Determine displayed library items
@@ -746,9 +783,10 @@ export default function Home() {
   // --- Robustness: Reset State on Series Change ---
   useEffect(() => {
     setCurrentEpisode(1);
-    setSelectedIds(new Set());
+    setCurrentEpisode(1);
+    // selectedIds is derived from activeClips, so it updates automatically.
     setSelectedLibraryIds(new Set());
-  }, [currentSeriesId, setSelectedIds, setSelectedLibraryIds]);
+  }, [currentSeriesId, setSelectedLibraryIds]);
 
   const [generatingLibraryItems, setGeneratingLibraryItems] = useState<Set<string>>(new Set());
   // Store extras (like startFrame) pending confirmation
@@ -1985,7 +2023,7 @@ export default function Home() {
               episodeKeys={sortedEpKeys}
               currentEpisode={currentEpisode}
               episodeTitles={seriesEpisodeTitles}
-              onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedIds(new Set()); setSelectedLibraryIds(new Set()); }}
+              onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedLibraryIds(new Set()); }}
             />
           )}
 
@@ -2379,8 +2417,8 @@ export default function Home() {
                 selectedIds={selectedIds}
                 editingId={editingId}
                 saving={saving}
-                onSelectAll={toggleSelectAll}
-                onSelect={toggleSelect}
+                onSelect={handleClipSelect}
+                onSelectAll={handleClipSelectAll}
                 onEdit={startEditing}
                 onSave={handleSave}
                 onCancelEdit={handleCancelEdit}

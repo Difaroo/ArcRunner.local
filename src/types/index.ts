@@ -25,6 +25,7 @@ export interface Clip {
     thumbnailPath?: string;
     negativePrompt?: string | null;
     mediaReferences?: Media[]; // Phase 4: Normalized Relations
+    mediaResults?: Media[]; // Phase 4: Normalized Results
 }
 
 export interface Media {

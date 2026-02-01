@@ -15,7 +15,7 @@ interface MediaDisplayProps {
     onUseAsRef?: (url: string) => void
     onUpdate?: (id: string, updates: any) => Promise<void> | void
     onDelete?: (id: string) => Promise<void> | void
-    onUnlink?: (url: string) => Promise<void> | void // Separate handler for unlinking references
+    onUnlink?: (url: string, contextId?: string, isResult?: boolean) => Promise<void> | void // Separate handler for unlinking references
     isReference?: boolean // Override context
 }
 
@@ -77,7 +77,9 @@ export function MediaDisplay({
 
         if (u.startsWith('/api/') || u.startsWith('/thumbnails/') || u.startsWith('/uploads/') || u.startsWith('/media/')) return u;
         if (t === 'image') return `/api/proxy-image?url=${encodeURIComponent(u)}`;
-        return `/api/proxy-download?url=${encodeURIComponent(u)}`;
+        // Fix: Append filename so native browser "Save As" uses it instead of "download.mp4"
+        const filenameParam = title ? `&filename=${encodeURIComponent(title)}` : '';
+        return `/api/proxy-download?url=${encodeURIComponent(u)}${filenameParam}`;
     }
 
     const handleClick = (e: React.MouseEvent) => {
@@ -171,7 +173,7 @@ export function MediaDisplay({
                 // If Reference: Pass Unlink handler (Minus Button)
                 // If Root: Pass Delete handler (Trash Button)
                 onDelete={!isReference && onDelete ? async (id) => { await onDelete(id); } : undefined}
-                onUnlink={isReference && onUnlink ? async (url) => { if (onUnlink) await onUnlink(url); } : undefined}
+                onUnlink={isReference && onUnlink ? async (url, contextId, isResult) => { if (onUnlink) await onUnlink(url, contextId, isResult); } : undefined}
             />
         </>
     )

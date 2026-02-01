@@ -180,6 +180,7 @@ export async function GET() {
                 sortOrder: clip.sortOrder,
                 model: clip.model || '',
                 isHiddenInStoryboard: clip.isHiddenInStoryboard || false,
+                isSelected: clip.isSelected || false, // Added for persistence
                 thumbnailPath: clip.thumbnailPath || ''
             };
         }).filter((c: any): c is NonNullable<typeof c> => c !== null); // Remove orphans
@@ -373,7 +374,8 @@ export async function PUT(req: Request) {
                 // @ts-ignore
                 negativePrompt: clip.negativePrompt,
                 // resultUrl: clip.resultUrl, // LEGACY: Removed
-                isHiddenInStoryboard: clip.isHiddenInStoryboard
+                isHiddenInStoryboard: clip.isHiddenInStoryboard,
+                isSelected: clip.isSelected // Added per user request for persistence
             }
         });
 
@@ -403,7 +405,12 @@ export async function PUT(req: Request) {
         // We need the Episode/Series context to resolve library images
         const clipWithContext = await db.clip.findUnique({
             where: { id: intId },
-            include: { episode: true }
+            include: {
+                episode: true,
+                mediaReferences: {
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
         });
 
         if (clipWithContext) {
@@ -451,7 +458,8 @@ export async function PUT(req: Request) {
                 characterImageUrls,
                 locationImageUrls,
                 refImageUrls: fullRefs,
-                explicitRefUrls: updatedClip.refImageUrls // CRITICAL: Propagate DB value as Explicit
+                explicitRefUrls: updatedClip.refImageUrls, // CRITICAL: Propagate DB value as Explicit
+                mediaReferences: clipWithContext.mediaReferences // NEW: Return fresh relations
             };
 
             return NextResponse.json({ success: true, clip: finalClip });

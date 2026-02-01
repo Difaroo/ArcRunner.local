@@ -1,0 +1,599 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e6]:
+            - heading "ARCRUNNER" [level=1] [ref=e7]
+            - generic [ref=e8]: 0.27.1 Peregrine
+          - navigation [ref=e10]:
+            - button "Series" [ref=e11] [cursor=pointer]
+            - button "Script" [ref=e12] [cursor=pointer]
+            - button "Studio" [ref=e13] [cursor=pointer]
+            - button "Episode" [ref=e14] [cursor=pointer]
+            - button "Media" [ref=e15] [cursor=pointer]
+            - button "Storyboard" [ref=e16] [cursor=pointer]
+            - button "Settings" [ref=e17] [cursor=pointer]
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - generic [ref=e20]: v0.28.0
+            - generic [ref=e21]: Status
+            - generic [ref=e23]: Connected
+          - button "refresh" [ref=e24] [cursor=pointer]:
+            - generic [ref=e25]: refresh
+      - generic [ref=e28]: Select a Series to view Episodes
+      - generic [ref=e29]:
+        - heading "All Series 470 items" [level=2] [ref=e30]:
+          - generic [ref=e31]:
+            - generic [ref=e32]: All Series
+            - generic [ref=e33]: 470 items
+        - generic [ref=e34]:
+          - button "SERIES All Series" [ref=e35] [cursor=pointer]:
+            - generic [ref=e36]:
+              - generic [ref=e37]: SERIES
+              - text: All Series
+            - img [ref=e38]
+          - generic [ref=e40]:
+            - button "All" [ref=e41] [cursor=pointer]
+            - button "VIDEO" [ref=e42] [cursor=pointer]
+            - button "IMAGE" [ref=e43] [cursor=pointer]
+          - button "CAT All" [ref=e44] [cursor=pointer]:
+            - generic [ref=e45]:
+              - generic [ref=e46]: CAT
+              - text: All
+            - img [ref=e47]
+          - generic [ref=e49]:
+            - img [ref=e50]
+            - textbox "Find..." [ref=e53]
+      - generic [ref=e55]:
+        - generic [ref=e56] [cursor=pointer]:
+          - img "Media" [ref=e57]
+          - img [ref=e59]
+          - generic [ref=e63]:
+            - generic [ref=e64]: Desert_Oasis_LEFT
+            - generic [ref=e65]:
+              - button [ref=e66]:
+                - img [ref=e67]
+              - button [ref=e70]:
+                - img [ref=e71]
+        - generic [ref=e74] [cursor=pointer]:
+          - img "Media" [ref=e75]
+          - img [ref=e77]
+          - generic [ref=e81]:
+            - generic [ref=e82]: Desert_Oasis_LEFT
+            - generic [ref=e83]:
+              - button [ref=e84]:
+                - img [ref=e85]
+              - button [ref=e88]:
+                - img [ref=e89]
+        - generic [ref=e92] [cursor=pointer]:
+          - img "Media" [ref=e93]
+          - img [ref=e95]
+          - generic [ref=e99]:
+            - generic [ref=e100]: Desert_Oasis_LEFT
+            - generic [ref=e101]:
+              - button [ref=e102]:
+                - img [ref=e103]
+              - button [ref=e106]:
+                - img [ref=e107]
+        - generic [ref=e110] [cursor=pointer]:
+          - img "Media" [ref=e111]
+          - img [ref=e113]
+          - generic [ref=e117]:
+            - generic [ref=e118]: Desert_Oasis_LEFT
+            - generic [ref=e119]:
+              - button [ref=e120]:
+                - img [ref=e121]
+              - button [ref=e124]:
+                - img [ref=e125]
+        - generic [ref=e128] [cursor=pointer]:
+          - img "Media" [ref=e129]
+          - img [ref=e131]
+          - generic [ref=e135]:
+            - generic [ref=e136]: Desert_Burial_Path_LEFT
+            - generic [ref=e137]:
+              - button [ref=e138]:
+                - img [ref=e139]
+              - button [ref=e142]:
+                - img [ref=e143]
+        - generic [ref=e146] [cursor=pointer]:
+          - img "Media" [ref=e147]
+          - img [ref=e149]
+          - generic [ref=e153]:
+            - generic [ref=e154]: Prisoners_Hajer_LEFT
+            - generic [ref=e155]:
+              - button [ref=e156]:
+                - img [ref=e157]
+              - button [ref=e160]:
+                - img [ref=e161]
+        - generic [ref=e164] [cursor=pointer]:
+          - img "Media" [ref=e165]
+          - img [ref=e167]
+          - generic [ref=e171]:
+            - generic [ref=e172]: Hajer_Crowd_RIGHT_MID
+            - generic [ref=e173]:
+              - button [ref=e174]:
+                - img [ref=e175]
+              - button [ref=e178]:
+                - img [ref=e179]
+        - generic [ref=e182] [cursor=pointer]:
+          - img "Media" [ref=e183]
+          - img [ref=e185]
+          - generic [ref=e189]:
+            - generic [ref=e190]: Hajer_Crowd_RIGHT_CLOSE
+            - generic [ref=e191]:
+              - button [ref=e192]:
+                - img [ref=e193]
+              - button [ref=e196]:
+                - img [ref=e197]
+        - generic [ref=e200] [cursor=pointer]:
+          - img "Media" [ref=e201]
+          - img [ref=e203]
+          - generic [ref=e207]:
+            - generic [ref=e208]: Prisoners_Hajer_RIGHT
+            - generic [ref=e209]:
+              - button [ref=e210]:
+                - img [ref=e211]
+              - button [ref=e214]:
+                - img [ref=e215]
+        - generic [ref=e218] [cursor=pointer]:
+          - img "Media" [ref=e219]
+          - img [ref=e221]
+          - generic [ref=e225]:
+            - generic [ref=e226]: Prisoners_Hajer_WIDE
+            - generic [ref=e227]:
+              - button [ref=e228]:
+                - img [ref=e229]
+              - button [ref=e232]:
+                - img [ref=e233]
+        - generic [ref=e236] [cursor=pointer]:
+          - img "Media" [ref=e237]
+          - img [ref=e239]
+          - generic [ref=e243]:
+            - generic [ref=e244]: Desert_Oasis_Right
+            - generic [ref=e245]:
+              - button [ref=e246]:
+                - img [ref=e247]
+              - button [ref=e250]:
+                - img [ref=e251]
+        - generic [ref=e254] [cursor=pointer]:
+          - img "Media" [ref=e255]
+          - img [ref=e257]
+          - generic [ref=e261]:
+            - generic [ref=e262]: DaJaa
+            - generic [ref=e263]:
+              - button [ref=e264]:
+                - img [ref=e265]
+              - button [ref=e268]:
+                - img [ref=e269]
+        - generic [ref=e272] [cursor=pointer]:
+          - img "Media" [ref=e273]
+          - img [ref=e275]
+          - generic [ref=e279]:
+            - generic [ref=e280]: Desert_Burial_Ground
+            - generic [ref=e281]:
+              - button [ref=e282]:
+                - img [ref=e283]
+              - button [ref=e286]:
+                - img [ref=e287]
+        - generic [ref=e290] [cursor=pointer]:
+          - img "Media" [ref=e291]
+          - img [ref=e293]
+          - generic [ref=e297]:
+            - generic [ref=e298]: Prisoners_Hajer_WIDE
+            - generic [ref=e299]:
+              - button [ref=e300]:
+                - img [ref=e301]
+              - button [ref=e304]:
+                - img [ref=e305]
+        - generic [ref=e308] [cursor=pointer]:
+          - img "Media" [ref=e309]
+          - img [ref=e311]
+          - generic [ref=e315]:
+            - generic [ref=e316]: Prisoners_Hajer_MID
+            - generic [ref=e317]:
+              - button [ref=e318]:
+                - img [ref=e319]
+              - button [ref=e322]:
+                - img [ref=e323]
+        - generic [ref=e326] [cursor=pointer]:
+          - img "Media" [ref=e327]
+          - img [ref=e329]
+          - generic [ref=e333]:
+            - generic [ref=e334]: "Ref: 11.2 Candy at UFO sign"
+            - generic [ref=e335]:
+              - button [ref=e336]:
+                - img [ref=e337]
+              - button [ref=e340]:
+                - img [ref=e341]
+        - generic [ref=e344] [cursor=pointer]:
+          - generic [ref=e345]:
+            - generic:
+              - img
+          - img [ref=e347]
+          - generic [ref=e349]:
+            - generic [ref=e350]: 13.1 VO Real
+            - generic [ref=e351]:
+              - button [ref=e352]:
+                - img [ref=e353]
+              - button [ref=e356]:
+                - img [ref=e357]
+        - generic [ref=e360] [cursor=pointer]:
+          - generic [ref=e361]:
+            - generic:
+              - img
+          - img [ref=e363]
+          - generic [ref=e365]:
+            - generic [ref=e366]: 15.1 Team fear
+            - generic [ref=e367]:
+              - button [ref=e368]:
+                - img [ref=e369]
+              - button [ref=e372]:
+                - img [ref=e373]
+        - generic [ref=e376] [cursor=pointer]:
+          - generic [ref=e377]:
+            - generic:
+              - img
+          - img [ref=e379]
+          - generic [ref=e381]:
+            - generic [ref=e382]: 11.2 Candy at UFO sign
+            - generic [ref=e383]:
+              - button [ref=e384]:
+                - img [ref=e385]
+              - button [ref=e388]:
+                - img [ref=e389]
+        - generic [ref=e392] [cursor=pointer]:
+          - generic [ref=e393]:
+            - generic:
+              - img
+          - img [ref=e395]
+          - generic [ref=e397]:
+            - generic [ref=e398]: 12.1 VO distraction
+            - generic [ref=e399]:
+              - button [ref=e400]:
+                - img [ref=e401]
+              - button [ref=e404]:
+                - img [ref=e405]
+        - generic [ref=e408] [cursor=pointer]:
+          - generic [ref=e409]:
+            - generic:
+              - img
+          - img [ref=e411]
+          - generic [ref=e413]:
+            - generic [ref=e414]: 10.1 Believer interview
+            - generic [ref=e415]:
+              - button [ref=e416]:
+                - img [ref=e417]
+              - button [ref=e420]:
+                - img [ref=e421]
+        - generic [ref=e424] [cursor=pointer]:
+          - generic [ref=e425]:
+            - generic:
+              - img
+          - img [ref=e427]
+          - generic [ref=e429]:
+            - generic [ref=e430]: 11.1 VO theories
+            - generic [ref=e431]:
+              - button [ref=e432]:
+                - img [ref=e433]
+              - button [ref=e436]:
+                - img [ref=e437]
+        - generic [ref=e440] [cursor=pointer]:
+          - generic [ref=e441]:
+            - generic:
+              - img
+          - img [ref=e443]
+          - generic [ref=e445]:
+            - generic [ref=e446]: 9.1 No access
+            - generic [ref=e447]:
+              - button [ref=e448]:
+                - img [ref=e449]
+              - button [ref=e452]:
+                - img [ref=e453]
+        - generic [ref=e456] [cursor=pointer]:
+          - generic [ref=e457]:
+            - generic:
+              - img
+          - img [ref=e459]
+          - generic [ref=e461]:
+            - generic [ref=e462]: 9.2 Baby hand signal
+            - generic [ref=e463]:
+              - button [ref=e464]:
+                - img [ref=e465]
+              - button [ref=e468]:
+                - img [ref=e469]
+        - generic [ref=e472] [cursor=pointer]:
+          - generic [ref=e473]:
+            - generic:
+              - img
+          - img [ref=e475]
+          - generic [ref=e477]:
+            - generic [ref=e478]: 9.3 Alien window
+            - generic [ref=e479]:
+              - button [ref=e480]:
+                - img [ref=e481]
+              - button [ref=e484]:
+                - img [ref=e485]
+        - generic [ref=e488] [cursor=pointer]:
+          - generic [ref=e489]:
+            - generic:
+              - img
+          - img [ref=e491]
+          - generic [ref=e493]:
+            - generic [ref=e494]: 8.1 Team reactions
+            - generic [ref=e495]:
+              - button [ref=e496]:
+                - img [ref=e497]
+              - button [ref=e500]:
+                - img [ref=e501]
+        - generic [ref=e504] [cursor=pointer]:
+          - generic [ref=e505]:
+            - generic:
+              - img
+          - img [ref=e507]
+          - generic [ref=e509]:
+            - generic [ref=e510]: 8.2 Giger counter scan
+            - generic [ref=e511]:
+              - button [ref=e512]:
+                - img [ref=e513]
+              - button [ref=e516]:
+                - img [ref=e517]
+        - generic [ref=e520] [cursor=pointer]:
+          - generic [ref=e521]:
+            - generic:
+              - img
+          - img [ref=e523]
+          - generic [ref=e525]:
+            - generic [ref=e526]: 6.1 Hacker interview
+            - generic [ref=e527]:
+              - button [ref=e528]:
+                - img [ref=e529]
+              - button [ref=e532]:
+                - img [ref=e533]
+        - generic [ref=e536] [cursor=pointer]:
+          - generic [ref=e537]:
+            - generic:
+              - img
+          - img [ref=e539]
+          - generic [ref=e541]:
+            - generic [ref=e542]: 7.1 Handler prep
+            - generic [ref=e543]:
+              - button [ref=e544]:
+                - img [ref=e545]
+              - button [ref=e548]:
+                - img [ref=e549]
+        - generic [ref=e552] [cursor=pointer]:
+          - generic [ref=e553]:
+            - generic:
+              - img
+          - img [ref=e555]
+          - generic [ref=e557]:
+            - generic [ref=e558]: 4.2 Bubble Tea boy spotted
+            - generic [ref=e559]:
+              - button [ref=e560]:
+                - img [ref=e561]
+              - button [ref=e564]:
+                - img [ref=e565]
+        - generic [ref=e568] [cursor=pointer]:
+          - generic [ref=e569]:
+            - generic:
+              - img
+          - img [ref=e571]
+          - generic [ref=e573]:
+            - generic [ref=e574]: 5.1 Corridor search
+            - generic [ref=e575]:
+              - button [ref=e576]:
+                - img [ref=e577]
+              - button [ref=e580]:
+                - img [ref=e581]
+        - generic [ref=e584] [cursor=pointer]:
+          - generic [ref=e585]:
+            - generic:
+              - img
+          - img [ref=e587]
+          - generic [ref=e589]:
+            - generic [ref=e590]: 3.1 Roswell crash
+            - generic [ref=e591]:
+              - button [ref=e592]:
+                - img [ref=e593]
+              - button [ref=e596]:
+                - img [ref=e597]
+        - generic [ref=e600] [cursor=pointer]:
+          - generic [ref=e601]:
+            - generic:
+              - img
+          - img [ref=e603]
+          - generic [ref=e605]:
+            - generic [ref=e606]: 3.2 Wreckage moves
+            - generic [ref=e607]:
+              - button [ref=e608]:
+                - img [ref=e609]
+              - button [ref=e612]:
+                - img [ref=e613]
+        - generic [ref=e616] [cursor=pointer]:
+          - generic [ref=e617]:
+            - generic:
+              - img
+          - img [ref=e619]
+          - generic [ref=e621]:
+            - generic [ref=e622]: 4.1 VO Team vow
+            - generic [ref=e623]:
+              - button [ref=e624]:
+                - img [ref=e625]
+              - button [ref=e628]:
+                - img [ref=e629]
+        - generic [ref=e632] [cursor=pointer]:
+          - generic [ref=e633]:
+            - generic:
+              - img
+          - img [ref=e635]
+          - generic [ref=e637]:
+            - generic [ref=e638]: 1.1 Rain and whine
+            - generic [ref=e639]:
+              - button [ref=e640]:
+                - img [ref=e641]
+              - button [ref=e644]:
+                - img [ref=e645]
+        - generic [ref=e648] [cursor=pointer]:
+          - generic [ref=e649]:
+            - generic:
+              - img
+          - img [ref=e651]
+          - generic [ref=e653]:
+            - generic [ref=e654]: 2.1 VO Lies intro
+            - generic [ref=e655]:
+              - button [ref=e656]:
+                - img [ref=e657]
+              - button [ref=e660]:
+                - img [ref=e661]
+        - generic [ref=e664] [cursor=pointer]:
+          - generic [ref=e665]:
+            - generic:
+              - img
+          - img [ref=e668]
+          - generic [ref=e670]:
+            - generic [ref=e671]: 1.1 Crash at Roswell
+            - generic [ref=e672]:
+              - button [ref=e673]:
+                - img [ref=e674]
+              - button [ref=e677]:
+                - img [ref=e678]
+        - generic [ref=e681] [cursor=pointer]:
+          - img "Media" [ref=e682]
+          - img [ref=e684]
+          - generic [ref=e688]:
+            - generic [ref=e689]: "Ref: 1.1 Crash at Roswell"
+            - generic [ref=e690]:
+              - button [ref=e691]:
+                - img [ref=e692]
+              - button [ref=e695]:
+                - img [ref=e696]
+        - generic [ref=e699] [cursor=pointer]:
+          - img "Media" [ref=e700]
+          - img [ref=e702]
+          - generic [ref=e706]:
+            - generic [ref=e707]: "Ref: 1.1 Crash at Roswell"
+            - generic [ref=e708]:
+              - button [ref=e709]:
+                - img [ref=e710]
+              - button [ref=e713]:
+                - img [ref=e714]
+        - generic [ref=e717] [cursor=pointer]:
+          - img "Media" [ref=e718]
+          - img [ref=e720]
+          - generic [ref=e724]:
+            - generic [ref=e725]: "Ref: 1.1 Crash at Roswell"
+            - generic [ref=e726]:
+              - button [ref=e727]:
+                - img [ref=e728]
+              - button [ref=e731]:
+                - img [ref=e732]
+        - generic [ref=e735] [cursor=pointer]:
+          - img "Media" [ref=e736]
+          - img [ref=e738]
+          - generic [ref=e742]:
+            - generic [ref=e743]: "Ref: 1.1 Crash at Roswell"
+            - generic [ref=e744]:
+              - button [ref=e745]:
+                - img [ref=e746]
+              - button [ref=e749]:
+                - img [ref=e750]
+        - generic [ref=e753] [cursor=pointer]:
+          - img "Media" [ref=e754]
+          - img [ref=e756]
+          - generic [ref=e760]:
+            - generic [ref=e761]: "Ref: 1.1 Crash at Roswell"
+            - generic [ref=e762]:
+              - button [ref=e763]:
+                - img [ref=e764]
+              - button [ref=e767]:
+                - img [ref=e768]
+        - generic [ref=e771] [cursor=pointer]:
+          - generic [ref=e772]:
+            - generic:
+              - img
+          - img [ref=e775]
+          - generic [ref=e777]:
+            - generic [ref=e778]: 1.2 Eyewitness Account
+            - generic [ref=e779]:
+              - button [ref=e780]:
+                - img [ref=e781]
+              - button [ref=e784]:
+                - img [ref=e785]
+        - generic [ref=e788] [cursor=pointer]:
+          - img "Media" [ref=e789]
+          - img [ref=e791]
+          - generic [ref=e795]:
+            - generic [ref=e796]: "Ref: 1.2 Eyewitness Account"
+            - generic [ref=e797]:
+              - button [ref=e798]:
+                - img [ref=e799]
+              - button [ref=e802]:
+                - img [ref=e803]
+        - generic [ref=e806] [cursor=pointer]:
+          - img "Media" [ref=e807]
+          - img [ref=e809]
+          - generic [ref=e813]:
+            - generic [ref=e814]: "Ref: 1.2 Eyewitness Account"
+            - generic [ref=e815]:
+              - button [ref=e816]:
+                - img [ref=e817]
+              - button [ref=e820]:
+                - img [ref=e821]
+        - generic [ref=e824] [cursor=pointer]:
+          - img "Media" [ref=e825]
+          - img [ref=e827]
+          - generic [ref=e831]:
+            - generic [ref=e832]: "Ref: 1.2 Eyewitness Account"
+            - generic [ref=e833]:
+              - button [ref=e834]:
+                - img [ref=e835]
+              - button [ref=e838]:
+                - img [ref=e839]
+        - generic [ref=e842] [cursor=pointer]:
+          - generic [ref=e843]:
+            - generic:
+              - img
+          - img [ref=e846]
+          - generic [ref=e848]:
+            - generic [ref=e849]: 2.1 Command Exercise
+            - generic [ref=e850]:
+              - button [ref=e851]:
+                - img [ref=e852]
+              - button [ref=e855]:
+                - img [ref=e856]
+        - generic [ref=e859] [cursor=pointer]:
+          - img "Media" [ref=e860]
+          - img [ref=e862]
+          - generic [ref=e866]:
+            - generic [ref=e867]: "Ref: 2.1 Command Exercise"
+            - generic [ref=e868]:
+              - button [ref=e869]:
+                - img [ref=e870]
+              - button [ref=e873]:
+                - img [ref=e874]
+        - generic [ref=e877] [cursor=pointer]:
+          - img "Media" [ref=e878]
+          - img [ref=e880]
+          - generic [ref=e884]:
+            - generic [ref=e885]: "Ref: 2.1 Command Exercise"
+            - generic [ref=e886]:
+              - button [ref=e887]:
+                - img [ref=e888]
+              - button [ref=e891]:
+                - img [ref=e892]
+        - generic [ref=e895] [cursor=pointer]:
+          - img "Media" [ref=e896]
+          - img [ref=e898]
+          - generic [ref=e902]:
+            - generic [ref=e903]: "Ref: 2.1 Command Exercise"
+            - generic [ref=e904]:
+              - button [ref=e905]:
+                - img [ref=e906]
+              - button [ref=e909]:
+                - img [ref=e910]
+  - alert [ref=e913]
+```

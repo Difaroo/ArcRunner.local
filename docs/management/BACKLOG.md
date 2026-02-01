@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.29.0 (History & Performance)
+- [x] **Result History**: Universal Viewer now shows full history of results (Playlist).
+- [x] **Instant Download**: Optimised `proxy-download` to stream response (Zero Delay).
+- [x] **Relational Cleanup**: Refactored `ClipRow` to use `mediaResults` table, removing CSV legacy.
+- [x] **Reverts**: Cleaned up experimental Video Sideload logic.
+
 ## 🚀 Released v0.28.0 (Legacy CSV Removal)
 - [x] **Legacy Removal**: Stopped writing to `refImageUrls` and `resultUrl` CSV columns.
 - [x] **Strict Media-First**: Frontend/Backend now strictly read from `Media` table.

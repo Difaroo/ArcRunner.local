@@ -2,6 +2,27 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-01: v0.29.0 - Peregrine (History & Performance)
+
+### Context
+This release delivers two highly requested improvements: **Full Result History** and **Instant Downloads**. The Universal Viewer now allows users to browse through *all* previous generation results for a clip, not just the latest one. Additionally, the file download architecture has been completely rewritten to use **Streaming**, eliminating the 10-second "buffering delay" before the Save Dialog appears.
+
+### Key Changes
+-   **Result History (Time Machine)**:
+    -   **Full Playlist**: The Universal Viewer now stacks all historical results for a clip (stored via Relational DB). Users can swipe back to see previous iterations.
+    -   **Strict Relations**: The frontend (`ClipRow`) now strictly reads `mediaResults` and `mediaReferences` relations, finalizing the deprecation of legacy CSV columns.
+-   **Instant Downloads**:
+    -   **Streaming Architecture**: Refactored the `/api/proxy-download` endpoint to stream data directly from source to client.
+    -   **Zero TTFB**: The "Save As" dialog now appears instantly (milliseconds) instead of waiting for the full file to buffer on the server.
+-   **Cleanup**:
+    -   **Codebase Hygiene**: Removed experimental "Video Sideloading" logic and reverted checking for video refs in Nano payloads.
+
+### Technical
+-   **Refactor**: `ClipRow.tsx` refactored to use `clip.mediaResults` (Relation) instead of parsing `clip.resultUrl` (CSV).
+-   **Version Bump**: 0.28.0 -> 0.29.0.
+
+---
+
 ## 2026-02-01: v0.28.0 - Peregrine (Legacy CSV Abolition)
 
 ### Context

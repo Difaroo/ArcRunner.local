@@ -15,42 +15,54 @@ export async function GET(request: NextRequest) {
     console.log(`[Proxy-DL] Request: URL=${url}, Filename=${filename}`);
 
     try {
-        // OPTIMIZATION: If local file in /media, read directly from disk
+        // OPTIMIZATION: If local file in /media, read directly from disk (STREAMED)
         if (url.startsWith('/media/') || url.startsWith('/uploads/')) {
             const localPath = path.join(process.cwd(), 'public', url);
-            console.log(`[Proxy-DL] Resolving Local: ${localPath}`);
+            console.log(`[Proxy-DL] Resolving Local (Stream): ${localPath}`);
 
             if (fs.existsSync(localPath)) {
+                const stat = fs.statSync(localPath);
+                const fileSize = stat.size;
+
                 // Determine Content Type
                 const ext = path.extname(localPath).toLowerCase().replace('.', '');
-                // Map common types...
                 let contentType = 'application/octet-stream';
                 if (ext === 'png') contentType = 'image/png';
                 if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
                 if (ext === 'mp4') contentType = 'video/mp4';
                 if (ext === 'webp') contentType = 'image/webp';
 
-                const fileBuffer = fs.readFileSync(localPath);
+                // Create Node Stream
+                const fileStream = fs.createReadStream(localPath);
+
+                // Convert Node Stream to Web ReadableStream for NextResponse
+                const webStream = new ReadableStream({
+                    start(controller) {
+                        fileStream.on('data', (chunk) => controller.enqueue(chunk));
+                        fileStream.on('end', () => controller.close());
+                        fileStream.on('error', (err) => controller.error(err));
+                    }
+                });
 
                 const headers = new Headers();
                 headers.set('Content-Type', contentType);
                 headers.set('Content-Disposition', `attachment; filename="${filename}"`);
-                headers.set('Content-Length', fileBuffer.length.toString());
+                headers.set('Content-Length', fileSize.toString());
 
-                return new NextResponse(new Uint8Array(fileBuffer), { status: 200, headers });
+                return new NextResponse(webStream, { status: 200, headers });
             } else {
                 console.error(`[Proxy-DL] File NOT FOUND at ${localPath}`);
                 return new NextResponse(`File not found on server at ${localPath}`, { status: 404 });
             }
         }
 
-        // ... Remote Fetch Fallback ...
+        // ... Remote Fetch Fallback (STREAMED) ...
         let targetUrl = url;
         if (targetUrl.startsWith('/')) {
             targetUrl = `${request.nextUrl.origin}${targetUrl}`;
         }
 
-        console.log(`[Proxy-DL] Fetching Remote: ${targetUrl}`);
+        console.log(`[Proxy-DL] Fetching Remote (Stream): ${targetUrl}`);
         const response = await fetch(targetUrl);
 
         if (!response.ok) {
@@ -64,11 +76,8 @@ export async function GET(request: NextRequest) {
         resHeaders.set('Content-Disposition', `attachment; filename="${filename}"`);
         if (response.headers.get('content-length')) resHeaders.set('Content-Length', response.headers.get('content-length')!);
 
-        // Read remote body to buffer to ensure completion before sending? 
-        // Or stream. Let's strictly buffer for now to isolate issues.
-        const blob = await response.arrayBuffer();
-
-        return new NextResponse(new Uint8Array(blob), { status: 200, headers: resHeaders });
+        // Pass the fetch stream directly!
+        return new NextResponse(response.body, { status: 200, headers: resHeaders });
 
     } catch (error: any) {
         console.error('Proxy Error:', error);

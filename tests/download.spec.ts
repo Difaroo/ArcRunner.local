@@ -4,10 +4,11 @@ import { test, expect } from '@playwright/test';
 test.describe('Download API Architecture', () => {
 
     // 1. Verify Proxy Download Headers (Happy Path)
-    test.skip('Proxy should return attachment headers for valid file', async ({ request }) => {
+    test('Proxy should return attachment headers for valid file', async ({ request }) => {
         // Use external stable URL
-        const targetUrl = 'https://www.google.com/favicon.ico';
-        const filename = 'test-download.ico';
+        // Use reliable local asset served by Next.js
+        const targetUrl = '/next.svg';
+        const filename = 'test-download.svg';
 
         const response = await request.get(`/api/proxy-download?url=${encodeURIComponent(targetUrl)}&filename=${filename}`);
 
@@ -19,12 +20,12 @@ test.describe('Download API Architecture', () => {
 
         const headers = response.headers();
         expect(headers['content-disposition']).toContain('attachment');
-        expect(headers['content-disposition']).toContain('filename="test-download.ico"');
+        expect(headers['content-disposition']).toContain('filename="test-download.svg"');
     });
 
     // 2. Verify Sanitization (Security)
     test('Proxy should sanitize malicious filenames', async ({ request }) => {
-        const targetUrl = 'https://www.google.com/favicon.ico';
+        const targetUrl = '/next.svg';
         // Attempt path traversal
         const maliciousFilename = '../../etc/passwd.txt';
 
