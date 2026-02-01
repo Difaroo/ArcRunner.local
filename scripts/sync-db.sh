@@ -3,7 +3,7 @@
 
 DIRECTION=$1
 DEV_DB="prisma/dev.db"
-PROD_DB="prisma/prod.db"
+PROD_DB="prisma/prod_v2.db"
 BACKUP_DIR="backups/db"
 
 mkdir -p $BACKUP_DIR
