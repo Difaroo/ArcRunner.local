@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.29.1 (Live Update & Veo S2E Fixes)
+- [x] **Character Live Update**: Fixed bug where thumbnails didn't update instantly in Edit Mode.
+- [x] **Location Thumb Fix**: Fixed Location thumbnail disappearing in Edit Mode.
+- [x] **Ref Image Ordering**: Switched to FIFO (Oldest First) to respect drag-and-drop order.
+- [x] **Veo Start-to-End**: Fixed Backend LIFO sort bug that reversed Start/End frames in payload.
+
 ## 🚀 Released v0.29.0 (History & Performance)
 - [x] **Result History**: Universal Viewer now shows full history of results (Playlist).
 - [x] **Instant Download**: Optimised `proxy-download` to stream response (Zero Delay).

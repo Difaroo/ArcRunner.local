@@ -249,24 +249,59 @@ export function ClipRow({
         // FALCON FIX (Cleanup): Use Relational Data exclusively for History
         // We prefer `mediaResults` (Array of Objects) over `resultUrl` (String/CSV)
 
-        // 1. Get History from Relations
-        // `mediaResults` is sorted by createdAt desc by default in API
-        const resultHistory = clip.mediaResults
-            ? clip.mediaResults.map(m => m.url)
-            : (clip.resultUrl ? [clip.resultUrl] : []);
+        // Helper: Extract filename from URL for fallback
+        const getFilename = (url: string) => url.split('/').pop()?.split('?')[0] || 'Unknown';
 
-        // 2. Get References from Relations
-        const referenceParams = clip.mediaReferences
-            ? clip.mediaReferences.map(m => m.url)
-            : parseStringList(clip.explicitRefUrls || clip.refImageUrls);
+        // 1. Get History from Relations -> Rich Objects
+        const resultHistory = clip.mediaResults && clip.mediaResults.length > 0
+            ? clip.mediaResults.map(m => ({
+                id: m.id,
+                url: m.url,
+                type: (m.type === 'VIDEO' || m.url.endsWith('.mp4')) ? 'video' : 'image', // Robust type check
+                // TITLE LOGIC: Scene + Title (e.g. "1.1 Intro")
+                title: `${clip.scene || ''} ${clip.title || 'Untitled'}`.trim(),
+                isReference: false,
+                ownerClipId: clip.id,
+                deleteIcon: 'minus' as const // Allow clearing results
+            }))
+            : (clip.resultUrl ? [{
+                id: 'legacy-result',
+                url: clip.resultUrl,
+                type: 'video',
+                title: `${clip.scene || ''} ${clip.title || 'Untitled'}`.trim(),
+                isReference: false,
+                ownerClipId: clip.id,
+                deleteIcon: 'minus' as const
+            }] : []);
+
+        // 2. Get References from Relations -> Rich Objects
+        const referenceParams = clip.mediaReferences && clip.mediaReferences.length > 0
+            ? clip.mediaReferences.map(m => ({
+                id: m.id,
+                url: m.url,
+                type: (m.type === 'VIDEO' || m.url.endsWith('.mp4')) ? 'video' : 'image',
+                // TITLE LOGIC: Studio Name OR Filename
+                title: m.studioItem?.name || getFilename(m.url),
+                isReference: true,
+                ownerClipId: clip.id
+            }))
+            : parseStringList(clip.explicitRefUrls || clip.refImageUrls).map((url, idx) => ({
+                id: `legacy-ref-${idx}`,
+                url: url,
+                type: 'image',
+                title: getFilename(url),
+                isReference: true,
+                ownerClipId: clip.id
+            }));
 
         if (resultHistory.length > 0) {
             // Combine: [Latest Result, Older Results...] + [Effective References...]
             // Note: `resultHistory` should already be sorted Newest -> Oldest
+            // @ts-ignore - Types compatibility checked (UniversalMediaItem)
             const fullPlaylist = [...resultHistory, ...referenceParams];
 
             // Play using the FIRST result (Latest) as start
-            onPlay(resultHistory[0], fullPlaylist);
+            onPlay(resultHistory[0].url, fullPlaylist);
             setDownloadCount(prev => prev + 1)
             onSave(clip.id, { status: 'Saved' })
         }
@@ -501,10 +536,10 @@ export function ClipRow({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-                            {/* Edit Mode Preview */}
+                            {/* Edit Mode Preview - Live Updates using editValues */}
                             {isEditing && onResolveImage ? (
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                    {parseStringList(clip.character || "").map((char, i) => {
+                                    {(editValues.character ? parseStringList(editValues.character) : []).map((char, i) => {
                                         const url = onResolveImage?.(char);
                                         if (!url) return null;
                                         return (
@@ -607,7 +642,7 @@ export function ClipRow({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             )}
-                            {/* Edit Mode Preview - Location Thumb (Fixed: inline, not absolute) */}
+                            {/* Edit Mode Preview - Location Thumb (Live Update) */}
                             {isEditing && onResolveImage && (editValues.location || "").trim().length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
                                     {(() => {

@@ -64,6 +64,12 @@ Downloads are now streamed directly from the internal proxy.
 -   **Zero Wait**: The "Save As" file dialog appears instantly.
 -   **Background**: Large files download in the background after you click Save.
 
+### Veo Start-to-End (S2E)
+To use Start-to-End generation correctly:
+1.  **Start Frame**: Drag your Start Image into the "Ref Images" area first to Add or Sideload.
+2.  **End Frame**: Drag your End Image second.
+3.  The system preserves this order (FIFO) when sending to Veo. Start = Image 1, End = Image 2.
+
 ## 7. Server Management
 We have a [helper script](../scripts/restart-stack.sh) to safely kill existing processes (ports 3000/3001), rebuild Production, and restart both environments.
 

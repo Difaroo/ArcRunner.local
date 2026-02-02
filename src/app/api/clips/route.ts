@@ -31,7 +31,8 @@ export async function GET() {
                     episode: { include: { series: true } },
                     mediaResults: true,
                     mediaReferences: {
-                        orderBy: { createdAt: 'desc' } // LIFO: Newest first for payload priority
+                        include: { studioItem: true }, // Include Studio Item for Titles
+                        orderBy: { createdAt: 'asc' } // FIFO: Oldest first (First Added = First in List)
                     }
                 },
                 orderBy: [

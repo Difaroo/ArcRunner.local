@@ -174,9 +174,10 @@ export class GenerateManager {
         let explicitRefPaths: string[] = [];
 
         if (dbClip.mediaReferences && dbClip.mediaReferences.length > 0) {
-            // Sort by CreatedAt Descending (Latest First)
+            // Sort by CreatedAt Ascending (Oldest First = FIFO)
+            // This ensures "Start Frame" (added first) comes before "End Frame" (added second) in the array.
             const sortedRefs = dbClip.mediaReferences.sort((a, b) => {
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
             });
 
             // Extract valid paths

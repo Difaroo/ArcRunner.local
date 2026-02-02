@@ -2,6 +2,24 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-01: v0.29.1 - Peregrine (Live Update & Veo S2E)
+
+### Context
+A robust "Bug Hunt" release addressing critical feedback on the user interface responsiveness and generation logic. Key fixes include "Instant Live Updates" for Character/Location thumbnails in Edit Mode (removing the need to save/refresh to see changes), and a definitive fix for the "Veo Start-to-End" payload logic, ensuring that the **Start Frame** and **End Frame** are sent in the correct order (FIFO) instead of being reversed by backend sorting.
+
+### Key Fixes
+- **Live Update Architecture**:
+    - **Character Thumbs**: The `ClipRow` editor now renders Character Reference thumbnails using the **Live `editValues`** state instead of the persisted database state. Typing or removing a character updates the preview instantly.
+    - **Location Thumbs**: Applied similar logic to the Location cell, fixing a bug where the thumb disappeared upon entering Edit Mode.
+- **Payload Integrity**:
+    - **Ref Image Sorting (FIFO)**: Switched the backend `GenerateManager` sort order for Media References from **Descending** (Newest First) to **Ascending** (Oldest First). This matches the user's Drag-and-Drop intent: The first image added (Start Frame) remains at Index 0.
+    - **Veo S2E Logic**: Confirmed that `PayloadBuilderVeo` respects this order, fixing the issue where Start and End frames were swapped.
+
+### Version Bump
+- **Minor**: 0.29.0 -> 0.29.1.
+
+---
+
 ## 2026-02-01: v0.29.0 - Peregrine (History & Performance)
 
 ### Context

@@ -38,6 +38,7 @@ export interface Media {
     width?: number;
     height?: number;
     createdAt?: string | Date;
+    studioItem?: { name: string }; // Relation
 }
 
 export interface Series {
