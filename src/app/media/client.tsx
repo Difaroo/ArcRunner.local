@@ -10,8 +10,8 @@ import { UniversalMediaViewer } from "@/components/media/UniversalMediaViewer";
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
-import { deleteMedia, MediaFilter } from '@/app/actions/media';
+import { Search, Loader2 } from 'lucide-react';
+import { deleteMedia, fetchMedia, MediaFilter } from '@/app/actions/media';
 import { EpisodeTabs } from "@/components/clips/EpisodeTabs";
 
 import {
@@ -34,7 +34,64 @@ interface MediaGalleryClientProps {
     clips: any[];
 }
 
+// --- Infinite Scroll Logic ---
 export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, title, seriesList, episodeList, clips }: MediaGalleryClientProps) {
+    const [items, setItems] = useState(initialItems);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(initialItems.length >= 50);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const observerTarget = React.useRef<HTMLDivElement>(null);
+
+    // Sync state with props when filters change (Parent URL change triggers this)
+    React.useEffect(() => {
+        setItems(initialItems);
+        setPage(1);
+        setHasMore(initialItems.length >= 50);
+        setLoadingMore(false);
+    }, [initialItems]);
+
+    const loadMore = React.useCallback(async () => {
+        if (loadingMore || !hasMore) return;
+
+        setLoadingMore(true);
+        try {
+            const nextPage = page + 1;
+            // Fetch next page via Server Action
+            const { items: newItems } = await fetchMedia(initialFilter, nextPage, 50);
+
+            if (newItems.length < 50) {
+                setHasMore(false);
+            }
+
+            setItems(prev => [...prev, ...newItems]);
+            setPage(nextPage);
+        } catch (error) {
+            console.error("Failed to load more media:", error);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [page, hasMore, loadingMore, initialFilter]);
+
+    // Intersection Observer
+    React.useEffect(() => {
+        const observer = new IntersectionObserver(
+            entries => {
+                if (entries[0].isIntersecting && hasMore && !loadingMore) {
+                    loadMore();
+                }
+            },
+            { threshold: 0.1, rootMargin: '100px' } // Preload when 100px from bottom
+        );
+
+        if (observerTarget.current) {
+            observer.observe(observerTarget.current);
+        }
+
+        return () => observer.disconnect();
+    }, [loadMore, hasMore, loadingMore]);
+
+
+    // --- View Logic ---
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
 
@@ -67,7 +124,9 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
 
         try {
             await deleteMedia(id);
-            router.refresh();
+            // Optimistic Update: Remove from local state immediately
+            setItems(prev => prev.filter(i => i.id !== id));
+            router.refresh(); // Sync server state
         } catch (e: any) {
             console.error("Delete Media Error:", e);
             alert(`Delete Failed: ${e.message || 'Unknown Error'}`);
@@ -131,9 +190,9 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
     const [viewerIndex, setViewerIndex] = useState(0);
 
     const handleSelect = (media: any) => {
-        // Construct full playlist from initialItems
+        // Construct full playlist from CURRENT ITEMS (state), not initialItems
         // We map ALL items to UniversalMediaItem format
-        const playlist = initialItems.map(item => {
+        const playlist = items.map(item => {
             let itemTitle = 'Media';
 
             // Handle result clips
@@ -201,6 +260,15 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
             // Here in Media View, maybe just notify? 
             // For now, close viewer and refresh to show updated state (if moved)
             setViewerOpen(false);
+
+            // If moved, we should remove from list
+            if (action === 'move' && sourceClipId) {
+                // But wait, the sourceClipId is the CLIP ID, not the MEDIA ID. 
+                // Actually adding-as-ref doesn't necessarily delete the media unless it was a move. 
+                // If it's a move, logic says remove. But 'handleAddAsRef' doesn't return the media ID cleanly here?
+                // Standard behavior is router refresh.
+            }
+
             router.refresh();
             // Could optionally navigate to the clip?
             const targetClip = clips.find(c => c.id.toString() === targetClipId);
@@ -268,7 +336,10 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                             </span>
                         </>
                     )}
-                    <span className="ml-4 text-xs text-muted-foreground font-normal border-l border-white/10 pl-4">{initialTotal} items</span>
+                    <span className="ml-4 text-xs text-muted-foreground font-normal border-l border-white/10 pl-4">
+                        {/* Display total loaded vs total available */}
+                        {items.length} / {initialTotal} items
+                    </span>
                 </div>
             }>
                 <div className="flex items-center gap-2">
@@ -362,12 +433,25 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
             {/* 3. Grid Content */}
             <div className="flex-1 overflow-y-auto p-6">
                 <MediaGrid
-                    items={initialItems}
+                    items={items} // Use state items (infinite scroll)
                     onDelete={handleDelete}
                     onSelect={handleSelect} // Pass usage logic
                 />
 
-                {initialItems.length === 0 && (
+                {/* Infinite Scroll Sentinel / Loader */}
+                <div ref={observerTarget} className="flex justify-center p-4 min-h-[50px] items-center text-muted-foreground text-xs mt-4">
+                    {loadingMore && (
+                        <div className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                            Loading more...
+                        </div>
+                    )}
+                    {!hasMore && items.length > 0 && (
+                        <span>End of results</span>
+                    )}
+                </div>
+
+                {items.length === 0 && (
                     <div className="mt-10 text-center">
                         <p className="text-muted-foreground">No media found matching filters.</p>
                         <Button variant="link" onClick={() => router.push('/media')}>Clear Filters</Button>
@@ -381,12 +465,11 @@ export function MediaGalleryClient({ initialItems, initialTotal, initialFilter, 
                 onClose={() => setViewerOpen(false)}
                 playlist={viewerPlaylist}
                 initialIndex={viewerIndex}
-                onDelete={handleDelete} // Re-use delete logic
-
-                // Add As Ref Capabilities
+                onDelete={handleDelete}
                 clips={viewerClips}
                 onAddAsRef={handleAddAsRef}
             />
         </div>
     );
 }
+
