@@ -2,6 +2,25 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-03: v0.29.2 - Peregrine (Sort & Layout Fixes)
+
+### Context
+A fast-follow release addressing two primary friction points: The "Reference Image" sorting logic and a regression in "Edit Mode" layout for Location thumbnails.
+
+### Key Fixes
+- **Reference Sorting (LIFO)**:
+    - **Logic**: Updated the API to sort `mediaReferences` by `id: 'desc'` (Newest First). This matches the frontend's optimistic "prepend" logic (`[New, ...Old]`), ensuring that the most recently added image (Start Frame) reliably stays at the #1 slot.
+    - **Stability**: Added `export const dynamic = 'force-dynamic'` to the update API to prevent Next.js from serving stale (cached) reference orders.
+- **Location Thumbnail Layout**:
+    - **Bug Fix**: Fixed a CSS issue where the Location Preview `div` was nested inside an `items-center` flex row, causing it to collapse/disappear. Moved it to a parent vertical flex container to ensure visibility.
+- **Studio Alignment**:
+    - **Propagation**: Applied the same `id: 'desc'` sorting logic to the Studio Library API (`/api/library`), ensuring consistency across the entire app.
+
+### Version Bump
+- **Patch**: 0.29.1 -> 0.29.2.
+
+---
+
 ## 2026-02-01: v0.29.1 - Peregrine (Live Update & Veo S2E)
 
 ### Context

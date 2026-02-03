@@ -134,7 +134,7 @@ export function RowActions({
                                     {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">download</span>}
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent><p>Download</p></TooltipContent>
+                            <TooltipContent><p>Download (⌘S)</p></TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                 )}

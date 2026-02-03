@@ -206,10 +206,12 @@ export function LibraryRow({
 
     useRowShortcuts({
         isEditing,
+        isSelected,
         onSave: handleLocalSave,
         onDuplicate: onDuplicate ? () => onDuplicate(item.id) : undefined,
         onDelete: handleDeleteClick,
-        onCancel: onCancelEdit
+        onCancel: onCancelEdit,
+        onDownload: async () => onDownload(item.refImageUrl, item.name)
     });
 
     return (

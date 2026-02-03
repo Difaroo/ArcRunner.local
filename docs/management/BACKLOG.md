@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.29.2 (Sort & Layout Fixes)
+- [x] **Ref Sorting**: Enforced LIFO (Newest First) sorting in API + Frontend Prepend.
+- [x] **Location Thumb**: Fixed CSS nesting bug hiding location preview in Edit Mode.
+- [x] **Studio Sort**: Aligned Studio Library sorting to LIFO.
+- [x] **Caching**: Added `force-dynamic` to Update API.
+
 ## 🚀 Released v0.29.1 (Live Update & Veo S2E Fixes)
 - [x] **Character Live Update**: Fixed bug where thumbnails didn't update instantly in Edit Mode.
 - [x] **Location Thumb Fix**: Fixed Location thumbnail disappearing in Edit Mode.

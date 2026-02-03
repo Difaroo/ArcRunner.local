@@ -152,15 +152,49 @@ export function UniversalMediaViewer({
                     e.preventDefault();
                     handleDeleteClick();
                     break;
-                case 'd':
+                case 'A': // Cmd+Shift+A: Add Result to Clip
+                    if (e.metaKey || e.ctrlKey && e.shiftKey) {
+                        e.preventDefault();
+                        const itemOwnerClipId = currentItem?.ownerClipId || ownerClipId;
+                        if (onAddAsRef && currentItem && itemOwnerClipId) {
+                            if (!currentItem.isReference) {
+                                // Direct Move
+                                onAddAsRef(currentItem.url, itemOwnerClipId, 'move', itemOwnerClipId);
+                            } else {
+                                // Dialog
+                                setShowAddRefDialog(true);
+                            }
+                        }
+                    }
+                    break;
+                case 'U': // Cmd+Shift+U: Unlink
+                    if (e.metaKey || e.ctrlKey && e.shiftKey) {
+                        e.preventDefault();
+                        if (onUnlink && currentItem) {
+                            const contextId = currentItem.ownerClipId;
+                            const isResult = !currentItem.isReference;
+                            onUnlink(currentItem.url, contextId, isResult);
+                            if (currentItem.isReference || currentItem.deleteIcon === 'minus') {
+                                onClose();
+                            }
+                        }
+                    }
+                    break;
+                case 'd': // Legacy Download (Keep d for convenience?) User asked specifically for Cmd+S.
                 case 'D':
                     if (currentItem) downloadFile(currentItem.url, currentItem.title);
                     break;
                 case 'Enter':
-                case 's': // Cmd+S also
                     if (e.metaKey || e.ctrlKey) {
                         e.preventDefault();
                         handleSave();
+                    }
+                    break;
+                case 's':
+                    // Cmd+S = Download (User Request)
+                    if (e.metaKey || e.ctrlKey) {
+                        e.preventDefault();
+                        if (currentItem) downloadFile(currentItem.url, currentItem.title);
                     }
                     break;
                 case ' ': // Space to Toggle Video
@@ -280,7 +314,7 @@ export function UniversalMediaViewer({
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        {currentItem.isReference ? 'Copy/Move to clip' : 'Add as reference'}
+                                        {currentItem.isReference ? 'Copy/Move to clip' : 'Add Result to Clip (⌘⇧A)'}
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
@@ -309,7 +343,7 @@ export function UniversalMediaViewer({
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        {currentItem.isReference ? 'Unlink Reference' : 'Unlink Result'}
+                                        {currentItem.isReference ? 'Unlink Reference (⌘⇧U)' : 'Unlink Result (⌘⇧U)'}
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
@@ -344,7 +378,7 @@ export function UniversalMediaViewer({
                                         <Download className="h-5 w-5" />
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Download</TooltipContent>
+                                <TooltipContent>Download (⌘S)</TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
 

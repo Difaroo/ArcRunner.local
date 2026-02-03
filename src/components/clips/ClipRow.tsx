@@ -139,7 +139,8 @@ export function ClipRow({
             const currentUrls = getEffectiveRefs();
             if (!currentUrls.includes(droppedUrl)) {
                 console.log('Dropped on Display Row:', droppedUrl);
-                const newUrls = [...currentUrls, droppedUrl];
+                // CHANGE: Prepend for Newest-First (LIFO)
+                const newUrls = [droppedUrl, ...currentUrls];
                 const newUrlsStr = joinStringList(newUrls);
 
                 // 1. Optimistic Update (Local UI)
@@ -447,10 +448,12 @@ export function ClipRow({
 
     useRowShortcuts({
         isEditing,
+        isSelected,
         onSave: handleSave,
         onDuplicate: () => onDuplicate(clip.id),
         onDelete: handleDeleteClick,
-        onCancel: onCancelEdit
+        onCancel: onCancelEdit,
+        onDownload: handleDownload
     });
 
     return (
@@ -615,33 +618,35 @@ export function ClipRow({
             <TableCell className={`align-top w-[170px] ${isEditing ? "py-2" : "py-3"}`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
-                        <div className="relative w-full flex items-center gap-1">
-                            <Input
-                                value={editValues.location || ''}
-                                onChange={(e) => handleChange('location', e.target.value)}
-                                className="h-8 w-full text-xs"
-                                placeholder="Location..."
-                            />
-                            {uniqueValues.locations.length > 0 && (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                                            <span className="material-symbols-outlined !text-sm">expand_more</span>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
-                                        {uniqueValues.locations.map((loc) => (
-                                            <DropdownMenuItem
-                                                key={loc}
-                                                onClick={() => handleChange('location', loc)}
-                                                className="focus:bg-stone-800 focus:text-white cursor-pointer"
-                                            >
-                                                {loc}
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            )}
+                        <div className="w-full">
+                            <div className="relative w-full flex items-center gap-1">
+                                <Input
+                                    value={editValues.location || ''}
+                                    onChange={(e) => handleChange('location', e.target.value)}
+                                    className="h-8 w-full text-xs"
+                                    placeholder="Location..."
+                                />
+                                {uniqueValues.locations.length > 0 && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                                <span className="material-symbols-outlined !text-sm">expand_more</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
+                                            {uniqueValues.locations.map((loc) => (
+                                                <DropdownMenuItem
+                                                    key={loc}
+                                                    onClick={() => handleChange('location', loc)}
+                                                    className="focus:bg-stone-800 focus:text-white cursor-pointer"
+                                                >
+                                                    {loc}
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
+                            </div>
                             {/* Edit Mode Preview - Location Thumb (Live Update) */}
                             {isEditing && onResolveImage && (editValues.location || "").trim().length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">

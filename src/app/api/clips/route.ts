@@ -21,7 +21,7 @@ export async function GET() {
                 include: {
                     media: {
                         where: { category: 'STUDIO_UPLOAD' }, // Or just take all attached to it?
-                        orderBy: { createdAt: 'desc' }
+                        orderBy: { id: 'desc' }
                     }
                 },
                 orderBy: { name: 'asc' } // CRITICAL: Sort by Name for UI stability (Duplicates appear adjacent)
@@ -32,7 +32,7 @@ export async function GET() {
                     mediaResults: true,
                     mediaReferences: {
                         include: { studioItem: true }, // Include Studio Item for Titles
-                        orderBy: { createdAt: 'asc' } // FIFO: Oldest first (First Added = First in List)
+                        orderBy: { id: 'desc' } // Deterministic LIFO: Highest ID first
                     }
                 },
                 orderBy: [

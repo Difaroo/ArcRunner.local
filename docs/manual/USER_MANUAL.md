@@ -16,9 +16,11 @@ The viewer is designed for **keyboard-first** navigation.
 | **Esc** | **Close** | Closes viewer without saving changes. |
 | **Arrow Right / Left** | **Navigate** | Move to next/previous item in the playlist. |
 | **Space** | **Play / Pause** | Toggles playback for Videos. |
-| **d** | **Download** | Downloads the current file with its semantic filename. |
-| **Delete / Backspace** | **Delete / Unlink** | Trashes root assets (with confirmation) or unlinks Reference images. |
-| **Cmd+S** / **Cmd+Enter** | **Save Edits** | Commits changes to the Description or Action text. |
+| **Cmd+S** | **Download** | Downloads the current file. |
+| **Cmd+Shift+A** | **Add Result** | Adds the current Result to the Clip as a Reference. |
+| **Cmd+Shift+U** | **Unlink** | Unlinks Reference images or Clears Results. |
+| **Delete / Backspace** | **Delete** | Trashes root assets (with confirmation). |
+| **Cmd+Enter** | **Save Edits** | Commits changes to the Description or Action text. |
 
 *Global Shortcuts*:
 - **Esc** (in Tables): Instantly cancels Edit Mode for any row in Studio or Clips view.

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { db } from '@/lib/db';
 import { generateThumbnail } from '@/lib/thumbnail-generator';
 import fs from 'fs';
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
             where: { id: updatedClip.id },
             select: {
                 episode: { select: { number: true } },
-                mediaReferences: { orderBy: { createdAt: 'asc' } }
+                mediaReferences: { orderBy: { id: 'desc' } }
             }
         }) as any;
 

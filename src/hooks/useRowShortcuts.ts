@@ -2,58 +2,73 @@ import { useEffect } from 'react';
 
 interface UseRowShortcutsProps {
     isEditing: boolean;
+    isSelected?: boolean;
     onSave?: () => void;
     onDuplicate?: () => void;
     onDelete?: () => void;
     onCancel?: () => void;
+    onDownload?: () => void;
 }
 
 export function useRowShortcuts({
     isEditing,
+    isSelected,
     onSave,
     onDuplicate,
     onDelete,
-    onCancel
+    onCancel,
+    onDownload
 }: UseRowShortcutsProps) {
     useEffect(() => {
-        if (!isEditing) return;
+        // Only active if Editing OR Selected
+        if (!isEditing && !isSelected) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Save: Cmd+Enter or Ctrl+Enter
-            // 'Enter' covers both Return and Enter keys
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                e.preventDefault();
-                onSave?.();
-                return;
+            // Save: Cmd+Enter OR Cmd+S (if Editing) OR Cmd+S (if Selected and onDownload)
+            if (e.metaKey || e.ctrlKey) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onSave?.();
+                    return;
+                }
+
+                if (e.key === 's' || e.key === 'S') {
+                    e.preventDefault();
+                    if (isEditing) {
+                        onSave?.();
+                    } else if (isSelected) {
+                        onDownload?.();
+                    }
+                    return;
+                }
+
+                if (e.key === 'd' || e.key === 'D') {
+                    e.preventDefault();
+                    onDuplicate?.();
+                    return;
+                }
+
+                if (e.key === 'Backspace' || e.key === 'Delete') {
+                    e.preventDefault();
+                    onDelete?.();
+                    return;
+                }
+
+                if (e.key === '.') {
+                    e.preventDefault();
+                    onCancel?.();
+                    return;
+                }
             }
 
-            // Duplicate: Cmd+D or Ctrl+D
-            if ((e.metaKey || e.ctrlKey) && (e.key === 'd' || e.key === 'D')) {
-                e.preventDefault();
-                onDuplicate?.();
-                return;
-            }
-
-            // Delete: Cmd+Backspace or Cmd+Delete (Fn+Backspace on Mac laptops)
-            if ((e.metaKey || e.ctrlKey) && (e.key === 'Backspace' || e.key === 'Delete')) {
-                e.preventDefault();
-                onDelete?.();
-                return;
-            }
-
-            // Cancel: Escape or Cmd+. (Period)
-            if (e.key === 'Escape' || ((e.metaKey || e.ctrlKey) && e.key === '.')) {
+            if (e.key === 'Escape') {
                 e.preventDefault();
                 onCancel?.();
                 return;
             }
         };
 
-        // Use capture phase or just bubbling? Bubbling on window is usually fine for "modal-like" row editing.
-        // However, if an input traps the key (stopPropagation), this might not fire if not capturing.
-        // Inputs usually don't trap Cmd+Enter/Cmd+D unless specifically handled.
-        // Let's stick to bubbling first.
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isEditing, onSave, onDuplicate, onDelete, onCancel]);
+    }, [isEditing, isSelected, onSave, onDuplicate, onDelete, onCancel, onDownload]);
 }

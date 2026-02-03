@@ -72,6 +72,8 @@ export async function POST(req: Request) {
                 let currentPriority = 0; // 0=None, 1=Error, 2=Generating, 3=Done
 
                 try {
+                    let lastErrorMsg = '';
+
                     // Iterate ALL strategies to find the best match (Done > Generating > Error)
                     for (const apiType of strategies) {
                         try {
@@ -91,7 +93,11 @@ export async function POST(req: Request) {
                                 let priority = 0;
                                 if (check.status === 'Done') priority = 3;
                                 else if (check.status === 'Generating') priority = 2;
-                                else if (check.status === 'Error') priority = 1;
+                                else if (check.status === 'Error') {
+                                    priority = 1;
+                                    // Capture specific error message even if we don't pick it yet
+                                    if (check.errorMsg) lastErrorMsg = check.errorMsg;
+                                }
 
                                 // Update if higher priority
                                 if (priority > currentPriority) {
@@ -106,9 +112,16 @@ export async function POST(req: Request) {
 
                                 // If Done, we can stop optimizing (Highest Priority)
                                 if (priority === 3) break;
+                            } else {
+                                // It IS a 404/Not Found for this strategy. Ignore it.
                             }
                         } catch (e: any) {
                             console.warn(`[Poll] Strategy ${apiType} exception for ${taskId}:`, e.message);
+                            // If the EXCEPTION is not a 404, capture it as a potential reason for failure
+                            const errMsg = e.message || String(e);
+                            if (!errMsg.includes('404') && !errMsg.includes('not found')) {
+                                lastErrorMsg = errMsg;
+                            }
                         }
                     }
 
@@ -117,8 +130,15 @@ export async function POST(req: Request) {
                         resultUrl = bestResult.resultUrl;
                         errorMsg = bestResult.errorMsg;
                     } else {
-                        // No strategy found the task (all 404/Error)
-                        console.warn(`[Poll] No strategy found task ${taskId}. Keeping as Generating.`);
+                        // No strategy found the task (all 404 or Errors)
+                        if (lastErrorMsg) {
+                            console.warn(`[Poll] Task ${taskId} failed with error: ${lastErrorMsg}. Setting status to Error.`);
+                            status = 'Error';
+                            errorMsg = lastErrorMsg;
+                        } else {
+                            // Only if we truly have no clue (e.g. all 404s), keep generating (maybe propagation delay)
+                            console.warn(`[Poll] No strategy found task ${taskId}. Keeping as Generating.`);
+                        }
                     }
                 } catch (e: any) {
                     console.error(`[Poll] Critical Strategy Loop Error for ${taskId}:`, e);
