@@ -26,6 +26,9 @@ export interface Clip {
     negativePrompt?: string | null;
     mediaReferences?: Media[]; // Phase 4: Normalized Relations
     mediaResults?: Media[]; // Phase 4: Normalized Results
+    // Locking
+    lockedBy?: string | null;
+    lockedAt?: string | Date | null;
 }
 
 export interface Media {

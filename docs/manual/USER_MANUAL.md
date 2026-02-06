@@ -3,6 +3,20 @@
 ## Overview
 ArcRunner is a dual-intelligence system for generating video and image content. This manual details the system's behaviors, controls, and best practices.
 
+## Media Library (v0.30.0)
+
+### Infinite Scroll
+The Media Library uses **infinite scroll** for seamless browsing of generated content. As you scroll down, additional media items load automatically.
+
+**Key Behaviors**:
+- **Progressive Loading**: Media loads in batches as you approach the bottom of the current view.
+- **Performance**: Optimized for large collections (hundreds of items) without lag.
+- **Navigation**: No manual pagination required—simply scroll to browse your entire library.
+
+**Tips**:
+- Use browser search (Cmd+F) to find specific media if needed.
+- The scroll position resets when changing episodes or series.
+
 ## Universal Media Viewer & Studio (v0.18.0)
 The unified **Universal Media Viewer** allows for checking references, reviewing generated clips, and editing metadata with speed and precision. Now supports optimized downloads and robust playlist navigation.
 

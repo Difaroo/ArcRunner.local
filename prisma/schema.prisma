@@ -137,4 +137,8 @@ model Clip {
   // These will eventually replace refImageUrls and the CSV behavior of resultUrl.
   mediaReferences Media[]  @relation("ClipReferences")
   mediaResults    Media[]  @relation("ClipResults")
+
+  // Locking (Concurrency)
+  lockedBy        String?  // Client ID (UUID)
+  lockedAt        DateTime?
 }

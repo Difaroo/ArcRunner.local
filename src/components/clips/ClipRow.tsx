@@ -223,9 +223,87 @@ export function ClipRow({
         position: isDragging ? 'relative' as const : undefined,
     }
 
-    const handleStartEdit = () => {
-        // removed blocking guard for 'Done' clips as per user feedback
-        startEditing()
+    // --- LOCKING LOGIC (Concurrency) ---
+    const [clientId, setClientId] = useState<string>('');
+    const [lockError, setLockError] = useState<string | null>(null);
+
+    // 1. Initialize Client ID
+    useEffect(() => {
+        let cid = localStorage.getItem('arc_client_id');
+        if (!cid) {
+            cid = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            localStorage.setItem('arc_client_id', cid);
+        }
+        setClientId(cid);
+    }, []);
+
+    // 2. SAFETY: Release lock on tab close
+    // Since locks are now PERMANENT, we must ensure accidental closures don't leave clips locked forever.
+    useEffect(() => {
+        if (!isEditing || !clientId) return;
+
+        const handleBeforeUnload = () => {
+            // Use sendBeacon for reliability during unload (fetch may be cancelled)
+            const blob = new Blob(
+                [JSON.stringify({ action: 'unlock', clipId: clip.id, clientId })],
+                { type: 'application/json' }
+            );
+            navigator.sendBeacon('/api/lock', blob);
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isEditing, clientId, clip.id]);
+
+    // 2. Check Lock Status
+    // If locked by someone else, we are effectively read-only for editing
+    const isLockedByOther = clip.lockedBy && clip.lockedBy !== clientId;
+
+    const acquireLock = async () => {
+        if (!clientId) return false;
+        try {
+            const res = await fetch('/api/lock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'lock', clipId: clip.id, clientId })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setLockError(`Locked by ${data.lockedBy || 'another user'}`);
+                return false;
+            }
+            return true;
+        } catch (e) {
+            console.error("Lock failed", e);
+            return false; // Fail safe
+        }
+    };
+
+    const releaseLock = async () => {
+        if (!clientId) return;
+        try {
+            await fetch('/api/lock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'unlock', clipId: clip.id, clientId })
+            });
+        } catch (e) { console.error("Unlock failed", e); }
+    };
+
+    const handleStartEdit = async () => {
+        // Prevent edit if locked
+        if (isLockedByOther) {
+            alert(`This clip is currently being edited by another user (ID: ${clip.lockedBy}).`);
+            return;
+        }
+
+        // Try to acquire lock
+        const locked = await acquireLock();
+        if (locked) {
+            startEditing();
+        } else {
+            alert("Could not acquire lock. Someone else may have just started editing.");
+        }
     }
 
     const startEditing = () => {
@@ -246,7 +324,15 @@ export function ClipRow({
         onEdit(clip)
     }
 
+    const handleCancelEdit = async () => {
+        await releaseLock();
+        onCancelEdit();
+    }
+
     const handleSaveAndDownload = () => {
+        // Release Lock on complete
+        releaseLock();
+
         // FALCON FIX (Cleanup): Use Relational Data exclusively for History
         // We prefer `mediaResults` (Array of Objects) over `resultUrl` (String/CSV)
 
@@ -425,9 +511,11 @@ export function ClipRow({
         });
 
         if (Object.keys(updates).length > 0) {
+            // Optimistic Release? No, wait for API or fire-and-forget
+            releaseLock();
             onSave(clip.id, updates);
         } else {
-            onCancelEdit();
+            handleCancelEdit(); // Use the lock-aware cancel
         }
     }
 
@@ -452,7 +540,7 @@ export function ClipRow({
         onSave: handleSave,
         onDuplicate: () => onDuplicate(clip.id),
         onDelete: handleDeleteClick,
-        onCancel: onCancelEdit,
+        onCancel: handleCancelEdit, // Use lock-aware handler
         onDownload: handleDownload
     });
 
@@ -474,7 +562,7 @@ export function ClipRow({
                     onCheckedChange={() => onSelect(clip.id)}
                 />
             </TableCell>
-            <TableCell className={`align-top font-sans font-extralight text-stone-500 text-xs w-[35px] px-1 ${isEditing ? "py-2" : "py-3"}`}>
+            <TableCell className={`align-top font-sans font-extralight text-stone-500 text-xs w-[35px] px-1 py-3`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-stone-500">
                     {isEditing ? (
                         <Input
@@ -494,7 +582,7 @@ export function ClipRow({
                 I will copy the standard cells from the view.
             */}
 
-            <TableCell className={`align-top w-[160px] ${isEditing ? "py-2" : "py-3"}`}>
+            <TableCell className={`align-top w-[160px] py-3`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="font-medium text-white block">
                     {isEditing ? (
                         <Input
@@ -503,11 +591,11 @@ export function ClipRow({
                             className="h-8 w-full text-xs bg-stone-900 border-stone-700 text-white font-normal px-2 placeholder:text-stone-600"
                         />
                     ) : (
-                        <span className="table-text font-medium">{clip.title || '+'}</span>
+                        <span className="text-xs text-white leading-tight font-sans font-medium -translate-y-[5px] inline-block">{clip.title || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[170px] ${isEditing ? "py-2" : "py-3"}`} data-testid="cell-character">
+            <TableCell className={`align-top w-[170px] py-3`} data-testid="cell-character">
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
                     {isEditing ? (
                         <div className="w-full">
@@ -579,10 +667,10 @@ export function ClipRow({
                             )}
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2 max-h-[70px] overflow-hidden">
                             {clip.character
                                 ? clip.character.split(',').map((char, i, arr) => (
-                                    <div key={i} className="leading-tight truncate">{char.trim()}{i < arr.length - 1 ? ',' : ''}</div>
+                                    <div key={i} className="leading-tight truncate" title={char.trim()}>{char.trim()}{i < arr.length - 1 ? ',' : ''}</div>
                                 ))
                                 : <span className="text-stone-500 italic">+</span>
                             }
@@ -615,7 +703,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top w-[170px] ${isEditing ? "py-2" : "py-3"}`}>
+            <TableCell className={`align-top w-[170px] py-3`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <div className="w-full">
@@ -669,8 +757,8 @@ export function ClipRow({
                             )}
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-2">
-                            <span className="table-text truncate block">{clip.location || '+'}</span>
+                        <div className="flex flex-col gap-2 max-h-[70px] overflow-hidden">
+                            <span className="text-xs text-white leading-tight font-sans font-extralight truncate block" title={clip.location || ''}>{clip.location || '+'}</span>
                             {clip.locationImageUrls && clip.locationImageUrls.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
                                     {clip.locationImageUrls.map((url, i) => (
@@ -695,7 +783,7 @@ export function ClipRow({
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white text-xs w-[140px] ${isEditing ? "py-2" : "py-3"}`}>
+            <TableCell className={`align-top text-white text-xs w-[140px] py-3`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
                     {isEditing ? (
                         <div className="flex flex-col gap-2">
@@ -720,7 +808,7 @@ export function ClipRow({
 
                             {/* NEGATIVE PROMPT (NEGATE) */}
                             <div className="space-y-1">
-                                <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase">NEGATE</span>
+                                <span className="text-[10px] text-zinc-500 font-medium tracking-wider uppercase">NEGATE</span>
                                 <AutoResizeTextarea
                                     value={editValues.negativePrompt || ''}
                                     onChange={(e) => handleChange('negativePrompt', e.target.value)}
@@ -730,41 +818,41 @@ export function ClipRow({
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-1 w-full h-full">
-                            <span className="table-text truncate block">{clip.camera || '+'}</span>
+                        <div className="flex flex-col gap-1 w-full h-full max-h-[70px] overflow-hidden">
+                            <span className="text-xs text-white leading-tight font-sans font-extralight truncate block">{clip.camera || '+'}</span>
                             {clip.negativePrompt ? (
                                 <div className="flex flex-col gap-0 mt-2">
-                                    <span className="font-semibold text-stone-500 text-[10px] tracking-wider uppercase">NEGATE</span>
-                                    <span className="table-text">{clip.negativePrompt}</span>
+                                    <span className="font-medium text-stone-500 text-[10px] tracking-wider uppercase">NEGATE</span>
+                                    <span className="text-xs text-white leading-tight font-sans font-extralight line-clamp-2" title={clip.negativePrompt}>{clip.negativePrompt}</span>
                                 </div>
                             ) : null}
                         </div>
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white w-[15%] ${isEditing ? "py-2" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[15%] py-3`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
                     {isEditing ? (
                         <AutoResizeTextarea
                             value={editValues.action || ''}
                             onChange={(e) => handleChange('action', e.target.value)}
-                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
+                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-thin leading-relaxed"
                         />
                     ) : (
-                        <span className="table-text whitespace-pre-wrap">{clip.action || '+'}</span>
+                        <span className="text-xs text-white leading-tight font-sans font-thin line-clamp-3 text-ellipsis overflow-hidden whitespace-pre-wrap break-words" title={clip.action || ''}>{clip.action || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>
-            <TableCell className={`align-top text-white w-[15%] ${isEditing ? "py-2" : "py-3"}`}>
+            <TableCell className={`align-top text-white w-[15%] py-3`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
                     {isEditing ? (
                         <AutoResizeTextarea
                             value={editValues.dialog || ''}
                             onChange={(e) => handleChange('dialog', e.target.value)}
-                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-extralight leading-relaxed"
+                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-thin leading-relaxed"
                         />
                     ) : (
-                        <span className="table-text whitespace-pre-wrap">{clip.dialog || '+'}</span>
+                        <span className="text-xs text-white leading-tight font-sans font-thin line-clamp-3 text-ellipsis overflow-hidden whitespace-pre-wrap break-words" title={clip.dialog || ''}>{clip.dialog || '+'}</span>
                     )}
                 </EditableCell>
             </TableCell>

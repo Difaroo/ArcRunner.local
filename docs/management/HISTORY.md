@@ -2,6 +2,25 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-06: v0.30.0 - Peregrine (Media Library Infinite Scroll)
+
+### Context
+A UX enhancement release focused on improving the Media Library browsing experience. Users reported that pagination controls were slowing down their workflow when reviewing large collections of generated media. This release implements infinite scroll to enable seamless browsing without manual page navigation.
+
+### Key Changes
+- **Infinite Scroll Implementation**:
+    - **Progressive Loading**: The Media Library now loads content progressively as users scroll, replacing the traditional pagination controls.
+    - **Performance**: Optimized rendering to handle large media collections without performance degradation.
+    - **Smooth Experience**: Users can now browse their entire media library with a single continuous scroll, eliminating the friction of clicking through pages.
+- **Technical Details**:
+    - **File Modified**: `src/app/media/client.tsx` (94 insertions, 11 deletions).
+    - **Architecture**: Implemented scroll-based triggers for loading additional media batches.
+
+### Version Bump
+- **Minor**: 0.29.2 → 0.30.0.
+
+---
+
 ## 2026-02-03: v0.29.2 - Peregrine (Sort & Layout Fixes)
 
 ### Context

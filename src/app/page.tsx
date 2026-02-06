@@ -258,6 +258,51 @@ export default function Home() {
   const [currentView, setCurrentView] = useState<'series' | 'script' | 'library' | 'clips' | 'settings' | 'storyboard'>('series');
   const [printLayout, setPrintLayout] = useState<'3x2' | '6x1' | 'auto'>('3x2');
 
+  // --- URL SYNC (Navigation Fix) ---
+  useEffect(() => {
+    // Logic: If state changes, update URL without reloading
+    if (!isInitialized.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    let changed = false;
+
+    // 1. View
+    if (currentView !== 'series') {
+      if (params.get('view') !== currentView) {
+        params.set('view', currentView);
+        changed = true;
+      }
+    } else {
+      if (params.has('view')) {
+        params.delete('view');
+        changed = true;
+      }
+    }
+
+    // 2. Series
+    if (currentSeriesId) {
+      if (params.get('seriesId') !== currentSeriesId) {
+        params.set('seriesId', currentSeriesId);
+        changed = true;
+      }
+    }
+
+    // 3. Episode
+    // Use 'episodeId' param for consistency with mount logic (which maps it to numeric ID or UUID)
+    if (currentEpisode) {
+      const epStr = currentEpisode.toString();
+      if (params.get('episodeId') !== epStr) {
+        params.set('episodeId', epStr);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl);
+    }
+  }, [currentView, currentSeriesId, currentEpisode]);
+
   // --- Series Renaming Logic ---
   const [isEditingSeriesName, setIsEditingSeriesName] = useState(false);
   const [tempSeriesName, setTempSeriesName] = useState("");
