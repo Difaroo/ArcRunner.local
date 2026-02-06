@@ -10,6 +10,11 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.30.1 (System Restoration)
+- [x] **Database Restore**: Restored Dev DB from Production (Fixes "Empty Data" issue).
+- [x] **Schema Revert**: Rolled back experimental `Vibe` table.
+- [x] **Stability**: Synced code to match database schema.
+
 ## 🚀 Released v0.30.0 (Media Library Infinite Scroll)
 - [x] **Infinite Scroll**: Implemented progressive loading for Media Library (replaces pagination).
 - [x] **Performance**: Optimized rendering for large media collections.

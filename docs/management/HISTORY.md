@@ -2,6 +2,24 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-06: v0.30.1 - Peregrine (System Restoration & Stability)
+
+### Context
+Emergency maintenance release to restore system stability following a failed schema migration ("Vibes" feature). The development environment encountered a critical data visibility issue due to a schema/code mismatch. This release restores the database from Production to ensure zero data loss and reverts experimental code to match the stable schema.
+
+### Key Changes
+- **Database Restoration**:
+    - **Data Recovery**: Successfully restored `dev.db` from Production (and Git) backups, recovering all 5 Series and 160+ Clips.
+    - **Schema Revert**: Reverted `prisma/schema.prisma` to stable state (v0.30.0), removing the un-applied `Vibe` table definition.
+- **Stability Fixes**:
+    - **Code Revert**: Removed experimental "Vibes" API endpoints and UI components that were causing application crashes.
+    - **Parity**: Restored full parity between Dev and Production environments.
+
+### Version Bump
+- **Patch**: 0.30.0 → 0.30.1.
+
+---
+
 ## 2026-02-06: v0.30.0 - Peregrine (Media Library Infinite Scroll)
 
 ### Context
