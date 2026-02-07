@@ -14,6 +14,7 @@ import { ListOrdered, Download, Clapperboard, Image as ImageIcon, Loader2, Folde
 import { Clip } from "@/types"
 import { MODEL_LIST, getModelConfig } from "@/lib/models"
 import { MoveClipsDialog } from "./MoveClipsDialog"
+import { BatchEditModal } from "./BatchEditModal"
 
 interface ActionToolbarProps {
     currentEpKey: string
@@ -41,6 +42,11 @@ interface ActionToolbarProps {
     onSeedChange: (val: number | null) => void;
     onAddClip: () => void
     clips: Clip[]
+    seriesId?: string // Optional Series Context
+    episodeId?: string // For BatchEditModal (optional)
+    episodeUuid?: string // NEW: Real UUID for API calls
+    onSaveClip?: (clipId: string, updates: Partial<Clip>) => Promise<void> // For BatchEditModal
+    onDataRefresh?: () => void // For refreshing after modal save
 }
 
 export function ActionToolbar({
@@ -65,10 +71,16 @@ export function ActionToolbar({
     seed,
     onSeedChange,
     onAddClip,
-    clips
+    clips,
+    seriesId,
+    episodeUuid, // NEW
+    onSaveClip,
+    onDataRefresh
 }: ActionToolbarProps) {
     const [showBatchDialog, setShowBatchDialog] = useState(false)
     const [showMoveDialog, setShowMoveDialog] = useState(false) // NEW
+    const [showBatchEditModal, setShowBatchEditModal] = useState(false)
+    const [batchEditInitialIndex, setBatchEditInitialIndex] = useState(0)
     const [isRenumbering, setIsRenumbering] = useState(false)
     // New: Start Frame State (Default True)
     const [startFrame, setStartFrame] = useState(true)
@@ -487,6 +499,32 @@ export function ActionToolbar({
                         </Tooltip>
                     </TooltipProvider>
 
+                    {/* Modal Edit Button */}
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline-primary"
+                                    size="icon"
+                                    onClick={() => {
+                                        // Find first selected clip index, or 0
+                                        const firstSelectedIdx = clips.findIndex(c => c.isSelected);
+                                        setBatchEditInitialIndex(firstSelectedIdx >= 0 ? firstSelectedIdx : 0);
+                                        setShowBatchEditModal(true);
+                                    }}
+                                    disabled={clips.length === 0}
+                                    className="h-8 w-8"
+                                    data-testid="modal-edit-button"
+                                >
+                                    <span className="material-symbols-outlined !text-lg">edit_note</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Modal Edit {selectedCount > 0 ? `(${selectedCount} selected)` : '(all clips)'}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+
                     {/* Download Button Icon Only - Square */}
                     <TooltipProvider>
                         <Tooltip>
@@ -537,6 +575,30 @@ export function ActionToolbar({
                 onOpenChange={setShowMoveDialog}
                 selectedCount={selectedCount}
                 onConfirm={onMoveSelected}
+            />
+
+            {/* Batch Edit Modal */}
+            <BatchEditModal
+                clips={selectedCount > 0 ? clips.filter(c => c.isSelected) : clips}
+                initialIndex={batchEditInitialIndex}
+                isOpen={showBatchEditModal}
+                onClose={() => setShowBatchEditModal(false)}
+                onSave={async (clipId, updates) => {
+                    // Call the parent's save handler if provided
+                    if (typeof onSaveClip === 'function') {
+                        await onSaveClip(clipId, updates);
+                    } else {
+                        // Fallback: direct API call
+                        await fetch('/api/clips', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: clipId, ...updates })
+                        });
+                    }
+                }}
+                onDataRefresh={onDataRefresh}
+                seriesId={seriesId || clips[0]?.series || ''}
+                episodeId={episodeUuid || currentEpKey} // Prefer UUID, fallback to Key (but Key will likely fail API)
             />
         </>
     )

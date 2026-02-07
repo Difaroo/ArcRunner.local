@@ -70,6 +70,13 @@ To use Start-to-End generation correctly:
 2.  **End Frame**: Drag your End Image second.
 3.  The system preserves this order (FIFO) when sending to Veo. Start = Image 1, End = Image 2.
 
+### Batch Edit Modal & Asset Scroller
+The **Batch Edit Modal** now features an enhanced **Asset Scroller** on the left side:
+-   **Visual Separation**: The scrollable asset area (Grey) is distinct from the latest result preview.
+-   **Horizontal Scroll**: Swipe to browse through all associated assets (Characters, Locations, References).
+-   **Result History**: The scroller now displays **all previous results** (Images `auto_awesome` & Videos `play_arrow`).
+-   **Video Previews**: Hover over any video item in the scroller or Vibe Menu to play a preview.
+
 ## 7. Server Management
 We have a [helper script](../scripts/restart-stack.sh) to safely kill existing processes (ports 3000/3001), rebuild Production, and restart both environments.
 

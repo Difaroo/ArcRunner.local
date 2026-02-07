@@ -169,6 +169,7 @@ export async function GET() {
                 refImageUrls: fullRefs,
                 explicitRefUrls: resolvedExplicit,
                 mediaReferences: clip.mediaReferences, // EXPOSED: Full Array of Objects
+                mediaResults: clip.mediaResults, // EXPOSED: Full Array of Objects (Fix for Scroller History)
                 characterImageUrls,
                 locationImageUrls,
                 // Result (Source of Truth = Media Table)

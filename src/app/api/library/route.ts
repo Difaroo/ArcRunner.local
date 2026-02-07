@@ -1,5 +1,39 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+
+// GET /api/library?seriesId=xxx&type=LIB_CHARACTER (optional type filter)
+export async function GET(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const seriesId = searchParams.get('seriesId');
+        const type = searchParams.get('type');
+
+        if (!seriesId) {
+            return NextResponse.json({ error: 'seriesId is required' }, { status: 400 });
+        }
+
+        const items = await db.studioItem.findMany({
+            where: {
+                seriesId,
+                ...(type && { type })
+            },
+            orderBy: { name: 'asc' }
+        });
+
+        // Map to standardized format - use refImageUrl as thumbnail fallback
+        return NextResponse.json(items.map(item => ({
+            id: item.id,
+            name: item.name,
+            type: item.type,
+            thumbnailPath: item.thumbnailPath || item.refImageUrl || null,
+            refImageUrl: item.refImageUrl,
+            description: item.description
+        })));
+    } catch (error: any) {
+        console.error('Library GET Error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
 
 export async function DELETE(req: Request) {
     try {

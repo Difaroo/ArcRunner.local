@@ -844,12 +844,26 @@ export default function Home() {
     const toGen = activeClips.filter(c => selectedIds.has(c.id));
     if (toGen.length === 0) return;
 
+    // Traffic Light Check: Exclude 'Do Not Generate' (Pending/Red) clips
+    // User rule: "Default red = do not generate". Red = 'Pending' or undefined.
+    const validToGen = toGen.filter(c => c.status !== 'Pending' && c.status !== undefined && c.status !== null && c.status !== '');
+
+    if (validToGen.length === 0) {
+      // If selection exists but all are Red, warn user
+      if (toGen.length > 0) {
+        alert("No clips ready for generation.\n\nAll selected clips are marked as 'Red' (Pending/Do Not Generate).\nPlease edit clips or manually set them to 'Ready' (Orange) to proceed.");
+        return;
+      }
+      return;
+    }
+
     // --- Validation (v0.17.4) ---
     // Check Model Requirements driven by `models.ts`
     const config = getModelConfig(selectedModel);
     if (config?.validation?.explicitReference) {
       // Find invalid clips
-      const invalidClips = toGen.filter(c => {
+      const invalidClips = validToGen.filter(c => { // Check ONLY valid clips
+
         // PRIMARY CHECK: Media Table References (Phase 4 Architecture)
         const hasMediaRefs = c.mediaReferences && c.mediaReferences.length > 0;
 
@@ -880,7 +894,11 @@ export default function Home() {
 
   const executeClipGeneration = async () => {
     setShowClipConfirm(false); // Close Dialog
-    const toGen = activeClips.filter(c => selectedIds.has(c.id));
+
+    // Re-filter just in case (though selectedIds matches)
+    const rawToGen = activeClips.filter(c => selectedIds.has(c.id));
+    // Apply Traffic Light Filter
+    const toGen = rawToGen.filter(c => c.status !== 'Pending' && c.status !== undefined && c.status !== null && c.status !== '');
 
     // Non-blocking notification
     setCopyMessage(`Generating ${toGen.length} clips...`);
@@ -891,6 +909,12 @@ export default function Home() {
     for (const clip of toGen) {
       // Find original index in full list for API
       const index = clips.findIndex(c => c.id === clip.id);
+
+      // Update Traffic Light to Green (Generating)
+      // "On generate: change to Green"
+      // We do this optimistically and persist so Batch Modal sees it
+      handleSave(clip.id, { status: 'Generating' }).catch(console.error);
+
       await handleGenerate(clip, index, extras);
     }
     setPendingGenerateExtras(null); // Cleanup
@@ -899,6 +923,11 @@ export default function Home() {
   const handleDownloadSelected = async () => {
     const toDownload = activeClips.filter(c => selectedIds.has(c.id) && c.resultUrl);
     if (toDownload.length === 0) return alert("No completed clips selected.");
+
+    // Capture list for post-download reset
+    // "On download generation deselect all traffic lights in clip." -> Reset to Pending (Red)
+    const processedClips = [...toDownload];
+
 
     // Check for File System Access API support
     if ('showDirectoryPicker' in window) {
@@ -940,6 +969,12 @@ export default function Home() {
         }
 
         alert(`Downloaded ${successCount} of ${toDownload.length} files to selected folder.`);
+
+        // Reset Traffic Lights for downloaded clips
+        processedClips.forEach(c => {
+          // Reset to 'Pending' (Red) as requested
+          handleSave(c.id, { status: 'Pending' }).catch(console.error);
+        });
 
       } catch (e: any) {
         // User cancelled folder picker or other error
@@ -2221,6 +2256,7 @@ export default function Home() {
             {currentView === 'clips' && (
               <ActionToolbar
                 currentEpKey={currentEpKey}
+                episodeUuid={currentEpObj?.uuid} // NEW: Pass UUID
                 onMoveSelected={handleMoveSelected}
                 totalClips={activeClips.length}
                 readyClips={activeClips.filter(c => c.status === 'Done').length}

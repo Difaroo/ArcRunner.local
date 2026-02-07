@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.31.0 (Vibe Menu & Asset Scroller)
+- [x] **Asset Scroller**: Refactored layout, enabled horizontal scroll, added `overscroll-x-contain`.
+- [x] **History Display**: Scroller now shows full result history with correct icons.
+- [x] **Video Previews**: Vibe menu and history items support video playback.
+- [x] **API Fix**: `/api/clips` now returns `mediaResults` for history.
+
 ## 🚀 Released v0.30.1 (System Restoration)
 - [x] **Database Restore**: Restored Dev DB from Production (Fixes "Empty Data" issue).
 - [x] **Schema Revert**: Rolled back experimental `Vibe` table.

@@ -22,6 +22,7 @@ model Series {
   // Relations
   episodes      Episode[]
   studioItems   StudioItem[]
+  vibes         Vibe[]
 }
 
 // The "Episodes" Table
@@ -141,4 +142,18 @@ model Clip {
   // Locking (Concurrency)
   lockedBy        String?  // Client ID (UUID)
   lockedAt        DateTime?
+}
+
+// The "Vibes" Table (Reusable Prompt Snippets)
+model Vibe {
+  id        String   @id @default(uuid())
+  title     String   // Display name (e.g., "Epic Entrance")
+  prompt    String   // Actual prompt text to inject
+  type      String   @default("ACTION") // ACTION | CHARACTER | LOCATION | CAMERA | MOVEMENT
+  
+  seriesId  String
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

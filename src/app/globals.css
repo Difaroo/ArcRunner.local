@@ -164,6 +164,10 @@
     @apply text-xs text-white leading-relaxed font-sans font-extralight;
   }
 
+  .modal-field {
+    @apply w-full px-2 text-sm bg-stone-800 border border-stone-700 rounded text-white placeholder-stone-500 focus:border-primary focus:outline-none font-extralight;
+  }
+
   .btn-icon-action {
     @apply h-8 w-8 text-primary border-[0.5px] border-primary border-opacity-50 hover:bg-primary hover:bg-opacity-10 hover:border-primary disabled:opacity-50 disabled:pointer-events-none disabled:border-stone-700 disabled:text-stone-500;
   }

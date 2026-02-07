@@ -2,6 +2,27 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-07: v0.31.0 - Peregrine (Vibe Menu & Asset Scroller)
+
+### Context
+A feature-rich release significantly upgrading the Vibe Menu and Asset Scroller experience. The Asset Scroller has been visually separated from the result preview, enabled for horizontal scrolling, and now displays full generation history. The Vibe Menu now supports video previews and consistent iconography.
+
+### Key Features
+- **Asset Scroller Overhaul**:
+    -   **Layout**: Visually separated scroller (Grey Panel) from the Latest Result (Transparent/Modal Background).
+    -   **History**: Now displays *all* previous results (Images & Videos) for the clip, sourced directly from the `mediaResults` relation.
+    -   **Video Support**: Result videos in the scroller and Vibe Menu now play on hover (`play_arrow` icon).
+    -   **Interaction**: Fixed scroll interaction with `overscroll-x-contain` to prevent browser navigation gestures.
+-   **Icon Harmonization**:
+    -   Standardized icons across the modal: `auto_awesome` (Result Image), `play_arrow` (Video), `image` (Reference), `person` (Character), `location_on` (Location).
+-   **API**:
+    -   **GET /api/clips**: Updated to return `mediaResults` relation, enabling the frontend history display.
+
+### Version Bump
+-   **Minor**: 0.30.1 → 0.31.0.
+
+---
+
 ## 2026-02-06: v0.30.1 - Peregrine (System Restoration & Stability)
 
 ### Context
