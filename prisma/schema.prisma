@@ -150,6 +150,7 @@ model Vibe {
   title     String   // Display name (e.g., "Epic Entrance")
   prompt    String   // Actual prompt text to inject
   type      String   @default("ACTION") // ACTION | CHARACTER | LOCATION | CAMERA | MOVEMENT
+  sortOrder Int      @default(0)
   
   seriesId  String
   series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)

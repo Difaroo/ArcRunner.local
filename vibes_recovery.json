@@ -1,0 +1,62 @@
+[
+  {
+    "id": "12e9fddd-dd9d-471d-bbb4-9e96de098e9b",
+    "title": "Epic Entrance",
+    "prompt": "A dramatic cinematic entrance with slow motion and lens flare",
+    "type": "ACTION",
+    "sortOrder": 0,
+    "seriesId": "1",
+    "createdAt": "2026-02-06T04:03:21.584Z",
+    "updatedAt": "2026-02-06T04:03:21.584Z"
+  },
+  {
+    "id": "c3e85f92-1832-4fa0-99b0-8e895952053e",
+    "title": "Afsaar kneeling before a small...",
+    "prompt": "Afsaar kneeling before a small fire, surrounded by 6 small standing stones. She looks focused, raises her palm, tilts her head back. Her lips move as she begins the summoning.\nCUT TO: Close up on her hands as she empties glinting sand from a gourd into her open palm.\n\n\n\n",
+    "type": "ACTION",
+    "sortOrder": 0,
+    "seriesId": "ac28ec95-63ea-47ee-a190-19253dd939b1",
+    "createdAt": "2026-02-06T10:15:38.477Z",
+    "updatedAt": "2026-02-06T10:15:38.477Z"
+  },
+  {
+    "id": "3f647ad3-7838-4810-9003-fc3bded93b9d",
+    "title": "Afsaar kneeling before a small...",
+    "prompt": "Afsaar kneeling before a small fire, surrounded by 6 small standing stones. She looks focused, raises her palm, tilts her head back. Her lips move as she begins the summoning.\nCUT TO: Close up on her hands as she empties glinting sand from a gourd into her open palm.",
+    "type": "ACTION",
+    "sortOrder": 0,
+    "seriesId": "ac28ec95-63ea-47ee-a190-19253dd939b1",
+    "createdAt": "2026-02-06T10:49:12.115Z",
+    "updatedAt": "2026-02-06T10:49:12.115Z"
+  },
+  {
+    "id": "66921d67-0a85-4a9c-a009-0f441f4d0d01",
+    "title": "Slow drone descending shot dow...",
+    "prompt": "Slow drone descending shot down to the water's edge.",
+    "type": "ACTION",
+    "sortOrder": 0,
+    "seriesId": "ac28ec95-63ea-47ee-a190-19253dd939b1",
+    "createdAt": "2026-02-06T15:24:27.398Z",
+    "updatedAt": "2026-02-06T15:24:27.398Z"
+  },
+  {
+    "id": "d83a3497-840e-47cb-ab28-2d44460b37c8",
+    "title": "Slow drone descending shot dow...",
+    "prompt": "Slow drone descending shot down to the water's edge.",
+    "type": "ACTION",
+    "sortOrder": 0,
+    "seriesId": "ac28ec95-63ea-47ee-a190-19253dd939b1",
+    "createdAt": "2026-02-06T15:44:48.143Z",
+    "updatedAt": "2026-02-06T15:44:48.143Z"
+  },
+  {
+    "id": "f9b2cc9c-0271-4fac-9c7b-fb68f8b9dd07",
+    "title": "DAJAA kneels, offering water t...",
+    "prompt": "DAJAA kneels, offering water to the weakened WASBAN, his body language and expression shows he is exhausted.",
+    "type": "ACTION",
+    "sortOrder": 0,
+    "seriesId": "ac28ec95-63ea-47ee-a190-19253dd939b1",
+    "createdAt": "2026-02-09T12:07:59.041Z",
+    "updatedAt": "2026-02-09T12:07:59.041Z"
+  }
+]

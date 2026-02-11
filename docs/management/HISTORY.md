@@ -2,6 +2,27 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+
+## 2026-02-11: v0.31.1 - Peregrine (Data Safety & Sort)
+
+### Context
+A critical infrastructure patch addressing database safety, alongside the completion of the Vibe Menu features. Following a production data loss incident (caused by schema drift), we implemented a "Backup-First" protocol for all migrations. We also finalized the Vibe Menu with Drag-and-Drop sorting and inline editing.
+
+### Key Changes
+- **Data Safety Hardening**:
+    - **Safe Migration Scripts**: Implemented `./scripts/safe-migrate-dev.sh` and updated `deploy-migration.sh` to strictly enforce **Auto-Backup** before any database operation.
+    - **Documentation**: Established `docs/database_management.md` as the core protocol for preventing data loss.
+    - **Recovery**: Successfully recovered Production data (`191 clips`) after an accidental reset.
+- **Vibe Menu Enhancements**:
+    - **Drag and Drop Sorting**: Vibes can now be reordered via drag-and-drop. Order is persisted to the `sortOrder` DB field.
+    - **Inline Editing**: Users can now edit Vibe Titles and Prompts directly in the menu.
+    - **Icons & Polish**: Standardized icons (`play_arrow`, `image`) and layout for the Vibe Menu.
+
+### Version Bump
+- **Patch**: 0.31.0 → 0.31.1.
+
+---
+
 ## 2026-02-07: v0.31.0 - Peregrine (Vibe Menu & Asset Scroller)
 
 ### Context

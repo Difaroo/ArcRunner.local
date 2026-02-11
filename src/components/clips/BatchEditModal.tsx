@@ -4,6 +4,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 
 import { Clip } from '@/types';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { VibeItem } from './VibeItem';
 
 interface BatchEditModalProps {
     clips: Clip[];
@@ -570,6 +573,24 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
 
 // ========== VibesMenu Component ==========
 
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 interface VibesMenuProps {
     seriesId: string;
     episodeId?: string;
@@ -577,6 +598,7 @@ interface VibesMenuProps {
     onSelectVibe: (vibeId: string | null, value: string) => void;
     onStudioAssetClick: (name: string, type: string) => void;
     onMediaClick?: (item: any, isOptionClick: boolean) => void;
+    refreshTrigger?: number; // Prop trigger for live updates
 }
 
 interface StudioAsset {
@@ -591,14 +613,45 @@ interface Vibe {
     title: string;
     prompt: string;
     type: string;
+    sortOrder: number;
 }
 
-function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAssetClick, onMediaClick }: VibesMenuProps) {
+// Sortable Vibe Item Wrapper
+function SortableVibeItem({ vibe, onSelect, onUpdate }: { vibe: Vibe, onSelect: () => void, onUpdate: (v: any) => Promise<void> }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: vibe.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+            <VibeItem vibe={vibe} onSelect={onSelect} onUpdate={onUpdate} />
+        </div>
+    );
+}
+
+function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAssetClick, onMediaClick, refreshTrigger }: VibesMenuProps) {
     const [studioAssets, setStudioAssets] = useState<StudioAsset[]>([]);
-    const [mediaItems, setMediaItems] = useState<any[]>([]); // New Media Items
+    const [mediaItems, setMediaItems] = useState<any[]>([]);
     const [vibes, setVibes] = useState<Vibe[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
 
     // Fetch data based on activeField
     useEffect(() => {
@@ -668,7 +721,7 @@ function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAss
             }
         };
         fetchData();
-    }, [activeField, seriesId, episodeId]);
+    }, [activeField, seriesId, episodeId, refreshTrigger]);
 
     const getMenuTitle = () => {
         const titles: Record<string, string> = {
@@ -724,20 +777,62 @@ function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAss
                 </div>
             )}
 
-            {/* Action Vibes */}
+            {/* Action Vibes with Drag and Drop */}
             {!isLoading && vibes.length > 0 && (
-                <div className="space-y-1">
-                    {vibes.map((vibe) => (
-                        <button
-                            key={vibe.id}
-                            onClick={() => onSelectVibe(vibe.id, vibe.prompt)}
-                            className="w-full px-2 py-1.5 rounded hover:bg-stone-800 text-left transition-colors"
-                        >
-                            <span className="text-[11px] text-white block truncate font-light">{vibe.title}</span>
-                            <span className="text-[10px] text-stone-500 block truncate font-light">{vibe.prompt.slice(0, 50)}...</span>
-                        </button>
-                    ))}
-                </div>
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={async (event: DragEndEvent) => {
+                        const { active, over } = event;
+                        if (active.id !== over?.id) {
+                            setVibes((items) => {
+                                const oldIndex = items.findIndex((i) => i.id === active.id);
+                                const newIndex = items.findIndex((i) => i.id === over?.id);
+                                const newItems = arrayMove(items, oldIndex, newIndex);
+
+                                // Update SortOrder properly
+                                const updates = newItems.map((item, index) => ({
+                                    id: item.id,
+                                    sortOrder: index
+                                }));
+
+                                // Persist
+                                fetch('/api/vibes/reorder', {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ items: updates })
+                                }).catch(console.error);
+
+                                return newItems;
+                            });
+                        }
+                    }}
+                >
+                    <SortableContext
+                        items={vibes.map(v => v.id)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        <div className="space-y-1">
+                            {vibes.map((vibe) => (
+                                <SortableVibeItem
+                                    key={vibe.id}
+                                    vibe={vibe}
+                                    onSelect={() => onSelectVibe(vibe.id, vibe.prompt)}
+                                    // Pass update handler
+                                    onUpdate={async (updatedVibe) => {
+                                        const res = await fetch('/api/vibes', {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(updatedVibe)
+                                        });
+                                        if (!res.ok) throw new Error("Failed to update");
+                                        setVibes(prev => prev.map(v => v.id === updatedVibe.id ? { ...v, ...updatedVibe } : v));
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </SortableContext>
+                </DndContext>
             )}
 
             {/* Media Items */}

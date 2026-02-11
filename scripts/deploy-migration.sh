@@ -10,7 +10,17 @@ else
     exit 1
 fi
 
-echo "🎯 Target Database: $DATABASE_URL"
+echo "🛡️  Creating Safety Backup..."
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="backups/db"
+mkdir -p $BACKUP_DIR
+
+if [ -f "prisma/prod_v2.db" ]; then
+    cp "prisma/prod_v2.db" "$BACKUP_DIR/prod_v2.db.$TIMESTAMP.bak"
+    echo "✅ Backup created at $BACKUP_DIR/prod_v2.db.$TIMESTAMP.bak"
+else
+    echo "⚠️  No existing database found to backup. Proceeding with caution."
+fi
 
 echo "🚀 Running Prisma Migrate Deploy..."
 # 'deploy' applies pending migrations without resetting the DB or generating clients

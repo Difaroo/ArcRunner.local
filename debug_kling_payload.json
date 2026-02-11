@@ -1,18 +1,18 @@
 {
   "model": "kling-2.6/image-to-video",
   "input": {
-    "prompt": "STYLE: [Masterpiece illustrative ANIME, dark, arabian, fantasy, cinematic, with impressionist painted texture.\n\nCHARACTERS: ESSENTIAL: REFERENCE IMAGES define: Facial Proportions and Style; Artistic Interpretation; Material Properties & Textures; Shading, response to scene lighting; Fidelity & Quality. Render cel-shading, Material Properties & Textures with impressionist random oil paint strokes, very fine hand-drawn black outlines, detailed crumples in fabric. \n\nBACKGROUND: ESSENTIAL: Impressionist, large broad brush wet oil paint strokes with NO OUTLINES. Expressive, organic abstract surfaces, in earthy tones, ochres, shadowed blues.]\n\nACTION: [Tracking shot\n\nACTION (ALL AT THE SAME TIME):\n\nDAJAA moves forward toward the approaching Ghul while turning to face him. At the same time, the camera tracks 180 degrees around DAJAA, staying with her movement.\n\nAs she advances and turns, DAJAA shouts the banishing spell, her lips clearly moving on the words, and raises her hands.\n\na burst of magical light  from her hands as she is shouting and moving, streaking forward and blasting the Ghul away.\n\nThe camera does not cut.\nAll motion overlaps and occurs together.\n]. [ Character says: \"DaJaa lips move and we her shout:  'Ood ila al-thalam'\"]\n\nCAMERA: [Close shot with intimate framing on character action; shallow depth of field isolates faces and hands; minimal camera movement to heighten empathy.]\n\nNO: [Do not have Dajaa singing or dancing].",
-    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/DaJaa_confront_Ghul.png",
+    "prompt": "ACTION: [Heavily weathered archival super-8mm shot of a flying-saucer wedged at a sharp angle into a bank surrounded by the earth piled by the saucer ploughing into the ground, trailed by a trench carved through desert earth by the saucer.]. [ Character says: \"Vatican priest: This UFO skidded across the field, dug a trench, and lodged into the bank at forty-five degrees.\"]\n\nCAMERA: [Close, textured shot capturing rain or emotion with shallow focus.]",
+    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/01_Roswell_UFO_Retrieval_.png",
     "image_urls": [
-      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/DaJaa_confront_Ghul.png"
+      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/01_Roswell_UFO_Retrieval_.png"
     ],
-    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/DaJaa_confront_Ghul.png",
-    "aspect_ratio": "16:9",
+    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/01_Roswell_UFO_Retrieval_.png",
+    "aspect_ratio": "9:16",
     "resolution": "1080p",
     "mode": "std",
     "cfg_scale": 0.5,
     "sound": true,
-    "duration": "5",
-    "negative_prompt": "Do not have Dajaa singing or dancing"
+    "duration": "10",
+    "negative_prompt": ""
   }
 }

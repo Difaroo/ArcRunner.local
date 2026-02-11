@@ -10,6 +10,13 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+
+## 🚀 Released v0.31.1 (Data Safety & Sort)
+- [x] **Safe Migrations**: Enforced auto-Backup for `migrate:dev` and `migrate:deploy`.
+- [x] **Production Recovery**: Restored `prod_v2.db` and merged Vibe data.
+- [x] **Vibe Sorting**: Implemented Drag-and-Drop reordering for Vibe Menu.
+- [x] **Vibe Editing**: Implemented inline editing for Vibe items.
+
 ## 🚀 Released v0.31.0 (Vibe Menu & Asset Scroller)
 - [x] **Asset Scroller**: Refactored layout, enabled horizontal scroll, added `overscroll-x-contain`.
 - [x] **History Display**: Scroller now shows full result history with correct icons.

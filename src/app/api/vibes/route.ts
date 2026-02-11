@@ -21,7 +21,10 @@ export async function GET(request: NextRequest) {
                 seriesId,
                 ...(type && { type })
             },
-            orderBy: { createdAt: 'desc' }
+            orderBy: [
+                { sortOrder: 'asc' },
+                { createdAt: 'desc' }
+            ]
         });
 
         return NextResponse.json(vibes);

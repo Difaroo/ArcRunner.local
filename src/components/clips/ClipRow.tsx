@@ -966,7 +966,7 @@ export function ClipRow({
                         <div className="flex items-center justify-center w-[70px] h-[70px] bg-stone-900 border border-stone-800 rounded-md">
                             <Loader2 className="h-6 w-6 text-primary animate-spin" />
                         </div>
-                    ) : (clip.status === 'Done' || clip.status === 'Ready' || clip.status === 'Saved' || clip.status?.startsWith('Saved') || clip.status?.startsWith('Error')) && clip.resultUrl && (
+                    ) : (clip.resultUrl) && (
                         <div className={`flex justify-start relative ${clip.status?.startsWith('Error') ? 'opacity-50 grayscale border-red-500 border-2 rounded-md' : ''}`}>
                             {/* Visual Warning for Stale/Error State */}
                             {clip.status?.startsWith('Error') && (
