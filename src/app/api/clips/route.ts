@@ -369,6 +369,7 @@ export async function PUT(req: Request) {
                 location: clip.location,
                 style: clip.style,
                 camera: clip.camera,
+                movement: clip.movement,
                 action: clip.action,
                 dialog: clip.dialog,
                 status: clip.status,
@@ -480,5 +481,10 @@ export async function PUT(req: Request) {
         console.error('PUT Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
+}
+
+// ALIAS PATCH -> PUT (Frontend uses PATCH for partial updates)
+export async function PATCH(req: Request) {
+    return PUT(req);
 }
 

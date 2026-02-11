@@ -116,6 +116,7 @@ model Clip {
   location        String?
   style           String?
   camera          String?
+  movement        String?
   model           String?  // "veo-3", "flux"
   seed            String?
   sortOrder       Int      @default(0)

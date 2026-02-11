@@ -592,7 +592,7 @@ export function ActionToolbar({
                         await fetch('/api/clips', {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id: clipId, ...updates })
+                            body: JSON.stringify({ clip: { id: clipId, ...updates } })
                         });
                     }
                 }}

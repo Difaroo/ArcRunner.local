@@ -11,6 +11,11 @@
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
 
+## 🚀 Released v0.31.2 (Movement & Payload)
+- [x] **Movement Field**: Implemented dedicated `movement` field, separated from Camera.
+- [x] **Vibe Menu**: Added "Movement" vibes and integration.
+- [x] **Payload Logic**: Integrated movement into Veo and Legacy prompt construction.
+
 ## 🚀 Released v0.31.1 (Data Safety & Sort)
 - [x] **Safe Migrations**: Enforced auto-Backup for `migrate:dev` and `migrate:deploy`.
 - [x] **Production Recovery**: Restored `prod_v2.db` and merged Vibe data.
@@ -175,7 +180,7 @@
 - [ ] **Seed Manager**: Manage/Recall favorite seeds.
 - [ ] **Episode # in Studio**: Visible/Current Episode indicator.
 - [ ] **Camera & Motion**:
-    - [ ] Break out Camera + Motion into stacked fields.
+    - [x] Break out Camera + Motion into stacked fields.
     - [ ] Generate complete set of cameras + shot types (Tracking, etc.).
 
 ## 📋 Storyboard

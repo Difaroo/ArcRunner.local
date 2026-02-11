@@ -6,6 +6,7 @@ export interface Clip {
     location: string;
     style: string;
     camera: string;
+    movement?: string; // Phase 4 Migration
     action: string;
     dialog: string;
     refImageUrls: string;

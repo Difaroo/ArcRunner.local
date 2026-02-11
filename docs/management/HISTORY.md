@@ -3,6 +3,30 @@
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
 
+## 2026-02-11: v0.31.2 - Peregrine (Movement & Payload)
+
+### Context
+This release introduces the **Movement Field**, a dedicated control for camera motion (Pan, Tilt, Dolly) separate from static camera framing. This field is now fully integrated into the generation payload for all video models (Veo, Legacy). Additionally, the backend payload logic has been hardened to ensure this data is correctly structured and prioritized in the prompt.
+
+### Features
+- **Movement Field**:
+    - **UI**: Added a dedicated "Movement" input in the Batch Edit Modal, stacked below the Camera field.
+    - **Vibe Menu**: "Movement" Vibes can now be selected and applied.
+    - **Prompt Integration**:
+        - **Veo**: Injected as a `MOVEMENT: [Description]` block in the `SETUP / REFERENCE` section of the prompt.
+        - **Legacy**: Appended to the Subject Description.
+- **Data Safety**:
+    - **Safe Migration**: Added `backups/db` auto-creation to `npm run migrate:dev`, ensuring a snapshot exists before any schema changes.
+
+### Fixes
+- **Payload Structure**: Fixed a bug where `BatchEditModal` sent a flat JSON payload for updates, causing backend failures. Wrapped payload in `{ clip: ... }` to match API expectations.
+- **Database Schema**: Added `movement` column to `Clip` model.
+
+### Version Bump
+- **Patch**: 0.31.1 -> 0.31.2.
+
+---
+
 ## 2026-02-11: v0.31.1 - Peregrine (Data Safety & Sort)
 
 ### Context

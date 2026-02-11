@@ -111,6 +111,10 @@ export class StandardSchema implements PromptSchema {
         const camDesc = cameraAsset?.description || input.clip.camera;
         if (camDesc) setupLines.push(`CAMERA: [${camDesc}]`);
 
+        // Movement (New)
+        const movDesc = input.clip.movement;
+        if (movDesc) setupLines.push(`MOVEMENT: [${movDesc}]`);
+
         // Location
         const locName = locationAsset?.name || input.clip.location || "Location";
         const locDesc = locationAsset?.description || "";

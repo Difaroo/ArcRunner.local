@@ -65,7 +65,7 @@ export function StoryboardView({ clips, onToggleHide, printLayout, seriesTitle =
                                         <div className="tracking-widest">
                                             <span className="font-bold text-red-600">ARC</span>
                                             <span className="font-light text-red-600">RUNNER</span>
-                                            <div className="text-[10px] text-muted-foreground">v0.28.0</div>
+                                            <div className="text-[10px] text-muted-foreground">v0.31.2</div>
                                         </div>
                                     </div>
 

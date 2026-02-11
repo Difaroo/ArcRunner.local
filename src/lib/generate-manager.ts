@@ -22,7 +22,7 @@ export interface GenerateTaskInput {
     // Usually prompt is built from clip fields.
 
     // Or we accept the full Clip object?
-    clip: Clip & { prompt?: string, duration?: string, explicitRefUrls?: string, negativePrompt?: string | null }; // Extended for legacy/UI fields
+    clip: Clip & { prompt?: string, duration?: string, explicitRefUrls?: string, negativePrompt?: string | null, movement?: string | null }; // Extended for legacy/UI fields
 
     // Diagnosis
     dryRun?: boolean;
@@ -310,6 +310,14 @@ export class GenerateManager {
             // 5. Camera
             if (camItem?.description) parts.push(`${camItem.description} shot.`);
             else if (camName) parts.push(`${camName} shot.`);
+
+            // 6. Movement (New)
+            if (input.clip.movement) {
+                // Formatting: "MOVEMENT: [Description]" or just appended sentence?
+                // Existing pattern uses labels for Location/Action but Camera is just appended.
+                // Let's use a clear label for movement to distinguish it from action.
+                parts.push(`MOVEMENT: ${input.clip.movement}`);
+            }
 
             input.subjectDescription = parts.join('. '); // Use period separator for clarity
 

@@ -219,7 +219,7 @@ interface BatchEditContentProps {
 }
 
 function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavigate }: BatchEditContentProps) {
-    const [activeField, setActiveField] = useState<'character' | 'location' | 'camera' | 'action' | 'dialog' | 'media'>('character');
+    const [activeField, setActiveField] = useState<'character' | 'location' | 'camera' | 'movement' | 'action' | 'dialog' | 'media'>('character');
     const [lastVibeId, setLastVibeId] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -228,6 +228,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
         character: clip.character || '',
         location: clip.location || '',
         camera: clip.camera || '',
+        movement: clip.movement || '',
         action: clip.action || '',
         dialog: clip.dialog || '',
         negativePrompt: clip.negativePrompt || '',
@@ -246,6 +247,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             character: clip.character || '',
             location: clip.location || '',
             camera: clip.camera || '',
+            movement: clip.movement || '',
             action: clip.action || '',
             dialog: clip.dialog || '',
             negativePrompt: clip.negativePrompt || '',
@@ -329,12 +331,12 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                 character: editValues.character,
                 location: editValues.location,
                 camera: editValues.camera,
+                movement: editValues.movement,
                 action: editValues.action,
                 dialog: editValues.dialog,
                 refImageUrls: editValues.refImageUrls,
                 negativePrompt: editValues.negativePrompt, // Ensure negativePrompt is saved
                 status: status // Persist status
-                // Issue #2: movement would go here when schema supports it
             });
         } catch (error) {
             setSaveError('Failed to save changes');
@@ -352,6 +354,8 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                     onSelectVibe={(vibeId, value) => {
                         if (activeField === 'action') {
                             handleVibeSelect(vibeId, value, 'action');
+                        } else if (activeField === 'movement') {
+                            handleVibeSelect(vibeId, value, 'movement');
                         } else if (activeField === 'dialog') {
                             // Insert character dialog format
                             handleFieldChange('dialog', editValues.dialog + (editValues.dialog ? '\n' : '') + value);
@@ -455,8 +459,24 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                     onChange={(e) => handleFieldChange('camera', e.target.value)}
                                     onFocus={() => setActiveField('camera')}
                                     className="modal-field h-8 text-xs leading-4"
-                                    placeholder="Camera angle/movement"
+                                    placeholder="Camera angle (Low angle, Wide shot)"
                                     aria-label="Camera field"
+                                />
+                            </div>
+
+                            {/* Movement */}
+                            <div>
+                                <div className="h-7 mb-1 flex items-center">
+                                    <label className="text-xs text-stone-400 uppercase tracking-wider font-medium">Movement</label>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={editValues.movement}
+                                    onChange={(e) => handleFieldChange('movement', e.target.value)}
+                                    onFocus={() => setActiveField('movement')}
+                                    className="modal-field h-8 text-xs leading-4"
+                                    placeholder="Camera movement (Pan left, Dolly in)"
+                                    aria-label="Movement field"
                                 />
                             </div>
                         </div>
@@ -594,7 +614,7 @@ import { CSS } from '@dnd-kit/utilities';
 interface VibesMenuProps {
     seriesId: string;
     episodeId?: string;
-    activeField: 'character' | 'location' | 'camera' | 'action' | 'dialog' | 'media';
+    activeField: 'character' | 'location' | 'camera' | 'movement' | 'action' | 'dialog' | 'media';
     onSelectVibe: (vibeId: string | null, value: string) => void;
     onStudioAssetClick: (name: string, type: string) => void;
     onMediaClick?: (item: any, isOptionClick: boolean) => void;
@@ -697,8 +717,27 @@ function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAss
                         character: 'LIB_CHARACTER',
                         location: 'LIB_LOCATION',
                         camera: 'LIB_CAMERA',
+                        movement: 'LIB_MOVEMENT', // Maps to MOVEMENT vibes if any, or maybe just ACTION? Actually Vibe has type MOVEMENT.
                         dialog: 'LIB_CHARACTER' // Dialog uses characters for [NAME]: format
                     };
+
+                    if (activeField === 'movement') {
+                        // Fetch vibes for MOVEMENT field
+                        const res = await fetch(`/api/vibes?seriesId=${seriesId}&type=MOVEMENT`);
+                        const text = await res.text();
+                        if (!res.ok) throw new Error(`API Error ${res.status}`);
+                        try {
+                            const data = JSON.parse(text);
+                            setVibes(Array.isArray(data) ? data : []);
+                            setStudioAssets([]);
+                        } catch (e) {
+                            console.error("JSON Parse Error", e);
+                            setVibes([]);
+                        }
+                        setIsLoading(false);
+                        return;
+                    }
+
                     const assetType = typeMap[activeField];
                     const res = await fetch(`/api/library?seriesId=${seriesId}&type=${assetType}`);
                     const text = await res.text();
@@ -728,6 +767,7 @@ function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAss
             character: 'CHARACTERS',
             location: 'LOCATION',
             camera: 'CAMERA',
+            movement: 'MOVEMENT',
             action: 'ACTION VIBES',
             dialog: 'CHARACTERS',
             media: 'EPISODE MEDIA'

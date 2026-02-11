@@ -77,6 +77,12 @@ The **Batch Edit Modal** now features an enhanced **Asset Scroller** on the left
 -   **Result History**: The scroller now displays **all previous results** (Images `auto_awesome` & Videos `play_arrow`).
 -   **Video Previews**: Hover over any video item in the scroller or Vibe Menu to play a preview.
 
+### Movement Control (New)
+A dedicated **Movement** field is now available in the Batch Edit Modal:
+-   **Purpose**: Distinguish dynamic motion (Pan, Tilt, Dolly) from static camera framing (Wide, Close-up).
+-   **Usage**: Enter movement descriptions manually or select from the Vibe Menu.
+-   **Prompting**: This data is prioritized in the AI prompt to ensure the model adheres to specific motion instructions.
+
 ## 7. Server Management
 We have a [helper script](../scripts/restart-stack.sh) to safely kill existing processes (ports 3000/3001), rebuild Production, and restart both environments.
 
