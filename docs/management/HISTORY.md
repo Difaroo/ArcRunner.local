@@ -3,6 +3,28 @@
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
 
+## 2026-02-12: v0.31.3 - Peregrine (Global Catalogue & Recovery)
+
+### Context
+A polish and stability release finalizing the Global Catalogue feature and resolving a critical data visibility incident. This release ensures that Global Vibes (Cameras & Movement) are fully accessible and that user data is robustly protected by the new "Safe Migration" protocol.
+
+### Features
+- **Global Catalogue**:
+    - **Cameras & Movement**: Added dedicated tabs in Settings for managing Global Vibes.
+    - **Seeding**: Pre-populated logic with standard industry terms (e.g., Anamorphic, Dolly Zoom).
+    - **Globe Icon**: Removed redundant "Globe" icon from Vibe items for cleaner UI.
+
+### Fixes
+- **Data Recovery**:
+    - **Incident**: Resolved "Split-Brain" database issue where CLI and App used different DB files.
+    - **Recovery**: Restored 100% of user data (Episodes/Clips) from automated backup.
+    - **Mechanism**: Validated `safe-migrate-dev.sh` as a proven safety net.
+
+### Version Bump
+- **Patch**: 0.31.2 -> 0.31.3.
+
+---
+
 ## 2026-02-11: v0.31.2 - Peregrine (Movement & Payload)
 
 ### Context

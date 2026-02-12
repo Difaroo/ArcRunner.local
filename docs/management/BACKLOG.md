@@ -11,6 +11,11 @@
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
 
+## 🚀 Released v0.31.3 (Global Catalogue & Recovery)
+- [x] **Global Catalogue**: Settings now has "Cameras" and "Movement" tabs for global management.
+- [x] **Data Recovery**: Restored user data after schema drift incident.
+- [x] **Polish**: Removed redundant globe icon from Vibe items.
+
 ## 🚀 Released v0.31.2 (Movement & Payload)
 - [x] **Movement Field**: Implemented dedicated `movement` field, separated from Camera.
 - [x] **Vibe Menu**: Added "Movement" vibes and integration.

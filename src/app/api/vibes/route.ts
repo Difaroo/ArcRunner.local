@@ -12,21 +12,31 @@ export async function GET(request: NextRequest) {
         const seriesId = searchParams.get('seriesId');
         const type = searchParams.get('type');
 
-        if (!seriesId) {
-            return NextResponse.json({ error: 'seriesId is required' }, { status: 400 });
+        const whereClause: any = {
+            ...(type ? { type } : {})
+        };
+
+        if (seriesId) {
+            whereClause.OR = [
+                { seriesId },
+                { seriesId: null }
+            ];
+        } else {
+            whereClause.seriesId = null;
         }
 
+        console.log(`[API] GET /vibes Request: seriesId=${seriesId}, type=${type}`);
+        console.log(`[API] Derived whereClause:`, JSON.stringify(whereClause, null, 2));
+
         const vibes = await prisma.vibe.findMany({
-            where: {
-                seriesId,
-                ...(type && { type })
-            },
+            where: whereClause,
             orderBy: [
-                { sortOrder: 'asc' },
+                { sortOrder: 'asc' } as any,
                 { createdAt: 'desc' }
             ]
         });
 
+        console.log(`[API] Results found: ${vibes.length}`);
         return NextResponse.json(vibes);
     } catch (error) {
         console.error('GET /api/vibes error:', error);

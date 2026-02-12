@@ -3,6 +3,14 @@
 ## Overview
 ArcRunner is a dual-intelligence system for generating video and image content. This manual details the system's behaviors, controls, and best practices.
 
+## Settings & Global Catalogue (v0.31.3)
+The **Settings** page now hosts the **Global Catalogue** for managing reusable "Vibes".
+
+### Cameras & Movement
+- **Global Scope**: Items added here are available across ALL Series and Episodes.
+- **Management**: You can Add, Edit, or Sort (Drag & Drop) items in the "Cameras" and "Movement" tabs.
+- **Seeding**: The system comes pre-loaded with standard industry lenses (Anamorphic, Macro) and movements (Dolly, Pan, Tilt).
+
 ## Media Library (v0.30.0)
 
 ### Infinite Scroll

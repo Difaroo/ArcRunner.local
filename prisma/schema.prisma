@@ -153,8 +153,8 @@ model Vibe {
   type      String   @default("ACTION") // ACTION | CHARACTER | LOCATION | CAMERA | MOVEMENT
   sortOrder Int      @default(0)
   
-  seriesId  String
-  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  seriesId  String?
+  series    Series?  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

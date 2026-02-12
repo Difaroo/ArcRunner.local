@@ -634,10 +634,12 @@ interface Vibe {
     prompt: string;
     type: string;
     sortOrder: number;
+    seriesId: string | null;
 }
 
 // Sortable Vibe Item Wrapper
 function SortableVibeItem({ vibe, onSelect, onUpdate }: { vibe: Vibe, onSelect: () => void, onUpdate: (v: any) => Promise<void> }) {
+
     const {
         attributes,
         listeners,
@@ -721,9 +723,9 @@ function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAss
                         dialog: 'LIB_CHARACTER' // Dialog uses characters for [NAME]: format
                     };
 
-                    if (activeField === 'movement') {
-                        // Fetch vibes for MOVEMENT field
-                        const res = await fetch(`/api/vibes?seriesId=${seriesId}&type=MOVEMENT`);
+                    if (activeField === 'movement' || activeField === 'camera') {
+                        // Fetch vibes for MOVEMENT or CAMERA field
+                        const res = await fetch(`/api/vibes?seriesId=${seriesId}&type=${activeField.toUpperCase()}`);
                         const text = await res.text();
                         if (!res.ok) throw new Error(`API Error ${res.status}`);
                         try {

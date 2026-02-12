@@ -8,6 +8,7 @@ interface Vibe {
     title: string;
     prompt: string;
     type: string;
+    seriesId: string | null;
 }
 
 interface VibeItemProps {
@@ -21,6 +22,8 @@ export function VibeItem({ vibe, onSelect, onUpdate }: VibeItemProps) {
     const [editedTitle, setEditedTitle] = useState(vibe.title);
     const [editedPrompt, setEditedPrompt] = useState(vibe.prompt);
     const [isSaving, setIsSaving] = useState(false);
+
+    const isGlobal = !vibe.seriesId;
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,7 +48,9 @@ export function VibeItem({ vibe, onSelect, onUpdate }: VibeItemProps) {
                 className="flex-1 px-2 py-1.5 text-left overflow-hidden"
             >
                 <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-white truncate font-light">{vibe.title}</span>
+
+
+                    <span className={`text-[11px] truncate font-light ${isGlobal ? 'text-primary' : 'text-white'}`}>{vibe.title}</span>
                     {/* Visual Indicator of Type if needed, or just prompt preview */}
                 </div>
                 <span className="text-[10px] text-stone-500 block truncate font-light opacity-70 group-hover:opacity-100 transition-opacity">
