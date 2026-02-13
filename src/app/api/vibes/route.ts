@@ -12,29 +12,43 @@ export async function GET(request: NextRequest) {
         const seriesId = searchParams.get('seriesId');
         const type = searchParams.get('type');
 
-        const whereClause: any = {
-            ...(type ? { type } : {})
-        };
+        console.log(`[API] GET /vibes Request: seriesId=${seriesId}, type=${type}`);
+
+        // Use $queryRaw to bypass potential stale Prisma Client definition (missing sortOrder)
+        // safely handle optional params
+        let vibes: any[];
 
         if (seriesId) {
-            whereClause.OR = [
-                { seriesId },
-                { seriesId: null }
-            ];
+            if (type) {
+                vibes = await prisma.$queryRaw`
+                    SELECT * FROM Vibe 
+                    WHERE (seriesId = ${seriesId} OR seriesId IS NULL) 
+                    AND type = ${type}
+                    ORDER BY sortOrder ASC, createdAt DESC
+                `;
+            } else {
+                vibes = await prisma.$queryRaw`
+                    SELECT * FROM Vibe 
+                    WHERE (seriesId = ${seriesId} OR seriesId IS NULL)
+                    ORDER BY sortOrder ASC, createdAt DESC
+                `;
+            }
         } else {
-            whereClause.seriesId = null;
+            if (type) {
+                vibes = await prisma.$queryRaw`
+                    SELECT * FROM Vibe 
+                    WHERE seriesId IS NULL 
+                    AND type = ${type}
+                    ORDER BY sortOrder ASC, createdAt DESC
+                `;
+            } else {
+                vibes = await prisma.$queryRaw`
+                    SELECT * FROM Vibe 
+                    WHERE seriesId IS NULL
+                    ORDER BY sortOrder ASC, createdAt DESC
+                `;
+            }
         }
-
-        console.log(`[API] GET /vibes Request: seriesId=${seriesId}, type=${type}`);
-        console.log(`[API] Derived whereClause:`, JSON.stringify(whereClause, null, 2));
-
-        const vibes = await prisma.vibe.findMany({
-            where: whereClause,
-            orderBy: [
-                { sortOrder: 'asc' } as any,
-                { createdAt: 'desc' }
-            ]
-        });
 
         console.log(`[API] Results found: ${vibes.length}`);
         return NextResponse.json(vibes);

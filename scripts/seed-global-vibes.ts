@@ -7,26 +7,36 @@ const prisma = new PrismaClient({
 
 const GLOBAL_VIBES = [
     // --- CAMERAS ---
-    { title: 'Ultra-wide 14mm', prompt: 'Intense ultra-wide perspective on a 14mm lens, extreme distortion and vast ENVIRONMENT.', type: 'CAMERA' },
-    { title: 'Superwide 18mm', prompt: 'Dramatic superwide angle using an 18mm lens, exaggerated perspective and depth in the scene.', type: 'CAMERA' },
-    { title: 'Wide 24mm', prompt: 'Expansive scene captured on a 24mm wide-angle lens, dramatic perspective emphasizing the ENVIRONMENT.', type: 'CAMERA' },
-    { title: 'Wide 28mm', prompt: 'Broad establishing shot with a 28mm lens, balanced width and minimal distortion around the SUBJECT.', type: 'CAMERA' },
+    // --- CAMERAS (Order: Prime -> Wide -> Telephoto -> Zoom -> Novelty) ---
+    // 1. Prime (Standard)
     { title: 'Prime 35mm', prompt: 'Wide-normal view through a 35mm prime lens, dynamic framing of the SUBJECT with slight environmental context.', type: 'CAMERA' },
     { title: 'Prime 40mm', prompt: 'Intimate 40mm prime lens view, subtle wide-normal look with clean framing of the SUBJECT.', type: 'CAMERA' },
     { title: 'Prime 50mm', prompt: 'Cinematic shot using a 50mm prime lens, natural human-eye perspective on the FOCUS with shallow depth of field.', type: 'CAMERA' },
     { title: 'Prime 75mm', prompt: 'Medium telephoto 75mm prime lens, soft portrait-style separation of the FOCUS.', type: 'CAMERA' },
     { title: 'Prime 85mm', prompt: 'Portrait shot on an 85mm prime lens, compressed background and creamy bokeh isolating the FOCUS.', type: 'CAMERA' },
+
+    // 2. Wide / Ultra-Wide (Low to High Focal Length)
+    { title: 'Ultra-wide 14mm', prompt: 'Intense ultra-wide perspective on a 14mm lens, extreme distortion and vast ENVIRONMENT.', type: 'CAMERA' },
+    { title: 'Superwide 18mm', prompt: 'Dramatic superwide angle using an 18mm lens, exaggerated perspective and depth in the scene.', type: 'CAMERA' },
+    { title: 'Wide 24mm', prompt: 'Expansive scene captured on a 24mm wide-angle lens, dramatic perspective emphasizing the ENVIRONMENT.', type: 'CAMERA' },
+    { title: 'Wide 28mm', prompt: 'Broad establishing shot with a 28mm lens, balanced width and minimal distortion around the SUBJECT.', type: 'CAMERA' },
+
+    // 3. Telephoto / Super Telephoto
     { title: 'Telephoto 100mm', prompt: 'Tight telephoto view on a 100mm lens, strong background compression highlighting the FOCUS.', type: 'CAMERA' },
     { title: 'Telephoto 135mm', prompt: 'Extreme compression shot on a 135mm telephoto lens, flattening space around the distant FOCUS.', type: 'CAMERA' },
     { title: 'Telephoto 200mm', prompt: 'Extreme reach with a 200mm telephoto lens, heavily compressed and isolated distant SUBJECT.', type: 'CAMERA' },
     { title: 'Super Telephoto 300mm+', prompt: 'Extreme long-distance shot on a SUPER TELEPHOTO lens, maximum compression and isolation.', type: 'CAMERA' },
+
+    // 4. Zoom
     { title: 'Zoom 16-35mm', prompt: 'Ultra-wide to wide zoom 16-35mm lens, flexible framing of expansive landscapes or interiors.', type: 'CAMERA' },
     { title: 'Zoom 24-70mm', prompt: 'Versatile footage shot on a 24-70mm zoom lens, smooth focal transitions from wide to medium on the SUBJECT.', type: 'CAMERA' },
     { title: 'Zoom 70-200mm', prompt: 'Long-range telephoto zoom 70-200mm lens, isolated SUBJECT with heavy background compression.', type: 'CAMERA' },
-    { title: 'Fisheye', prompt: 'Full fisheye distortion using a FISHEYE lens, 180-degree curved view of the scene.', type: 'CAMERA' },
+
+    // 5. Novelty / Specialty
+    { title: 'Anamorphic 40mm', prompt: 'Cinematic anamorphic look on a 40mm anamorphic lens, oval bokeh and wide aspect on the FOCUS.', type: 'CAMERA' },
     { title: 'Macro 100mm', prompt: 'Extreme close-up detail shot on a 100mm macro lens, sharp textures and shallow depth on the FOCUS.', type: 'CAMERA' },
     { title: 'Tilt-Shift', prompt: 'Controlled perspective with a tilt-shift lens, selective focus and miniature effect on the SUBJECT.', type: 'CAMERA' },
-    { title: 'Anamorphic 40mm', prompt: 'Cinematic anamorphic look on a 40mm anamorphic lens, oval bokeh and wide aspect on the FOCUS.', type: 'CAMERA' },
+    { title: 'Fisheye', prompt: 'Full fisheye distortion using a FISHEYE lens, 180-degree curved view of the scene.', type: 'CAMERA' },
 
     // --- MOVEMENTS ---
     { title: 'Pan', prompt: 'Smooth horizontal pan from LEFT to RIGHT, revealing the scene gradually.', type: 'MOVEMENT' },
@@ -61,6 +71,7 @@ async function seed() {
         }
     });
 
+    let orderIndex = 0;
     for (const vibe of GLOBAL_VIBES) {
         await prisma.vibe.create({
             data: {
@@ -68,7 +79,7 @@ async function seed() {
                 prompt: vibe.prompt,
                 type: vibe.type,
                 // seriesId: null, // Default
-                sortOrder: 0
+                sortOrder: orderIndex++
             } as any
         });
         console.log(`✅ Created: [${vibe.type}] ${vibe.title}`);
