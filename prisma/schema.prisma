@@ -38,6 +38,7 @@ model Episode {
   style       String?
   guidance    Float?  @default(5.0)
   seed        Int?
+  localMediaPath String? // User-defined absolute path for aliases/backups
   
   // Relations
   seriesId  String
@@ -129,6 +130,7 @@ model Clip {
   previewUrl      String?  // Temp Kie link
   isHiddenInStoryboard Boolean @default(false)
   isSelected      Boolean  @default(false) // Persistent selection state
+  isPersisted     Boolean  @default(false) // Optimistic flag for UI (Green Clapper)
   taskId          String?  // Kie.ai Task ID
   
   // Relations

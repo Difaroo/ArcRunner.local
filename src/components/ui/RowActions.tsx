@@ -18,6 +18,7 @@ interface RowActionsProps {
     className?: string
     alignStatus?: 'left' | 'right' | 'center'
     'data-testid'?: string
+    isPersisted?: boolean // NEW: Visual feedback for persistence
 }
 
 export function RowActions({
@@ -34,7 +35,8 @@ export function RowActions({
     onDuplicate,
     className,
     alignStatus = 'left',
-    'data-testid': dataTestId
+    'data-testid': dataTestId,
+    isPersisted // Destructure new prop
 }: RowActionsProps) {
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -119,22 +121,28 @@ export function RowActions({
         <div className={`flex flex-col gap-1 relative z-50 pointer-events-auto ${className || 'items-start'}`} data-testid={dataTestId}>
             <div className={`flex flex-col gap-2 ${className || 'items-start'}`}>
 
-                {/* 1. DOWNLOAD BUTTON (If Done) */}
+                {/* 1. DOWNLOAD / PERSIST BUTTON (If Done) */}
                 {isDone && (
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
-                                    variant="outline-primary"
+                                    variant={isPersisted ? "ghost" : "outline-primary"} // Ghost if peristed (subtle), Outline if not
                                     size="icon"
                                     onClick={handleDownloadClick}
                                     disabled={isSaving || isDownloading}
-                                    className="h-8 w-8"
+                                    className={`h-8 w-8 ${isPersisted ? 'text-green-500 hover:text-green-400 hover:bg-green-500/10' : ''}`}
                                 >
-                                    {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="material-symbols-outlined !text-lg">download</span>}
+                                    {isDownloading ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : isPersisted ? (
+                                        <span className="material-symbols-outlined !text-lg">movie</span>
+                                    ) : (
+                                        <span className="material-symbols-outlined !text-lg">download</span>
+                                    )}
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent><p>Download (⌘S)</p></TooltipContent>
+                            <TooltipContent><p>{isPersisted ? "Re-download (Persisted)" : "Download (⌘S)"}</p></TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                 )}

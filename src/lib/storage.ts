@@ -9,9 +9,11 @@ const unlink = promisify(fs.unlink);
 const stat = promisify(fs.stat);
 
 // Root storage directory
-const STORAGE_ROOT = path.join(process.cwd(), 'storage', 'media');
+// Root storage directory
+// Changed to 'public/media' per user architectural decision (v0.32)
+const STORAGE_ROOT = path.join(process.cwd(), 'public', 'media');
 const UPLOADS_DIR = path.join(STORAGE_ROOT, 'uploads');
-const GENERATED_DIR = path.join(STORAGE_ROOT, 'generated');
+const GENERATED_DIR = path.join(STORAGE_ROOT, 'clips'); // Renamed 'generated' to 'clips' for consistency
 
 // Ensure directories exist
 const ensureDirs = async () => {
@@ -65,7 +67,16 @@ export async function getFilePath(urlPaths: string[]): Promise<string | null> {
         await stat(safePath);
         return safePath;
     } catch {
-        return null;
+        // Fallback: check storage/media/ (thumbnails are generated there)
+        const STORAGE_FALLBACK = path.join(process.cwd(), 'storage', 'media');
+        const fallbackPath = path.join(STORAGE_FALLBACK, ...urlPaths);
+        if (!fallbackPath.startsWith(STORAGE_FALLBACK)) return null;
+        try {
+            await stat(fallbackPath);
+            return fallbackPath;
+        } catch {
+            return null;
+        }
     }
 }
 

@@ -17,6 +17,8 @@ interface MediaDisplayProps {
     onDelete?: (id: string) => Promise<void> | void
     onUnlink?: (url: string, contextId?: string, isResult?: boolean) => Promise<void> | void // Separate handler for unlinking references
     isReference?: boolean // Override context
+    episodeId?: string; // For Persistence context
+    ownerClipId?: string; // For Persistence context
 }
 
 export function MediaDisplay({
@@ -33,7 +35,9 @@ export function MediaDisplay({
     onUpdate,
     onDelete,
     onUnlink, // Destructure unlink handler
-    isReference = false // Default to false (Root Asset) unless specified
+    isReference = false, // Default to false (Root Asset) unless specified
+    episodeId,
+    ownerClipId // NEW: Accept ownerClipId
 }: MediaDisplayProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [imgError, setImgError] = useState(false); // Track if proxy failed
@@ -84,6 +88,7 @@ export function MediaDisplay({
 
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
+
         if (onPlay) {
             onPlay(effectiveOriginalUrl);
         } else {
@@ -165,7 +170,9 @@ export function MediaDisplay({
                     url: u,
                     type: u.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image',
                     title: title || model || 'Media Preview',
-                    isReference: !!isReference // Respect prop
+                    isReference: !!isReference, // Respect prop
+                    episodeId, // Pass episodeId for persistence
+                    ownerClipId // Pass ownerClipId for persistence
                 }))}
                 initialIndex={allUrls.indexOf(effectiveOriginalUrl || '')}
                 onUpdate={onUpdate ? async (id, updates) => { await onUpdate(id, updates); } : undefined}

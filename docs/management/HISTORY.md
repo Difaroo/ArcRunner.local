@@ -3,6 +3,40 @@
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
 
+## 2026-02-16: v0.31.4 - Peregrine (Media Persistence & Display)
+
+### Context
+A critical infrastructure release fixing broken media display across the clip table and integrating the persistence workflow end-to-end. Broken thumbnail icons were traced to a path mismatch in the storage layer, and the Universal Viewer was upgraded with dedicated persistence controls.
+
+### Fixes
+- **Thumbnail Path Resolution**:
+    - **Root Cause**: Thumbnails were saved to `storage/media/thumbnails/` but `getFilePath` only searched `public/media/`. All `/api/media/thumbnails/` URLs returned 404.
+    - **Solution**: Added fallback path resolution in `storage.ts` to check `storage/media/` when `public/media/` fails.
+    - **Result**: 0 broken images (was 7).
+- **EpisodeId Propagation**:
+    - **GET `/api/clips`**: Now returns `episodeId` (UUID) alongside the episode number string.
+    - **PUT `/api/clips`**: Corrected `episode` field and added `episodeId` for consistency.
+- **Persistence Route**:
+    - **Bug**: `prisma.clip.update` was using string `clipId` instead of parsed integer `clipIdInt`, silently failing to set `isPersisted`.
+- **Proxy-Download Hardening**:
+    - **Strategy 1**: Added direct disk access for `/api/media/` URLs, avoiding loopback `fetch` calls that caused 404s in development.
+
+### Features
+- **Universal Viewer Persistence**:
+    - Added Clapperboard icon for video persistence with green fill-state feedback.
+    - Disambiguated top-right "Add as Ref" button (now `ImagePlus` only) from bottom persistence action.
+    - Integrated `useMediaPersistence` hook into UV, ClipRow, and BatchEditModal.
+- **ClipRow Download → Persist**:
+    - Video downloads now trigger persistence (symlink to episode media folder) instead of raw browser downloads.
+- **BatchEditModal MediaDisplay**:
+    - Replaced inline `<img>`/`<video>` with `MediaDisplay` component for consistent rendering and persistence overlay.
+
+### Version Bump
+- **Patch**: 0.31.3 -> 0.31.4.
+
+---
+
+
 ## 2026-02-12: v0.31.3 - Peregrine (Global Catalogue & Recovery)
 
 ### Context

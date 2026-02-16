@@ -36,6 +36,7 @@ import { RowActions } from "@/components/ui/RowActions"
 import { downloadFile, getClipFilename, getNextStatus } from "@/lib/download-utils"
 import { useClickOutside } from "@/hooks/useClickOutside"
 import { useRowShortcuts } from "@/hooks/useRowShortcuts"
+import { useMediaPersistence } from "@/hooks/useMediaPersistence"
 import React from "react"
 
 interface ClipRowProps {
@@ -349,6 +350,8 @@ export function ClipRow({
                 title: `${clip.scene || ''} ${clip.title || 'Untitled'}`.trim(),
                 isReference: false,
                 ownerClipId: clip.id,
+                episodeId: clip.episodeId || (clip.episode as any)?.id, // Fix: Cast for TS
+                isPersisted: clip.isPersisted, // Added for UI Feedback
                 deleteIcon: 'minus' as const // Allow clearing results
             }))
             : (clip.resultUrl ? [{
@@ -358,6 +361,8 @@ export function ClipRow({
                 title: `${clip.scene || ''} ${clip.title || 'Untitled'}`.trim(),
                 isReference: false,
                 ownerClipId: clip.id,
+                episodeId: clip.episodeId || (clip.episode as any)?.id, // Fix: Cast for TS
+                isPersisted: clip.isPersisted, // Added for UI Feedback
                 deleteIcon: 'minus' as const
             }] : []);
 
@@ -370,7 +375,8 @@ export function ClipRow({
                 // TITLE LOGIC: Studio Name OR Filename
                 title: m.studioItem?.name || getFilename(m.url),
                 isReference: true,
-                ownerClipId: clip.id
+                ownerClipId: clip.id,
+                episodeId: clip.episode || clip.episodeId // Added for Persistence (matches Clip)
             }))
             : parseStringList(clip.explicitRefUrls || clip.refImageUrls).map((url, idx) => ({
                 id: `legacy-ref-${idx}`,
@@ -450,18 +456,13 @@ export function ClipRow({
     };
 
 
-    const handleDownload = async () => {
-        if (clip.resultUrl) {
-            const filename = getClipFilename(clip, seriesTitle);
-            const success = await downloadFile(clip.resultUrl, filename);
+    const [isPersisted, setIsPersisted] = useState(clip.isPersisted || false);
+    const { persistMedia, isPersisting } = useMediaPersistence();
 
-            if (success) {
-                setDownloadCount(prev => prev + 1)
-                const newStatus = getNextStatus(clip.status || '');
-                onSave(clip.id, { status: newStatus })
-            }
-        }
-    }
+
+
+
+
 
     const handleSave = () => {
         const updates: Partial<Clip> = {};
@@ -516,6 +517,34 @@ export function ClipRow({
             onSave(clip.id, updates);
         } else {
             handleCancelEdit(); // Use the lock-aware cancel
+        }
+    }
+
+    const handleDownload = async () => {
+        // UNIFIED: Use Persistence for Videos, Download for Images
+        if (clip.resultUrl) {
+            const isVideo = clip.resultUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+
+            if (isVideo) {
+                const epId = clip.episodeId || clip.episode; // Type safety
+                if (epId) {
+                    const result = await persistMedia({ clipId: clip.id, episodeId: epId });
+                    if (result.success) {
+                        setIsPersisted(true);
+                    }
+                    return;
+                }
+            }
+
+            // Fallback: Browser Download (Images or Missing Context)
+            const filename = getClipFilename(clip, seriesTitle);
+            const success = await downloadFile(clip.resultUrl, filename);
+
+            if (success) {
+                setDownloadCount(prev => prev + 1)
+                const newStatus = getNextStatus(clip.status || '');
+                onSave(clip.id, { status: newStatus })
+            }
         }
     }
 
@@ -975,7 +1004,7 @@ export function ClipRow({
                                 </div>
                             )}
                             <MediaDisplay
-                                // Safe URL Extraction for single display: Use ParseStringList[0]
+                                // Safe URL Extraction: Use ParseStringList[0]
                                 url={clip.thumbnailPath || parseStringList(clip.resultUrl)[0]}
                                 originalUrl={parseStringList(clip.resultUrl)[0]}
                                 model={clip.model}
@@ -988,10 +1017,7 @@ export function ClipRow({
                                         const isVideoExt = primaryUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
                                         const isVideoModel = (clip.model?.toLowerCase().includes('veo') || clip.model?.toLowerCase().includes('kling') || clip.model?.toLowerCase().includes('minimax') || clip.model?.toLowerCase().includes('luma'));
 
-                                        // If extension is explicit image, force image.
                                         if (primaryUrl.match(/\.(png|jpg|jpeg|webp)($|\?)/i)) return 'image';
-
-                                        // Otherwise fallback to extension check OR model check
                                         return (isVideoExt || isVideoModel) ? 'video' : 'image';
                                     })()
                                 }
@@ -1000,22 +1026,21 @@ export function ClipRow({
                                     const explicitRefs = getCleanExplicitRefs();
                                     const charImages = clip.characterImageUrls || [];
                                     const locImages = clip.locationImageUrls || [];
-
-                                    // Unified Playlist: Result -> Explicit -> Chars -> Locs
                                     const fullPlaylist = [url, ...explicitRefs, ...charImages, ...locImages].filter(Boolean);
                                     onPlay(url, fullPlaylist);
                                 }}
                                 className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
                                 onUseAsRef={(url) => {
-                                    // Sideload Logic: Append current Result URL to Ref Headers
                                     const currentRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);
                                     if (!currentRefs.includes(url)) {
                                         const next = [...currentRefs, url].join(',');
-                                        onSave(clip.id, { refImageUrls: next, explicitRefUrls: next }); // Save new Explicit List
+                                        onSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
                                     } else {
                                         alert("This image is already a reference.");
                                     }
                                 }}
+                                episodeId={clip.episodeId || clip.episode} // Pass Persistence Context
+                                ownerClipId={clip.id} // Pass Clip ID for Persistence
                             />
                         </div>
                     )
@@ -1038,6 +1063,7 @@ export function ClipRow({
                     onDuplicate={() => onDuplicate(clip.id)}
                     className="items-center"
                     data-testid="row-actions"
+                    isPersisted={isPersisted}
                 />
             </TableCell>
 

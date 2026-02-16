@@ -52,6 +52,8 @@ export function getClipFilename(clip: Clip, seriesTitle: string = 'Series'): str
  * Strategy:
  * 1. If Local (starts with '/'): Use direct DOM link with `download` attribute. Browser handles this natively.
  * 2. If Remote: Use Proxy Route to fetch the file server-side and pipe it with Content-Disposition headers.
+ *    OPTIMIZATION: Instead of fetching Blob in JS (which buffers and delays), we point the <a> tag
+ *    directly to the Proxy URL. This allows the browser to stream the download immediately.
  */
 export async function downloadFile(url: string, filename: string): Promise<boolean> {
     try {
@@ -67,58 +69,43 @@ export async function downloadFile(url: string, filename: string): Promise<boole
         // Ensure Extension
         let finalFilename = filename;
         const ext = effectiveUrl.split('.').pop()?.split('?')[0] || '';
-        // Only append if filename doesn't already have an extension, AND we found one.
-        // Also check if filename ends with extension-like pattern
         if (ext && !finalFilename.toLowerCase().endsWith('.' + ext.toLowerCase())) {
             finalFilename += `.${ext}`;
         }
 
-        // Sanitize filename (Allow spaces, parens, brackets)
+        // Sanitize filename
         const safeFilename = finalFilename.replace(/[^a-zA-Z0-9._\-\(\) \[\]]/g, '_');
 
-        // Check if Local
+        // Check if Local (Same Origin or Relative)
         const isLocal = effectiveUrl.startsWith('/') || effectiveUrl.startsWith(window.location.origin);
 
-        if (isLocal) {
+        let downloadUrl = effectiveUrl;
+
+        if (!isLocal) {
+            // Remote (Cross-Origin) - Construct Proxy URL for direct navigation
+            // This avoids the 5s delay of buffering the whole file into a Blob
+            console.log(`[Download] Handling Remote File via Proxy (Stream): ${effectiveUrl} -> ${safeFilename}`);
+            downloadUrl = `/api/proxy-download?url=${encodeURIComponent(effectiveUrl)}&filename=${encodeURIComponent(safeFilename)}`;
+        } else {
             console.log(`[Download] Handling Local File: ${effectiveUrl} -> ${safeFilename}`);
-
-            // Direct Link Method for Same-Origin
-            const a = document.createElement('a');
-            a.href = effectiveUrl;
-            a.download = safeFilename; // Browser respects this for same-origin
-            a.style.display = 'none';
-            document.body.appendChild(a);
-
-            a.click();
-
-            // Cleanup
-            document.body.removeChild(a);
-            return true;
         }
 
-        // Remote (Cross-Origin) - Needs Proxy with Fetch+Blob (no new tab)
-        console.log(`[Download] Handling Remote File via Proxy: ${effectiveUrl} -> ${safeFilename}`);
-        const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(effectiveUrl)}&filename=${encodeURIComponent(safeFilename)}`;
-
-        // Fetch the file as blob and trigger download without opening new tab
-        const response = await fetch(proxyUrl);
-        if (!response.ok) {
-            throw new Error(`Download failed: ${response.statusText}`);
-        }
-
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-
+        // Trigger Download
         const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = safeFilename;
+        a.href = downloadUrl;
+
+        // Ensure 'download' attribute is set (Browser handles this for same-origin or explicit Content-Disposition)
+        a.setAttribute('download', safeFilename);
         a.style.display = 'none';
         document.body.appendChild(a);
+
         a.click();
 
         // Cleanup
-        document.body.removeChild(a);
-        URL.revokeObjectURL(blobUrl);
+        setTimeout(() => {
+            document.body.removeChild(a);
+        }, 100);
+
         return true;
 
     } catch (error) {

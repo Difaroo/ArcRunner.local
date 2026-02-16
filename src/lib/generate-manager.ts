@@ -618,42 +618,40 @@ export class GenerateManager {
             filePath = url;
         }
         // Detect Local URL Path
+        // Consolidated Logic (v0.32): All paths now map to configured STORAGE_ROOT in storage.ts
+        // which is set to 'public/media'
         else if (url.startsWith('/api/media/uploads/')) {
             const filename = decodeURIComponent(url.replace('/api/media/uploads/', ''));
-            filePath = path.join(process.cwd(), 'storage/media/uploads', filename);
+            filePath = path.join(process.cwd(), 'public/media/uploads', filename);
         } else if (url.startsWith('/api/images/')) {
             const filename = decodeURIComponent(url.replace('/api/images/', ''));
-            filePath = path.join(process.cwd(), 'storage/media/uploads', filename);
+            filePath = path.join(process.cwd(), 'public/media/uploads', filename);
         } else if (url.startsWith('/media/library/')) {
-            // Fix: Map /media/library to public/media/library
             const filename = decodeURIComponent(url.replace('/media/library/', ''));
             filePath = path.join(process.cwd(), 'public/media/library', filename);
         } else if (url.startsWith('/media/clips/')) {
-            // Fix: Map /media/clips to public/media/clips (Legacy/Generated paths)
             const filename = decodeURIComponent(url.replace('/media/clips/', ''));
             filePath = path.join(process.cwd(), 'public/media/clips', filename);
         } else if (url.startsWith('/api/media/clips/')) {
-            // Fix: Map /api/media/clips to storage/media/clips (Found via search)
+            // Map legacy internal API path to public storage
             const filename = decodeURIComponent(url.replace('/api/media/clips/', ''));
-            filePath = path.join(process.cwd(), 'storage/media/clips', filename);
+            filePath = path.join(process.cwd(), 'public/media/clips', filename);
         } else if (url.startsWith('/media/uploads/')) {
-            // Fix: Missing Handler for legacy direct uploads path
             const filename = decodeURIComponent(url.replace('/media/uploads/', ''));
-            // Check both Public and Storage locations
-            const publicPath = path.join(process.cwd(), 'public/media/uploads', filename);
-            const storagePath = path.join(process.cwd(), 'storage/media/uploads', filename); // Fallback
-            filePath = fs.existsSync(publicPath) ? publicPath : storagePath;
+            filePath = path.join(process.cwd(), 'public/media/uploads', filename);
         }
 
         // --- ROBUSTNESS: Fuzzy Search if path not resolved or file missing ---
         if (!filePath || !fs.existsSync(filePath)) {
             const basename = decodeURIComponent(path.basename(url));
+            // Prioritize Public/Media locations
             const candidateDirs = [
-                path.join(process.cwd(), 'storage/media/uploads'),
-                path.join(process.cwd(), 'storage/media/generated'),
+                path.join(process.cwd(), 'public/media/uploads'),
                 path.join(process.cwd(), 'public/media/clips'),
                 path.join(process.cwd(), 'public/media/library'),
-                path.join(process.cwd(), 'public/media/uploads')
+                // Fallback to legacy storage just in case (migration safety)
+                path.join(process.cwd(), 'storage/media/uploads'),
+                path.join(process.cwd(), 'storage/media/generated')
             ];
 
             for (const dir of candidateDirs) {

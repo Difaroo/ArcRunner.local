@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Loader2, Trash2, MinusCircle, Check, X, ChevronLeft, ChevronRight, Save, Download, ImagePlus, Film } from "lucide-react";
+import { Loader2, Trash2, MinusCircle, Check, X, ChevronLeft, ChevronRight, DownloadCloud, Play, Pause, Maximize2, Minimize2, Volume2, VolumeX, Clapperboard, ImagePlus } from 'lucide-react'; // Added Clapperboard and other video controls
 import { Button } from "@/components/ui/button";
 import { downloadFile } from '@/lib/download-utils';
 import {
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AddAsRefDialog } from "@/components/dialogs/viewer/AddAsRefDialog";
 import { Clip } from "@/types";
+import { useMediaPersistence } from '@/hooks/useMediaPersistence'; // Import hook
 
 // Optimized Types for Universal Usage
 export interface UniversalMediaItem {
@@ -39,6 +40,8 @@ export interface UniversalMediaItem {
     canDelete?: boolean;
     deleteIcon?: 'trash' | 'minus'; // Override icon (e.g. use 'minus' for "Clear Result" even if not a reference)
     ownerClipId?: string;  // Context ID for routing unlink (lib-XX for Studio, clipId for Clips)
+    episodeId?: string; // Required for Persistence
+    isPersisted?: boolean; // Required for UI Feedback (Clapperboard state)
 }
 
 interface UniversalMediaViewerProps {
@@ -81,6 +84,7 @@ export function UniversalMediaViewer({
     const [editValue, setEditValue] = useState("");
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showAddRefDialog, setShowAddRefDialog] = useState(false);
+    const { persistMedia, isPersisting } = useMediaPersistence(); // Use hook
 
     // --- Derived State ---
     // Ensure bounds safety
@@ -121,8 +125,8 @@ export function UniversalMediaViewer({
             // Ignore if typing in text area
             if ((e.target as HTMLElement).tagName === 'TEXTAREA') {
                 if (e.key === 'Escape') {
-                    // Optional: Escape from textarea focus? 
-                    // For now, let it propagate or just blur? 
+                    // Optional: Escape from textarea focus?
+                    // For now, let it propagate or just blur?
                     // Let's allow Esc to close viewer even from text area for speed.
                     (e.target as HTMLElement).blur();
                     e.preventDefault(); // Stop it from writing escape char if any
@@ -306,11 +310,7 @@ export function UniversalMediaViewer({
                                                 }
                                             }}
                                         >
-                                            {isVideo && !currentItem.isReference ? (
-                                                <Film className="h-5 w-5" />
-                                            ) : (
-                                                <ImagePlus className="h-5 w-5" />
-                                            )}
+                                            <ImagePlus className="h-5 w-5" />
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
@@ -363,91 +363,168 @@ export function UniversalMediaViewer({
                             </TooltipProvider>
                         )}
 
-                        {/* Download */}
+                        <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">
+                                {currentItem.title}
+                            </p>
+                            {/* Persistence / Download Action */}
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className={`h-8 w-8 ${currentItem.isPersisted ? 'text-green-500 hover:text-green-400' : 'text-zinc-400 hover:text-white'}`}
+                                            disabled={isPersisting}
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+
+                                                // 1. VIDEOS with Episode Context -> Persist
+                                                if (isVideo && currentItem.episodeId && currentItem.ownerClipId) {
+                                                    try {
+                                                        const res = await persistMedia({
+                                                            clipId: currentItem.ownerClipId, // Use context ID (Clip ID)
+                                                            episodeId: currentItem.episodeId
+                                                        });
+
+                                                        // Optimistic UI Update (if success)
+                                                        if (res && res.success) {
+                                                            console.log('Persist Success', res);
+                                                        }
+                                                    } catch (err) {
+                                                        console.error('[UniversalMediaViewer] Persist Error:', err);
+                                                    }
+                                                    return;
+                                                } else {
+                                                    console.warn('[UniversalMediaViewer] Missing IDs for persistence:', { isVideo, episodeId: currentItem.episodeId, ownerClipId: currentItem.ownerClipId });
+                                                }
+
+                                                // 2. Fallback / Images -> Standard Download
+                                                try {
+                                                    await downloadFile(currentItem.url, currentItem.title);
+                                                } catch (err) {
+                                                    console.error("Download fail", err);
+                                                }
+                                            }}
+                                        >
+                                            {isPersisting ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                /* Logic: 
+                                                   - Persisted Video -> Clapperboard (Filled/Closed)
+                                                   - Unpersisted Video -> Clapperboard (Open)
+                                                   - Image -> DownloadCloud
+                                                */
+                                                isVideo && currentItem.episodeId ? (
+                                                    currentItem.isPersisted ? (
+                                                        <Clapperboard className="h-4 w-4 fill-current" />
+                                                    ) : (
+                                                        <Clapperboard className="h-4 w-4" />
+                                                    )
+                                                ) : (
+                                                    <DownloadCloud className="h-4 w-4" />
+                                                )
+                                            )}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{isVideo && currentItem.episodeId
+                                            ? (currentItem.isPersisted ? 'Saved to Episode Folder' : 'Save to Episode Folder')
+                                            : 'Download File'}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                    </div>
+
+                    {/* Delete (Trash) - Only for Root Assets without 'minus' override */}
+                    {onDelete && !currentItem.isReference && currentItem.deleteIcon !== 'minus' && (
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10" onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                            await downloadFile(currentItem.url, currentItem.title);
-                                        } catch (err) {
-                                            console.error("Download fail", err);
-                                        }
-                                    }}>
-                                        <Download className="h-5 w-5" />
+                                    <Button variant="ghost" size="icon" className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10" onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}>
+                                        <Trash2 className="h-5 w-5" />
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Download (⌘S)</TooltipContent>
+                                <TooltipContent>Delete Permanently</TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-
-                        {/* Close */}
-                        <Button variant="ghost" size="icon" className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10" onClick={(e) => { e.stopPropagation(); onClose(); }}>
-                            <X className="h-6 w-6" />
-                        </Button>
-                    </div>
-
-                    {/* Top Left: Title Info - Transparent BG */}
-                    <div className="absolute top-4 left-4 z-50 pointer-events-none">
-                        <h3 className="text-white/90 font-medium text-lg drop-shadow-md px-3 py-1 rounded bg-black/20 backdrop-blur-sm">
-                            {currentItem.title}
-                        </h3>
-                    </div>
-
-                    {/* Navigation Arrows */}
-                    {playlist.length > 1 && (
-                        <>
-                            <button onClick={(e) => { e.stopPropagation(); handlePrev(); }} className="absolute left-4 p-2 rounded-full bg-black/40 text-orange-500 hover:bg-black/80 hover:text-orange-400 transition-all z-40">
-                                <ChevronLeft className="h-8 w-8" />
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); handleNext(); }} className="absolute right-4 p-2 rounded-full bg-black/40 text-orange-500 hover:bg-black/80 hover:text-orange-400 transition-all z-40">
-                                <ChevronRight className="h-8 w-8" />
-                            </button>
-                        </>
                     )}
+                </div>
 
-                    {/* Media Content - Stop Propagation on Click to prevent Close */}
+                {/* Close */}
+                <div className="absolute top-4 right-4 z-50">
+                    <Button variant="ghost" size="icon" className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+                        <X className="h-6 w-6" />
+                    </Button>
+                </div>
+
+                {/* Top Left: Title Info - Transparent BG */}
+                <div className="absolute top-4 left-4 z-50 pointer-events-none">
+                    <h3 className="text-white/90 font-medium text-lg drop-shadow-md px-3 py-1 rounded bg-black/20 backdrop-blur-sm">
+                        {currentItem.title}
+                    </h3>
+                </div>
+
+                {/* Navigation Arrows */}
+                {playlist.length > 1 && (
+                    <>
+                        <button onClick={(e) => { e.stopPropagation(); handlePrev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/40 text-orange-500 hover:bg-black/80 hover:text-orange-400 transition-all z-40">
+                            <ChevronLeft className="h-8 w-8" />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleNext(); }} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/40 text-orange-500 hover:bg-black/80 hover:text-orange-400 transition-all z-40">
+                            <ChevronRight className="h-8 w-8" />
+                        </button>
+                    </>
+                )}
+
+                {/* Media Content - Stop Propagation on Click to prevent Close */}
+                <div className="w-full h-full flex items-center justify-center p-8" onClick={(e) => e.stopPropagation()}>
                     {isVideo ? (
                         <video
                             src={currentItem.url}
                             controls
                             autoPlay
-                            className="w-full h-full object-contain"
+                            className="max-w-full max-h-full object-contain"
                             onClick={(e) => e.stopPropagation()}
                         />
                     ) : (
                         <img
                             src={currentItem.url}
                             alt={currentItem.title}
-                            className="w-full h-full object-contain"
+                            className="max-w-full max-h-full object-contain"
                             onClick={(e) => e.stopPropagation()}
                         />
                     )}
                 </div>
 
+
+
                 {/* 2. Contextual Edit Area (Bottom) */}
                 {onUpdate && (
-                    <div className="flex gap-4 bg-zinc-900/90 p-3 rounded-lg border border-zinc-800 backdrop-blur-md">
-                        <div className="flex-1">
-                            <textarea
-                                value={editValue}
-                                onChange={(e) => { setEditValue(e.target.value); setIsDirty(true); }}
-                                placeholder={currentItem.action !== undefined ? "Edit Action..." : "Edit Description..."}
-                                className="w-full bg-transparent text-zinc-200 text-sm focus:outline-none resize-none h-16 placeholder:text-zinc-600 font-light"
-                            />
-                        </div>
-                        <div className="flex flex-col justify-end">
-                            <Button
-                                size="icon"
-                                variant={isDirty ? "default" : "ghost"}
-                                className={`h-10 w-10 ${isDirty ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'text-zinc-600'}`}
-                                onClick={handleSave}
-                                disabled={!isDirty}
-                                title="Save (Cmd+Enter)"
-                            >
-                                <Check className="h-5 w-5" />
-                            </Button>
+                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-50 pointer-events-auto" onClick={e => e.stopPropagation()}>
+                        <div className="flex gap-4 bg-zinc-900/90 p-3 rounded-lg border border-zinc-800 backdrop-blur-md shadow-xl">
+                            <div className="flex-1">
+                                <textarea
+                                    value={editValue}
+                                    onChange={(e) => { setEditValue(e.target.value); setIsDirty(true); }}
+                                    placeholder={currentItem.action !== undefined ? "Edit Action..." : "Edit Description..."}
+                                    className="w-full bg-transparent text-zinc-200 text-sm focus:outline-none resize-none h-16 placeholder:text-zinc-600 font-light"
+                                />
+                            </div>
+                            <div className="flex flex-col justify-end">
+                                <Button
+                                    size="icon"
+                                    variant={isDirty ? "default" : "ghost"}
+                                    className={`h-10 w-10 ${isDirty ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'text-zinc-600'}`}
+                                    onClick={handleSave}
+                                    disabled={!isDirty}
+                                    title="Save (Cmd+Enter)"
+                                >
+                                    <Check className="h-5 w-5" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 )}

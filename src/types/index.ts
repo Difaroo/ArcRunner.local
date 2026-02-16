@@ -16,8 +16,9 @@ export interface Clip {
     status: string;
     resultUrl?: string;
     taskId?: string;
-    seed?: string;
-    episode?: string;
+    isPersisted?: boolean; // Optimistic flag
+    episodeId?: string; // Relation ID
+    episode?: string; // Legacy or explicit relation object? Type says string.
     series?: string;
     sortOrder?: number;
     model?: string;

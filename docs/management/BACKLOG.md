@@ -11,10 +11,20 @@
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
 
+## 🚀 Released v0.31.4 (Media Persistence & Display)
+- [x] **Thumbnail Fix**: Added `storage/media/` fallback to `getFilePath` — all thumbnails now resolve correctly.
+- [x] **EpisodeId**: Added `episodeId` (UUID) to GET and PUT `/api/clips` responses.
+- [x] **Persistence Bug**: Fixed `clipIdInt` type mismatch in persist route's Prisma update.
+- [x] **UV Persistence**: Integrated Clapperboard icon with green fill-state for persisted videos.
+- [x] **ClipRow Persist**: Video downloads now trigger persistence (symlink) instead of raw download.
+- [x] **Proxy Hardening**: Added direct disk Strategy for `/api/media/` URLs in proxy-download.
+- [x] **BatchEditModal**: Replaced inline media elements with `MediaDisplay` component + persistence overlay.
+
 ## 🚀 Released v0.31.3 (Global Catalogue & Recovery)
 - [x] **Global Catalogue**: Settings now has "Cameras" and "Movement" tabs for global management.
 - [x] **Data Recovery**: Restored user data after schema drift incident.
 - [x] **Polish**: Removed redundant globe icon from Vibe items.
+
 
 ## 🚀 Released v0.31.2 (Movement & Payload)
 - [x] **Movement Field**: Implemented dedicated `movement` field, separated from Camera.

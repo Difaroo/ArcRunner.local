@@ -7,6 +7,9 @@ import { Clip } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { VibeItem } from './VibeItem';
+import { MediaDisplay } from '@/components/media/MediaDisplay';
+import { useMediaPersistence } from '@/hooks/useMediaPersistence';
+import { Loader2, Download } from 'lucide-react';
 
 interface BatchEditModalProps {
     clips: Clip[];
@@ -666,6 +669,7 @@ function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAss
     const [vibes, setVibes] = useState<Vibe[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { persistMedia, isPersisting } = useMediaPersistence();
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -886,36 +890,48 @@ function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAss
                             className="relative aspect-video bg-stone-800 rounded overflow-hidden cursor-pointer group border border-transparent hover:border-white/20"
                             onClick={(e) => onMediaClick?.(item, e.altKey)}
                         >
-                            {/* Thumbnail or Video Preview */}
-                            {(item.thumbnailPath || (item.type === 'IMAGE' && item.url)) ? (
-                                <img
-                                    src={item.thumbnailPath || item.url}
-                                    className="w-full h-full object-cover"
-                                    alt="Media"
-                                />
-                            ) : (item.type === 'VIDEO' && item.url) ? (
-                                <video
-                                    src={item.url}
-                                    className="w-full h-full object-cover"
-                                    muted
-                                    onMouseOver={e => e.currentTarget.play()}
-                                    onMouseOut={e => {
-                                        e.currentTarget.pause();
-                                        e.currentTarget.currentTime = 0;
-                                    }}
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-xs text-stone-500">
-                                    {item.type}
+                            <MediaDisplay
+                                url={item.thumbnailPath || item.url}
+                                originalUrl={item.url}
+                                title={item.title || "Media Item"}
+                                contentType={item.type === 'VIDEO' ? 'video' : 'image'}
+                                isThumbnail={!!item.thumbnailPath}
+                                episodeId={episodeId}
+                                className="w-full h-full"
+                                // Override play to select item instead of opening viewer
+                                onPlay={() => onMediaClick?.(item, false)}
+                            />
+
+                            {/* Persistence Button Overlay for User-Initiated Saves */}
+                            {item.type === 'VIDEO' && (
+                                <div className="absolute top-1 right-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        className="bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 backdrop-blur-sm transition-colors"
+                                        disabled={isPersisting}
+                                        title="Save to Drive"
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            // Ensure we have an Episode ID context
+                                            if (episodeId) {
+                                                // Map item ID or just use URL if ID missing?
+                                                // Media Item usually has ID.
+                                                await persistMedia({
+                                                    clipId: item.id || 'unknown', // Fallback? Backend needs ID usually.
+                                                    episodeId: episodeId
+                                                });
+                                            } else {
+                                                alert("Missing context for persistence.");
+                                            }
+                                        }}
+                                    >
+                                        {isPersisting ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                            <Download className="h-3 w-3" />
+                                        )}
+                                    </button>
                                 </div>
                             )}
-
-                            {/* Type Icon Badge */}
-                            <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center justify-center">
-                                <span className="material-symbols-outlined !text-[14px] text-white">
-                                    {item.type === 'VIDEO' ? 'play_arrow' : item.type === 'IMAGE' ? 'image' : 'help'}
-                                </span>
-                            </div>
                         </div>
                     ))}
                 </div>

@@ -1,18 +1,18 @@
 {
   "model": "kling-2.6/image-to-video",
   "input": {
-    "prompt": "ACTION: [Heavily weathered archival super-8mm shot of a flying-saucer wedged at a sharp angle into a bank surrounded by the earth piled by the saucer ploughing into the ground, trailed by a trench carved through desert earth by the saucer.]. [ Character says: \"Vatican priest: This UFO skidded across the field, dug a trench, and lodged into the bank at forty-five degrees.\"]\n\nCAMERA: [Close, textured shot capturing rain or emotion with shallow focus.]",
-    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/01_Roswell_UFO_Retrieval_.png",
+    "prompt": "ACTION: [Modern social media UFO event. Multi-shot montange. Contemporary US school.  Filmed on mobiles of kids, handheld. Cuts between views: \n1. Kids running. Cuts between Individual kids running, filiming on cell phones.\n2. Kids stop to see ufo descending in the scrub land beyond school fence. \n3. Kid have got out of the school fence and are approaching landed UFO - which has grey beings with black 'cats eye's, dark skin-tight suits. \n4. Kids using cells to film alients, and post on social media, groups running, groups watching saucer land in the mid distance, 5. kids showing art drawing picture of ufo + alien.]. [ Character says: \"V/O:  Interviews with Extra terrestrials \n\nInfluencer: They're over military bases. They're shutting down airports.\"]\n\nCAMERA: [Rapid intercut edits with visual rhythm and quick zooms.]",
+    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/AA1uVPSb.jpeg",
     "image_urls": [
-      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/01_Roswell_UFO_Retrieval_.png"
+      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/AA1uVPSb.jpeg"
     ],
-    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/01_Roswell_UFO_Retrieval_.png",
+    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/AA1uVPSb.jpeg",
     "aspect_ratio": "9:16",
     "resolution": "1080p",
     "mode": "std",
     "cfg_scale": 0.5,
-    "sound": true,
-    "duration": "10",
+    "sound": false,
+    "duration": "5",
     "negative_prompt": ""
   }
 }

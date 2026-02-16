@@ -178,6 +178,7 @@ export async function GET() {
                 seed: clip.seed || '',
                 negativePrompt: clip.negativePrompt || '',
                 episode: clip.episode.number.toString(),
+                episodeId: clip.episodeId, // UUID for persistence context
                 series: seriesId,
                 sortOrder: clip.sortOrder,
                 model: clip.model || '',
@@ -456,7 +457,8 @@ export async function PUT(req: Request) {
                 // Ensure ID is string for frontend consistency if needed (Prisma returns Int, but mapped in GET to string)
                 // Frontend likely expects string if it came from GET
                 id: updatedClip.id.toString(),
-                episode: updatedClip.episodeId, // or clipWithContext.episode.number.toString(), but UI uses flattened structure?
+                episode: clipWithContext.episode.number.toString(), // Match GET format: number string
+                episodeId: updatedClip.episodeId, // UUID for persistence context
                 // Let's match GET structure as close as possible without re-serializing everything if not needed.
                 characterImageUrls,
                 locationImageUrls,

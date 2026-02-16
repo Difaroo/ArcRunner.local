@@ -1922,6 +1922,7 @@ export default function Home() {
           // Resolve Context - Robust Search
           const clip = clips.find(c =>
             (c.resultUrl === url) ||
+            (c.resultUrl && c.resultUrl.split(',').map(s => s.trim()).includes(url)) ||
             ((c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url))
           );
 
@@ -1970,7 +1971,9 @@ export default function Home() {
             deleteIcon: !isReference ? 'minus' : undefined, // Use Minus for Results (Clear), Trash for others (if default)
 
             // New Context Fields (Pass through)
-            ownerClipId: clip ? clip.id.toString() : undefined
+            ownerClipId: clip ? clip.id.toString() : undefined,
+            episodeId: clip ? (clip.episodeId || (clip.episode as any)?.id) : undefined, // Fix: Cast for TS
+            isPersisted: clip ? clip.isPersisted : false // Added for UI Feedback
           };
 
           if (precalculatedItem) {
