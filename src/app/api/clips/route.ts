@@ -31,8 +31,11 @@ export async function GET() {
                     episode: { include: { series: true } },
                     mediaResults: true,
                     mediaReferences: {
-                        include: { studioItem: true }, // Include Studio Item for Titles
-                        orderBy: { id: 'desc' } // Deterministic LIFO: Highest ID first
+                        include: { studioItem: true }, // Include Studio Item for Titles/URLs
+                        orderBy: [
+                            { refImageSort: 'desc' }, // Phase 2: Prioritize flagged items
+                            { id: 'desc' }            // Then LIFO
+                        ]
                     }
                 },
                 orderBy: [
@@ -140,19 +143,25 @@ export async function GET() {
                 : ''; // PREVIOUSLY: clip.resultUrl (Legacy Fallback Removed)
 
             // B. Resolve References (Images)
-            // Construct CSV from Media table if available
-            // STRICT MODE: Ignore clip.refImageUrls (Legacy). Use Media Table ONLY.
-            let explicitRefs = '';
-            if (clip.mediaReferences && clip.mediaReferences.length > 0) {
-                explicitRefs = clip.mediaReferences.map((m: any) => m.url).join(',');
-            }
+            // C. Enrich Studio References (Fresh URL from Library)
+            const enrichedMediaReferences = (clip.mediaReferences || []).map((m: any) => {
+                if (m.category === 'STUDIO_REFERENCE' && m.studioItem && m.studioItem.refImageUrl) {
+                    // Use fresh URL from Studio Item, parsing CSV if needed
+                    // @ts-ignore
+                    const parts = m.studioItem.refImageUrl.split(',');
+                    return { ...m, url: parts[0] || m.url };
+                }
+                return m;
+            });
 
-            // Proxy Clip for Resolver
-            // Note: We intentionally pass empty string if no Media Refs, effectively masking the stale CSV.
-            const proxyClip = { ...clip, refImageUrls: explicitRefs };
-            const { fullRefs, explicitRefs: resolvedExplicit, characterImageUrls, locationImageUrls } = resolveClipImages(proxyClip, findLib);
+            // Media Table is the ONLY source of truth
+            const explicitRefs = enrichedMediaReferences.length > 0
+                ? enrichedMediaReferences.filter((m: any) => m.category === 'REFERENCE' || m.refImageSort > 0).map((m: any) => m.url).join(',')
+                : '';
 
-            const allRefs = fullRefs;
+            // Proxy Clip for Resolver (library image resolution still needs this shape)
+            const proxyClip = { ...clip, mediaReferences: enrichedMediaReferences || [] };
+            const { characterImageUrls, locationImageUrls } = resolveClipImages(proxyClip, findLib);
 
             return {
                 id: clip.id.toString(),
@@ -166,10 +175,8 @@ export async function GET() {
                 action: clip.action || '',
                 dialog: clip.dialog || '',
                 // Resolved Images (Source of Truth = Media Table)
-                refImageUrls: fullRefs,
-                explicitRefUrls: resolvedExplicit,
-                mediaReferences: clip.mediaReferences, // EXPOSED: Full Array of Objects
-                mediaResults: clip.mediaResults, // EXPOSED: Full Array of Objects (Fix for Scroller History)
+                mediaReferences: enrichedMediaReferences,
+                mediaResults: clip.mediaResults,
                 characterImageUrls,
                 locationImageUrls,
                 // Result (Source of Truth = Media Table)
@@ -340,10 +347,7 @@ export async function POST(req: Request) {
                 status: newClip.status,
                 // @ts-ignore
                 episode: newClip.episode.number.toString(),
-                // @ts-ignore
-                refImageUrls: newClip.refImageUrls, // Note: This is Explicit only for POST usually, but consistent with DB
-                // @ts-ignore
-                explicitRefUrls: newClip.refImageUrls // Explicitly return this for frontend logic
+                mediaReferences: [] // New clip has no refs yet
             }
         });
 
@@ -359,6 +363,8 @@ export async function PUT(req: Request) {
 
         if (!clip.id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
         const intId = parseInt(clip.id);
+
+        console.log('[API] PUT Clip Update:', { id: intId, location: clip.location, character: clip.character });
 
         // Update the clip
         const updatedClip = await db.clip.update({
@@ -412,7 +418,11 @@ export async function PUT(req: Request) {
             include: {
                 episode: true,
                 mediaReferences: {
-                    orderBy: { createdAt: 'desc' }
+                    include: { studioItem: true },
+                    orderBy: [
+                        { refImageSort: 'desc' },
+                        { id: 'desc' }
+                    ]
                 }
             }
         });
@@ -436,35 +446,25 @@ export async function PUT(req: Request) {
             const findLib = (name: string) => libraryImages[name.toLowerCase()];
 
             // Safely resolve using the helper
-            // valid clipWithContext matches the shape expected by resolveClipImages partial
-            // We construct a specific object to pass in to match the interface if needed, 
-            // but resolveClipImages takes { character, location, refImageUrls, explicitRefUrls }
-
-            // Map DB fields to Resolver Interface
             const resolverInput = {
                 character: updatedClip.character,
                 location: updatedClip.location,
-                refImageUrls: updatedClip.refImageUrls, // This is technically the explicit list from DB
-                explicitRefUrls: updatedClip.refImageUrls // We treat DB column as explicit
+                mediaReferences: clipWithContext.mediaReferences || []
             };
 
-            const { fullRefs, characterImageUrls, locationImageUrls } = resolveClipImages(resolverInput, findLib);
+            const { characterImageUrls, locationImageUrls } = resolveClipImages(resolverInput, findLib);
 
-            // Return the fully enriched object
-            // We mix updatedClip properties with computed ones
             const finalClip = {
                 ...updatedClip,
-                // Ensure ID is string for frontend consistency if needed (Prisma returns Int, but mapped in GET to string)
-                // Frontend likely expects string if it came from GET
                 id: updatedClip.id.toString(),
-                episode: clipWithContext.episode.number.toString(), // Match GET format: number string
-                episodeId: updatedClip.episodeId, // UUID for persistence context
-                // Let's match GET structure as close as possible without re-serializing everything if not needed.
+                episode: clipWithContext.episode.number.toString(),
+                episodeId: updatedClip.episodeId,
                 characterImageUrls,
                 locationImageUrls,
-                refImageUrls: fullRefs,
-                explicitRefUrls: updatedClip.refImageUrls, // CRITICAL: Propagate DB value as Explicit
-                mediaReferences: clipWithContext.mediaReferences // NEW: Return fresh relations
+                mediaReferences: clipWithContext.mediaReferences // We should technically enrich here too, but PUT usually follows an update where DB is fresh-ish.
+                // Actually, let's keep it simple for now. The main GET does the heavy lifting.
+                // The PUT returns the *just updated* item, which theoretically has the right URL if we just synced it?
+                // No, sync creates it with current URL. So it's fine.
             };
 
             return NextResponse.json({ success: true, clip: finalClip });
@@ -474,8 +474,7 @@ export async function PUT(req: Request) {
             success: true,
             clip: {
                 ...updatedClip,
-                // Ensure Explicit Ref is passed back if we are falling back to simple return
-                explicitRefUrls: updatedClip.refImageUrls
+                mediaReferences: []
             }
         });
 

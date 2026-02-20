@@ -72,12 +72,10 @@ export async function POST(request: Request) {
                     camera: clip.camera || clip['Camera'] || '',
                     action: clip.action || clip['Action'] || '',
                     dialog: clip.dialog || clip['Dialog'] || '',
-                    refImageUrls: clip.refImageUrls || clip['Ref Image URLs'] || '',
-                    // refVideoUrl: clip.refVideoUrl || '', // Not in schema yet? Add if needed. schema has refImageUrls.
+                    // refImageUrls removed (legacy CSV killed). Ref images should be created as Media records.
                     seed: clip.seed || clip['Seed'] || '',
-                    // duration: ... schema?
                     model: clip.model || defaultModel || '',
-                    sortOrder: index + 1 // Start at 1 or use index
+                    sortOrder: index + 1
                 }
             });
         });

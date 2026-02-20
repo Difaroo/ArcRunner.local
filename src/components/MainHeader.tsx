@@ -48,7 +48,7 @@ export function MainHeader({ currentView, onViewChange, loading, error }: MainHe
                     <h1 className="text-xl tracking-tight text-foreground font-['Helvetica_Neue',_Helvetica,_sans-serif]">
                         <span className="font-medium">ARC</span><span className="font-light">RUNNER</span>
                     </h1>
-                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary font-['Helvetica_Neue',_Helvetica,_sans-serif] font-light">0.31.4 Peregrine</span>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary font-['Helvetica_Neue',_Helvetica,_sans-serif] font-light">0.31.5 Peregrine</span>
                 </div >
 
                 <div className="h-6 w-px bg-border/40 mx-2"></div>
@@ -79,7 +79,7 @@ export function MainHeader({ currentView, onViewChange, loading, error }: MainHe
             {/* Right Side: Status */}
             < div className="flex items-center gap-4" >
                 <div className="flex items-center gap-2 text-sm">
-                    <span className="text-xs text-muted-foreground">v0.31.4</span>
+                    <span className="text-xs text-muted-foreground">v0.31.5</span>
                     <span className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Status</span>
                     <div className={`w-2 h-2 rounded-full ${loading ? 'bg-yellow-500 animate-pulse' : error ? 'bg-destructive' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}></div>
                     <span className="font-medium text-foreground">{loading ? 'Syncing...' : error ? 'Error' : 'Connected'}</span>

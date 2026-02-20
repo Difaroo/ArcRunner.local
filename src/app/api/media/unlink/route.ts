@@ -92,25 +92,6 @@ export async function POST(req: NextRequest) {
         } else {
             updateData.referenceForClipId = null;
             console.log(`[Unlink] Detaching REFERENCE Media ${media.id} from Clip ${media.referenceForClipId}`);
-
-            // SYNC LEGACY CSV: Remove from refImageUrls
-            if (media.referenceForClipId) {
-                const clip = await db.clip.findUnique({ where: { id: media.referenceForClipId } });
-                if (clip && clip.refImageUrls) {
-                    const targetUrl = url;
-                    const currentList = clip.refImageUrls.split(',').map(s => s.trim()).filter(Boolean);
-                    // Strict filter to avoid accidental substring matches
-                    const nextList = currentList.filter(u => u !== targetUrl).join(',');
-
-                    if (nextList !== clip.refImageUrls) {
-                        await db.clip.update({
-                            where: { id: clip.id },
-                            data: { refImageUrls: nextList }
-                        });
-                        console.log(`[Unlink] Removed URL from refImageUrls CSV for Clip ${clip.id}`);
-                    }
-                }
-            }
         }
 
         await db.media.update({

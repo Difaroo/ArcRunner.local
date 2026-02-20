@@ -1,6 +1,6 @@
 {
   "name": "arcrunner-local",
-  "version": "0.31.4",
+  "version": "0.31.5",
   "private": true,
   "scripts": {
     "dev": "npx -y kill-port 3000 && npx prisma generate && next dev -p 3000",
@@ -42,6 +42,7 @@
     "openai": "^6.9.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "react-resizable-panels": "^4.6.4",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^5.0.9"

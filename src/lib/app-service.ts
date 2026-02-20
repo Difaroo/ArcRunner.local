@@ -42,11 +42,10 @@ export const AppService = {
             findLibImage(clip.location, 'LIB_LOCATION');
         }
 
-        // C. Direct Clip Refs
-        if (clip.refImageUrls) {
-            const urls = clip.refImageUrls.split(',');
-            urls.forEach((u: string) => {
-                const converted = convertDriveUrl(u.trim());
+        // C. Direct Clip Refs (from Media table)
+        if (clip.mediaReferences && clip.mediaReferences.length > 0) {
+            clip.mediaReferences.forEach((m: any) => {
+                const converted = convertDriveUrl(m.url?.trim());
                 if (converted) rawImageUrls.push(converted);
             });
         }

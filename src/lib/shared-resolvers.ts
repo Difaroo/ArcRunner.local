@@ -1,34 +1,35 @@
-import { parseStringList, joinStringList } from './utils/string-helpers';
+import { parseStringList } from './utils/string-helpers';
 import { Media } from '@/types';
 
 /**
  * Pure functions for resolving Clip properties.
  * Intended to be shared between Server (API) and Client (React).
  * NO server-only imports allowed (e.g. no 'fs', no 'db').
+ * 
+ * REFACTORED v0.33: Removed all legacy CSV parsing (refImageUrls/explicitRefUrls).
+ * Source of truth is now exclusively the Media table (mediaReferences relation).
  */
 
 export interface ClipReferenceSource {
     character?: string | null;
     location?: string | null;
-    refImageUrls?: string | null; // Legacy CSV
-    explicitRefUrls?: string | null; // Legacy CSV (Explicit)
-    mediaReferences?: Media[]; // New Source of Truth
+    mediaReferences?: Array<{ url: string; refImageSort?: number;[key: string]: any }>; // Loose type for Prisma compat
 }
 
 export interface ResolverResult {
     fullRefs: string;           // Comma-separated string of ALL URLs (Library + Explicit)
-    explicitRefs: string;       // Comma-separated string of JUST Explicit URLs
+    explicitRefs: string;       // Comma-separated string of JUST explicit/media ref URLs
     characterImageUrls: string[];
     locationImageUrls: string[];
 }
 
 /**
  * Resolves all reference images for a clip by combining:
- * 1. Explicit URLs (manually entered/pasted or from Media Table)
+ * 1. Explicit URLs from Media table (mediaReferences)
  * 2. Character Library Images (looked up by name)
  * 3. Location Library Images (looked up by name)
  * 
- * @param clip The clip object containing character/location names and explicit URLs.
+ * @param clip The clip object containing character/location names and mediaReferences.
  * @param findLibraryUrl A callback to look up a library image URL by exact name.
  * @param mode 'single' (default - take first image per asset) or 'all' (take all images per asset)
  */
@@ -37,31 +38,20 @@ export function resolveClipImages(
     findLibraryUrl: (name: string) => string | undefined,
     mode: 'single' | 'all' = 'single'
 ): ResolverResult {
-    // 1. Parse Explicit URLs
-    // Priority: Media Table > Explicit String > Legacy Ref String
-    let explicitRefUrls: string[] = [];
+    // 1. Get explicit URLs directly from Media table
+    const explicitRefUrls: string[] = (clip.mediaReferences || [])
+        .sort((a, b) => (b.refImageSort ?? 0) - (a.refImageSort ?? 0))
+        .map(m => m.url);
 
-    if (clip.mediaReferences && clip.mediaReferences.length > 0) {
-        explicitRefUrls = clip.mediaReferences.map(m => m.url);
-    } else {
-        const explicitStr = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null
-            ? clip.explicitRefUrls
-            : (clip.refImageUrls || '');
-        explicitRefUrls = parseStringList(explicitStr);
-    }
-
-    // For return value, we reconstruct the string (backward compat)
-    const explicitStr = joinStringList(explicitRefUrls);
+    const explicitStr = explicitRefUrls.join(',');
 
     const libraryRefUrls: string[] = [];
     const characterImageUrls: string[] = [];
     const locationImageUrls: string[] = [];
 
-    // Helper to ensure uniqueness
+    // Helper to add unique URL
     const addUrl = (url: string, targetArray?: string[]) => {
         if (!url) return;
-
-        // Check if this URL is already considered "Explicit"
         const isExplicit = explicitRefUrls.includes(url);
         const isAlreadyLib = libraryRefUrls.includes(url);
 
@@ -69,15 +59,12 @@ export function resolveClipImages(
             targetArray.push(url);
         }
 
-        // We do NOT remove from explicitRefUrls even if found in library, 
-        // because explicit list defines user intent.
-
         if (!isExplicit && !isAlreadyLib) {
             libraryRefUrls.push(url);
         }
     };
 
-    // Helper to extract correct URLs based on mode
+    // Helper for mode-based processing
     const processLibraryRef = (str: string, targetArray: string[]) => {
         const rawUrls = parseStringList(str);
         if (rawUrls.length === 0) return;
@@ -115,7 +102,7 @@ export function resolveClipImages(
     }
 
     // 4. Combine
-    const allRefs = joinStringList([...libraryRefUrls, ...explicitRefUrls]);
+    const allRefs = [...libraryRefUrls, ...explicitRefUrls].join(',');
 
     return {
         fullRefs: allRefs,

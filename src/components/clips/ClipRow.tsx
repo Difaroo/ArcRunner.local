@@ -92,26 +92,8 @@ export function ClipRow({
     // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
     // UPDATE v0.16.7: Hybrid Approach
     const getCleanExplicitRefs = () => {
-        // Phase 4 (STRICT MODE): Use Native Array if available (even if empty)
-        // This prevents "Zombie" legacy data from appearing when Media table is empty.
-        if (clip.mediaReferences !== undefined && clip.mediaReferences !== null) {
-            return clip.mediaReferences.map(m => m.url);
-        }
-
-        // Legacy Fallback (Only if mediaReferences is NOT loaded)
-        // This path should rarely run if fetch includes relations.
-        const hasExplicit = clip.explicitRefUrls !== undefined && clip.explicitRefUrls !== null;
-
-        if (hasExplicit) {
-            return parseStringList(clip.explicitRefUrls);
-        } else {
-            const rawUrls = parseStringList(clip.refImageUrls);
-            const autoImages = new Set([
-                ...(clip.characterImageUrls || []),
-                ...(clip.locationImageUrls || [])
-            ]);
-            return rawUrls.filter(u => !autoImages.has(u));
-        }
+        // Media table is the ONLY source of truth
+        return clip.mediaReferences ? clip.mediaReferences.map(m => m.url) : [];
     };
 
     // Optimistic UI for References
@@ -120,7 +102,7 @@ export function ClipRow({
     // Sync Optimistic State with Props when they update (e.g. after successful save)
     useEffect(() => {
         setOptimisticRefs(null);
-    }, [clip.explicitRefUrls, clip.refImageUrls]);
+    }, [clip.mediaReferences]);
 
     // Helper to get current refs (Optimistic > Explicit > Legacy)
     // We only use Optimistic if it's not null.
@@ -150,16 +132,10 @@ export function ClipRow({
                 // 2. Persist using Relation API (New Architecture)
                 try {
                     if (onAddReference) {
-                        // Auto-detect type (basic)
                         const isVideo = droppedUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
                         await onAddReference(clip.id, droppedUrl, isVideo ? 'VIDEO' : 'IMAGE');
                     } else {
-                        // Fallback (Should not happen if parent implements it)
-                        console.warn("onAddReference prop missing, falling back to legacy save");
-                        await onSave(clip.id, {
-                            explicitRefUrls: newUrlsStr,
-                            refImageUrls: newUrlsStr
-                        });
+                        console.warn("onAddReference prop missing");
                     }
                 } catch (err) {
                     console.error("Add Reference Failed", err);
@@ -314,13 +290,12 @@ export function ClipRow({
         setEditValues({
             ...clip,
             negativePrompt: clip.negativePrompt || '',
-            location: clip.location || '', // Robust init to ensure key exists for Object.keys loop
+            location: clip.location || '',
             character: clip.character || '',
             action: clip.action || '',
             dialog: clip.dialog || '',
             camera: clip.camera || '',
-            style: clip.style || '',
-            refImageUrls: getCleanExplicitRefs().join(',')
+            style: clip.style || ''
         })
         onEdit(clip)
     }
@@ -378,14 +353,7 @@ export function ClipRow({
                 ownerClipId: clip.id,
                 episodeId: clip.episode || clip.episodeId // Added for Persistence (matches Clip)
             }))
-            : parseStringList(clip.explicitRefUrls || clip.refImageUrls).map((url, idx) => ({
-                id: `legacy-ref-${idx}`,
-                url: url,
-                type: 'image',
-                title: getFilename(url),
-                isReference: true,
-                ownerClipId: clip.id
-            }));
+            : [];
 
         if (resultHistory.length > 0) {
             // Combine: [Latest Result, Older Results...] + [Effective References...]
@@ -476,34 +444,18 @@ export function ClipRow({
             'negativePrompt',
             'dialog',
             'episode',
-            'refImageUrls', // Mapped to explicitRefUrls
             'character',
             'location',
             'camera',
             'style',
-            'scene', // Fix: Allow Scene updates
-            // Add other editable fields here if needed (e.g. shotType).
-            // DO NOT INCLUDE: resultUrl, status, taskId.
+            'scene',
         ];
 
         (Object.keys(editValues) as Array<keyof Clip>).forEach(key => {
             if (!ALLOWED_FIELDS.includes(key)) return;
 
             const currentVal = editValues[key];
-            let originalVal;
-            // Explicitly map refImageUrls key back to the 'explicitRefUrls' source of truth
-            if (key === 'refImageUrls') {
-                originalVal = clip.explicitRefUrls || clip.refImageUrls;
-
-                // If Ref Images changed, update both legacy and explicit fields to keep them in sync
-                if (String(currentVal) !== String(originalVal)) {
-                    updates.explicitRefUrls = String(currentVal);
-                    updates.refImageUrls = String(currentVal);
-                }
-                return;
-            } else {
-                originalVal = clip[key];
-            }
+            let originalVal = clip[key];
 
             if (normalize(currentVal) !== normalize(originalVal)) {
                 // @ts-ignore
@@ -590,6 +542,25 @@ export function ClipRow({
                     checked={isSelected}
                     onCheckedChange={() => onSelect(clip.id)}
                 />
+                <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                            <div className={`mt-3 mx-auto w-2 h-2 rounded-full ring-1 ring-white/10 shadow-sm ${clip.status === 'Ready' ? 'bg-orange-500' :
+                                    clip.status === 'Generating' || clip.status === 'Done' ? 'bg-green-500' :
+                                        clip.status === 'Saved' || clip.status === 'Complete' ? 'bg-black ring-stone-600' :
+                                            'bg-red-500'
+                                }`} />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="bg-stone-900 border-stone-800 text-stone-200">
+                            <p className="text-xs">{
+                                clip.status === 'Ready' ? 'Render' :
+                                    clip.status === 'Generating' || clip.status === 'Done' ? 'Download' :
+                                        clip.status === 'Saved' || clip.status === 'Complete' ? 'Complete' :
+                                            'Review'
+                            }</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             </TableCell>
             <TableCell className={`align-top font-sans font-extralight text-stone-500 text-xs w-[35px] px-1 py-3`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-stone-500">
@@ -889,8 +860,11 @@ export function ClipRow({
                 {isEditing ? (
                     <div className="flex flex-col gap-2 w-full">
                         <ImageUploadCell
-                            value={editValues.refImageUrls || ''}
-                            onChange={(url) => handleChange('refImageUrls', url)}
+                            value={getCleanExplicitRefs().join(',')}
+                            onChange={(url) => {
+                                if (onAddReference) onAddReference(clip.id, url, 'IMAGE');
+                            }}
+                            onRemove={(url) => handleRefUnlink(url)}
                             isEditing={true}
                             autoOpen={autoOpenUpload}
                             onAutoOpenComplete={() => setAutoOpenUpload(false)}
@@ -1031,12 +1005,8 @@ export function ClipRow({
                                 }}
                                 className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
                                 onUseAsRef={(url) => {
-                                    const currentRefs = parseStringList(clip.explicitRefUrls || clip.refImageUrls);
-                                    if (!currentRefs.includes(url)) {
-                                        const next = [...currentRefs, url].join(',');
-                                        onSave(clip.id, { refImageUrls: next, explicitRefUrls: next });
-                                    } else {
-                                        alert("This image is already a reference.");
+                                    if (onAddReference) {
+                                        onAddReference(clip.id, url, 'IMAGE');
                                     }
                                 }}
                                 episodeId={clip.episodeId || clip.episode} // Pass Persistence Context

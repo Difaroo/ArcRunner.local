@@ -12,6 +12,7 @@ export interface ModelConfig {
     validation?: {
         explicitReference?: boolean; // Requires at least 1 explicit reference image
     };
+    refImageSlots?: { label: string; maxCount?: number }[]; // Phase 2: Slot configuration
 }
 
 export const MODELS: Record<string, ModelConfig> = {
@@ -22,7 +23,9 @@ export const MODELS: Record<string, ModelConfig> = {
         builderId: 'veo',
         isImage: false,
         internalId: 'veo3_fast', // Default internal ID
-        description: 'Fast video generation'
+        description: 'Fast video generation',
+        // Standard Veo: Up to 3 reference images
+        refImageSlots: [{ label: 'Reference', maxCount: 3 }]
     },
     'veo-quality': {
         id: 'veo-quality',
@@ -31,7 +34,8 @@ export const MODELS: Record<string, ModelConfig> = {
         builderId: 'veo',
         isImage: false,
         internalId: 'veo3', // Quality model
-        description: 'High quality video generation'
+        description: 'High quality video generation',
+        refImageSlots: [{ label: 'Reference', maxCount: 3 }]
     },
     'veo-s2e': {
         id: 'veo-s2e',
@@ -40,7 +44,9 @@ export const MODELS: Record<string, ModelConfig> = {
         builderId: 'veo',
         isImage: false,
         internalId: 'veo3_fast', // S2E uses Fast backend usually
-        description: 'Generate video transition between two images'
+        description: 'Generate video transition between two images',
+        // S2E: Strict 2 slots
+        refImageSlots: [{ label: 'Start Frame' }, { label: 'End Frame' }]
     },
     'kling-2.6': {
         id: 'kling-2.6',
@@ -53,7 +59,9 @@ export const MODELS: Record<string, ModelConfig> = {
         hasAudio: true,
         validation: {
             explicitReference: true
-        }
+        },
+        // Kling: Single start frame
+        refImageSlots: [{ label: 'Start Frame', maxCount: 1 }]
     },
     'flux-pro': {
         id: 'flux-pro',
@@ -62,7 +70,8 @@ export const MODELS: Record<string, ModelConfig> = {
         builderId: 'flux',
         isImage: true,
         internalId: 'flux-2/flex-image-to-image', // Flux strategy usually expects specific payload structure
-        description: 'Pro quality image generation'
+        description: 'Pro quality image generation',
+        refImageSlots: [{ label: 'File', maxCount: 8 }]
     },
     'flux-flex': {
         id: 'flux-flex',
@@ -71,7 +80,8 @@ export const MODELS: Record<string, ModelConfig> = {
         builderId: 'flux',
         isImage: true,
         internalId: 'flux-2/flex-image-to-image',
-        description: 'Flexible image generation'
+        description: 'Flexible image generation',
+        refImageSlots: [{ label: 'File', maxCount: 8 }]
     },
     'nano-banana-pro': {
         id: 'nano-banana-pro',
@@ -80,7 +90,8 @@ export const MODELS: Record<string, ModelConfig> = {
         builderId: 'nano',
         isImage: true, // Nano produces images
         internalId: 'nano-banana-pro',
-        description: 'Nano model generation'
+        description: 'Nano model generation',
+        refImageSlots: [{ label: 'File', maxCount: 8 }]
     }
 };
 

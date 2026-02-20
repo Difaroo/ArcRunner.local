@@ -10,6 +10,13 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.31.5 (BEM Layout & Persistence)
+- [x] **Webkit Flexbox Bug**: Bypassed Safari/Webkit layout calculation flaws with explicit `ResizeObserver` width injection.
+- [x] **Layout Persistence**: The BEM grab bar split ratio securely persists across active sessions via `sessionStorage`.
+- [x] **Content Hugging**: Model Input Slots strictly hug their true content width and explicitly bound vertical alignment with the Asset pool.
+- [x] **UI & Interaction**: Polished interactions including conditionally disabled save buttons, style overrides for Studio assets, removed icon clutter, and added robust media-type identification icons.
+- [x] **Data Safety**: Improved the BEM layout scoping logic to correctly implement `react-resizable-panels`.
+
 
 ## 🚀 Released v0.31.4 (Media Persistence & Display)
 - [x] **Thumbnail Fix**: Added `storage/media/` fallback to `getFilePath` — all thumbnails now resolve correctly.

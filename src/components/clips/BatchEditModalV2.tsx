@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input";
 import { VibeItem } from './VibeItem';
 import { MediaDisplay } from '@/components/media/MediaDisplay';
 import { useMediaPersistence } from '@/hooks/useMediaPersistence';
-import { Loader2, Download } from 'lucide-react';
+import { Loader2, Download, AlertCircle } from 'lucide-react';
+import { ClipAssetScroller } from './ClipAssetScroller';
+import { ModelInputSlots } from './ModelInputSlots';
+import { getModelConfig } from '@/lib/models';
 
 interface BatchEditModalProps {
     clips: Clip[];
@@ -226,6 +229,58 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     const [lastVibeId, setLastVibeId] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
 
+    // Phase 3: Media State (Lifted from VibesMenu)
+    const [mediaItems, setMediaItems] = useState<any[]>([]);
+
+    // Load available media
+    useEffect(() => {
+        if (!episodeId) return;
+        fetch(`/api/media?episodeId=${episodeId}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch media');
+                return res.json();
+            })
+            .then(data => setMediaItems(Array.isArray(data) ? data : []))
+            .catch(console.error);
+    }, [episodeId]);
+
+    // Slot Handlers
+    const handleAddToSlot = async (item: any) => {
+        const currentSlots = mediaItems.filter(m => m.refImageSort && m.refImageSort > 0);
+        const maxSort = currentSlots.length > 0 ? Math.max(...currentSlots.map(m => m.refImageSort)) : 0;
+        const newSort = maxSort + 1;
+
+        const updatedItem = { ...item, refImageSort: newSort };
+        setMediaItems(prev => prev.map(m => m.id === item.id ? updatedItem : m));
+
+        try {
+            await fetch('/api/media', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: item.id, refImageSort: newSort })
+            });
+        } catch (e) {
+            console.error("Failed to update sort", e);
+        }
+    };
+
+    const handleRemoveFromSlot = async (item: any) => {
+        const updatedItem = { ...item, refImageSort: 0 };
+        setMediaItems(prev => prev.map(m => m.id === item.id ? updatedItem : m));
+
+        try {
+            await fetch('/api/media', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: item.id, refImageSort: 0 })
+            });
+        } catch (e) {
+            console.error("Failed to update sort", e);
+        }
+    };
+
+
+
     // Issue #1 FIX: Sync editValues when clip changes
     const [editValues, setEditValues] = useState({
         character: clip.character || '',
@@ -234,8 +289,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
         movement: clip.movement || '',
         action: clip.action || '',
         dialog: clip.dialog || '',
-        negativePrompt: clip.negativePrompt || '',
-        refImageUrls: clip.refImageUrls || ''
+        negativePrompt: clip.negativePrompt || ''
     });
 
     // Traffic Light Status Logic
@@ -253,8 +307,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             movement: clip.movement || '',
             action: clip.action || '',
             dialog: clip.dialog || '',
-            negativePrompt: clip.negativePrompt || '',
-            refImageUrls: clip.refImageUrls || ''
+            negativePrompt: clip.negativePrompt || ''
         });
         setSaveError(null);
         setLastVibeId(null);
@@ -337,9 +390,8 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                 movement: editValues.movement,
                 action: editValues.action,
                 dialog: editValues.dialog,
-                refImageUrls: editValues.refImageUrls,
-                negativePrompt: editValues.negativePrompt, // Ensure negativePrompt is saved
-                status: status // Persist status
+                negativePrompt: editValues.negativePrompt,
+                status: status
             });
         } catch (error) {
             setSaveError('Failed to save changes');
@@ -347,75 +399,96 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     };
 
     return (
-        <div className="h-full flex gap-4">
-            {/* Left Panel: Vibes Menu */}
-            <div className="w-52 flex-shrink-0 rounded-lg overflow-y-auto">
-                <VibesMenu
-                    seriesId={seriesId}
-                    episodeId={episodeId}
-                    activeField={activeField}
-                    onSelectVibe={(vibeId, value) => {
-                        if (activeField === 'action') {
-                            handleVibeSelect(vibeId, value, 'action');
-                        } else if (activeField === 'movement') {
-                            handleVibeSelect(vibeId, value, 'movement');
-                        } else if (activeField === 'dialog') {
-                            // Insert character dialog format
-                            handleFieldChange('dialog', editValues.dialog + (editValues.dialog ? '\n' : '') + value);
-                        }
-                    }}
-                    onStudioAssetClick={(name, type) => {
-                        if (type === 'CHARACTER') {
-                            // Toggle character in comma-sep list
-                            const chars = editValues.character.split(',').map(c => c.trim()).filter(Boolean);
-                            if (chars.includes(name)) {
-                                handleFieldChange('character', chars.filter(c => c !== name).join(', '));
-                            } else {
-                                handleFieldChange('character', [...chars, name].join(', '));
-                            }
-                        } else if (type === 'LOCATION') {
-                            handleFieldChange('location', name);
-                        } else if (type === 'CAMERA') {
-                            handleFieldChange('camera', name);
-                        }
-                    }}
-                    onMediaClick={(item: any, isOptionClick: boolean) => {
-                        if (item.type === 'IMAGE') {
-                            // Append to refImageUrls
-                            const existing = editValues.refImageUrls ? editValues.refImageUrls.split(',').map(s => s.trim()) : [];
-                            if (!existing.includes(item.url)) {
-                                handleFieldChange('refImageUrls', [...existing, item.url].join(', '));
-                            }
-                        } else if (item.type === 'VIDEO') {
-                            // Set Result URL via onSave (immediate update for result)
-                            // Or just update local state if we had it. But Clip interface has resultUrl. 
-                            // We should PROBABLY save immediately for resultUrl as it's not in the 3-col form? 
-                            // Wait, resultUrl is NOT in the form. So we must call onSave.
-                            onSave({ resultUrl: item.url });
-                        }
+        <div className="h-full flex flex-col gap-4">
 
-                        if (isOptionClick) {
-                            onNavigate('down');
-                        }
-                    }}
-                />
+            {/* TOP ROW: Holistic Dashboard (Assets & Result) - 40% Height approx */}
+            <div className="flex-[2] flex gap-4 min-h-0 border-b border-stone-800/50 pb-4">
+
+                {/* 1. Asset Pool (Left Column - Vertical) */}
+                <div className="flex-1 bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800">
+                    <div className="px-3 pt-3 pb-1">
+                        <h3 className="text-xs text-stone-500 uppercase tracking-wider font-semibold">Asset Pool</h3>
+                    </div>
+                    <ClipAssetScroller
+                        mediaItems={mediaItems}
+                        onSelect={handleAddToSlot}
+                        isLoading={false}
+                        orientation="vertical"
+                        className="flex-1 w-full"
+                    />
+                </div>
+
+                {/* 2. Middle Column: Slots (Horizontal) */}
+                <div className="flex-[2.5] bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800">
+                    <div className="px-3 pt-3 pb-1">
+                        <h3 className="text-xs text-amber-500 uppercase tracking-wider font-semibold">Generation Inputs</h3>
+                    </div>
+                    <ModelInputSlots
+                        modelConfig={getModelConfig(clip.model || 'veo-fast')}
+                        mediaItems={mediaItems}
+                        onRemove={handleRemoveFromSlot}
+                        orientation="horizontal"
+                        className="flex-1 overflow-x-auto px-4 pb-2 pt-0 gap-4"
+                    />
+                </div>
+
+                {/* 3. Right Column: Result */}
+                <div className="flex-[1.5] bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800">
+                    <div className="px-3 pt-3 pb-1">
+                        <h3 className="text-xs text-amber-500 uppercase tracking-wider font-semibold">Latest Result</h3>
+                    </div>
+                    <div className="flex-1 relative bg-black flex items-center justify-center">
+                        {clip.resultUrl ? (
+                            (clip.resultUrl.includes('.mp4') || clip.resultUrl.includes('.webm')) ? (
+                                <video src={clip.resultUrl} controls className="max-w-full max-h-full" />
+                            ) : (
+                                <img src={clip.resultUrl} alt="Result" className="max-w-full max-h-full object-contain" />
+                            )
+                        ) : (
+                            <span className="text-stone-600 text-xs uppercase tracking-widest">No Generation</span>
+                        )}
+                    </div>
+                </div>
             </div>
 
-            {/* Right Panel: Form + Preview */}
-            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-                {/* Asset Preview Strip */}
-                <AssetPreviewStrip
-                    characters={editValues.character}
-                    location={editValues.location}
-                    refImageUrls={editValues.refImageUrls}
-                    resultUrl={clip.resultUrl}
-                    mediaResults={clip.mediaResults} // Pass history
-                    seriesId={seriesId}
-                    onClick={() => setActiveField('media')}
-                />
 
-                {/* Form Fields - 3 Column Layout */}
-                <div className="flex-1 bg-stone-900 rounded-lg p-4 overflow-y-auto">
+            {/* BOTTOM ROW: Controls & Metadata */}
+            <div className="flex-[2] flex gap-4 min-h-0">
+                {/* Left Panel: Vibes Menu */}
+                <div className="w-52 flex-shrink-0 rounded-lg overflow-y-auto bg-stone-900/30 border border-stone-800/50">
+                    <VibesMenu
+                        seriesId={seriesId}
+                        episodeId={episodeId}
+                        activeField={activeField}
+                        model={clip.model || 'veo-fast'}
+                        onSelectVibe={(vibeId, value) => {
+                            if (activeField === 'action') {
+                                handleVibeSelect(vibeId, value, 'action');
+                            } else if (activeField === 'movement') {
+                                handleVibeSelect(vibeId, value, 'movement');
+                            } else if (activeField === 'dialog') {
+                                handleFieldChange('dialog', editValues.dialog + (editValues.dialog ? '\n' : '') + value);
+                            }
+                        }}
+                        onStudioAssetClick={(name, type) => {
+                            if (type === 'CHARACTER') {
+                                const chars = editValues.character.split(',').map(c => c.trim()).filter(Boolean);
+                                if (chars.includes(name)) {
+                                    handleFieldChange('character', chars.filter(c => c !== name).join(', '));
+                                } else {
+                                    handleFieldChange('character', [...chars, name].join(', '));
+                                }
+                            } else if (type === 'LOCATION') {
+                                handleFieldChange('location', name);
+                            } else if (type === 'CAMERA') {
+                                handleFieldChange('camera', name);
+                            }
+                        }}
+                    />
+                </div>
+
+                {/* Right Panel: Form Fields */}
+                <div className="flex-1 bg-stone-900/50 rounded-lg p-4 overflow-y-auto border border-stone-800/50">
                     <div className="grid grid-cols-3 gap-4 h-full">
                         {/* Column 1: Character, Location, Camera */}
                         <div className="flex flex-col gap-3">
@@ -620,8 +693,8 @@ interface VibesMenuProps {
     activeField: 'character' | 'location' | 'camera' | 'movement' | 'action' | 'dialog' | 'media';
     onSelectVibe: (vibeId: string | null, value: string) => void;
     onStudioAssetClick: (name: string, type: string) => void;
-    onMediaClick?: (item: any, isOptionClick: boolean) => void;
     refreshTrigger?: number; // Prop trigger for live updates
+    model: string;
 }
 
 interface StudioAsset {
@@ -663,9 +736,8 @@ function SortableVibeItem({ vibe, onSelect, onUpdate }: { vibe: Vibe, onSelect: 
     );
 }
 
-function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAssetClick, onMediaClick, refreshTrigger }: VibesMenuProps) {
+function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAssetClick, refreshTrigger, model }: VibesMenuProps) {
     const [studioAssets, setStudioAssets] = useState<StudioAsset[]>([]);
-    const [mediaItems, setMediaItems] = useState<any[]>([]);
     const [vibes, setVibes] = useState<Vibe[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -698,24 +770,6 @@ function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAss
                         setStudioAssets([]);
                     } catch (e) {
                         throw new Error(`Invalid JSON: ${text.slice(0, 100)}`);
-                    }
-                } else if (activeField === 'media') {
-                    // Fetch Media items
-                    console.log('[VibesMenu] Fetching media. EpisodeId:', episodeId);
-                    if (!episodeId) {
-                        console.warn('[VibesMenu] Missing episodeId');
-                        return;
-                    }
-                    const res = await fetch(`/api/media?episodeId=${episodeId}`);
-                    const text = await res.text();
-                    if (!res.ok) throw new Error(`API Error ${res.status}`);
-                    try {
-                        const data = JSON.parse(text);
-                        setMediaItems(Array.isArray(data) ? data : []);
-                        setStudioAssets([]);
-                        setVibes([]);
-                    } catch (e) {
-                        throw new Error('Invalid JSON');
                     }
                 } else {
                     // Fetch studio assets for other fields
@@ -881,320 +935,14 @@ function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAss
                 </DndContext>
             )}
 
-            {/* Media Items */}
-            {!isLoading && mediaItems.length > 0 && (
-                <div className="grid grid-cols-2 gap-2 p-1">
-                    {mediaItems.map((item) => (
-                        <div
-                            key={item.id}
-                            className="relative aspect-video bg-stone-800 rounded overflow-hidden cursor-pointer group border border-transparent hover:border-white/20"
-                            onClick={(e) => onMediaClick?.(item, e.altKey)}
-                        >
-                            <MediaDisplay
-                                url={item.thumbnailPath || item.url}
-                                originalUrl={item.url}
-                                title={item.title || "Media Item"}
-                                contentType={item.type === 'VIDEO' ? 'video' : 'image'}
-                                isThumbnail={!!item.thumbnailPath}
-                                episodeId={episodeId}
-                                className="w-full h-full"
-                                // Override play to select item instead of opening viewer
-                                onPlay={() => onMediaClick?.(item, false)}
-                            />
 
-                            {/* Persistence Button Overlay for User-Initiated Saves */}
-                            {item.type === 'VIDEO' && (
-                                <div className="absolute top-1 right-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        className="bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 backdrop-blur-sm transition-colors"
-                                        disabled={isPersisting}
-                                        title="Save to Drive"
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            // Ensure we have an Episode ID context
-                                            if (episodeId) {
-                                                // Map item ID or just use URL if ID missing?
-                                                // Media Item usually has ID.
-                                                await persistMedia({
-                                                    clipId: item.id || 'unknown', // Fallback? Backend needs ID usually.
-                                                    episodeId: episodeId
-                                                });
-                                            } else {
-                                                alert("Missing context for persistence.");
-                                            }
-                                        }}
-                                    >
-                                        {isPersisting ? (
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                            <Download className="h-3 w-3" />
-                                        )}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
 
-            {!isLoading && studioAssets.length === 0 && vibes.length === 0 && mediaItems.length === 0 && (
+            {!isLoading && studioAssets.length === 0 && vibes.length === 0 && (
                 <div className="text-stone-500 text-sm">No items found</div>
             )}
         </div>
     );
 }
 
-// ========== AssetPreviewStrip Component ==========
 
-interface AssetPreviewStripProps {
-    characters: string;
-    location: string;
-    refImageUrls?: string;
-    resultUrl?: string;
-    mediaResults?: any[]; // Allow passing full history
-    seriesId: string;
-    onClick?: () => void;
-}
-
-interface AssetThumbnail {
-    name: string;
-    thumbnailPath?: string;
-    type: string;
-}
-
-function AssetPreviewStrip({ characters, location, refImageUrls, resultUrl, mediaResults, seriesId, onClick }: AssetPreviewStripProps) {
-    const [assetThumbnails, setAssetThumbnails] = useState<AssetThumbnail[]>([]);
-    const [locationThumbnail, setLocationThumbnail] = useState<string | null>(null);
-
-    const characterNames = characters.split(',').map(c => c.trim()).filter(Boolean);
-    const refImages = refImageUrls ? refImageUrls.split(',').map(s => s.trim()).filter(Boolean) : [];
-
-    // Filter Previous Results (exclude current resultUrl if present)
-    const previousResults = (mediaResults || []).filter(m => m.url !== resultUrl);
-
-    // Fetch thumbnails when characters/location change
-    useEffect(() => {
-        const fetchThumbnails = async () => {
-            if (!seriesId) return;
-
-            try {
-                // Fetch character thumbnails
-                if (characterNames.length > 0) {
-                    const res = await fetch(`/api/library?seriesId=${seriesId}&type=LIB_CHARACTER`);
-                    if (res.ok) {
-                        const items = await res.json();
-                        const matched = items.filter((item: AssetThumbnail) =>
-                            characterNames.includes(item.name)
-                        );
-                        setAssetThumbnails(matched);
-                    }
-                }
-
-                // Fetch location thumbnail
-                if (location) {
-                    const res = await fetch(`/api/library?seriesId=${seriesId}&type=LIB_LOCATION`);
-                    if (res.ok) {
-                        const items = await res.json();
-                        const matched = items.find((item: AssetThumbnail) =>
-                            item.name === location
-                        );
-                        setLocationThumbnail(matched?.thumbnailPath || null);
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to fetch asset thumbnails:', error);
-            }
-        };
-
-        fetchThumbnails();
-    }, [characterNames.join(','), location, seriesId]);
-
-    return (
-        <div className="h-64 flex gap-4">
-            {/* LEFT: Scrollable Asset Scroller (Grey Panel) */}
-            <div
-                className="flex-1 bg-stone-900 rounded-lg p-3 flex gap-2.5 overflow-x-auto items-center cursor-pointer hover:bg-stone-800/80 transition-colors min-w-0 overscroll-x-contain touch-pan-x" // Added overscroll-x-contain and touch-pan-x
-                onClick={onClick}
-            >
-                {/* Studio Assets: Location */}
-                {location && (
-                    <div
-                        className="h-full aspect-video bg-stone-800 rounded border border-white/10 overflow-hidden relative group shrink-0"
-                        title={location}
-                    >
-                        {locationThumbnail ? (
-                            <img
-                                src={locationThumbnail.split(',')[0].trim()}
-                                alt={location}
-                                className="w-full h-full object-cover"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-xs text-stone-500 text-center px-1">{location}</span>
-                            </div>
-                        )}
-
-                        {/* Overlay Gradient (Bottom) */}
-                        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/90 to-transparent pointer-events-none" />
-
-                        {/* Label (Bottom Left) */}
-                        <div className="absolute bottom-2 left-1 right-5 text-[10px] text-stone-300 truncate text-left font-medium drop-shadow-md">
-                            {location}
-                        </div>
-
-                        {/* Icon (Bottom Right) */}
-                        <div className="absolute bottom-1 right-1">
-                            <span className="material-symbols-outlined text-white/90 !text-[12px] block drop-shadow-md">
-                                location_on
-                            </span>
-                        </div>
-                    </div>
-                )}
-
-                {/* Studio Assets: Characters */}
-                {characterNames.map((name, idx) => {
-                    const asset = assetThumbnails.find(a => a.name === name);
-                    return (
-                        <div
-                            key={idx}
-                            className="h-full aspect-[3/4] bg-stone-800 rounded border border-white/10 overflow-hidden relative group shrink-0"
-                            title={name}
-                        >
-                            {asset?.thumbnailPath ? (
-                                <img
-                                    src={asset.thumbnailPath.split(',')[0].trim()}
-                                    alt={name}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                    <span className="text-xs text-stone-500 text-center px-1">{name}</span>
-                                </div>
-                            )}
-
-                            {/* Overlay Gradient (Bottom) */}
-                            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/90 to-transparent pointer-events-none" />
-
-                            {/* Label (Bottom Left) */}
-                            <div className="absolute bottom-1 left-1 right-5 text-[10px] text-stone-300 truncate text-left font-medium drop-shadow-md">
-                                {name}
-                            </div>
-
-                            {/* Icon (Bottom Right) */}
-                            <div className="absolute bottom-1 right-1">
-                                <span className="material-symbols-outlined text-white/90 !text-[12px] block drop-shadow-md">
-                                    person
-                                </span>
-                            </div>
-                        </div>
-                    );
-                })}
-
-                {/* Reference Images */}
-                {refImages.map((url, idx) => (
-                    <div
-                        key={`ref-${idx}`}
-                        className="h-full aspect-video bg-stone-800 rounded border border-white/10 overflow-hidden relative group shrink-0"
-                        title={`Reference Image ${idx + 1}`}
-                    >
-                        <img
-                            src={url}
-                            alt={`Ref ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-
-                        {/* Overlay Gradient (Bottom) */}
-                        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/90 to-transparent pointer-events-none" />
-
-                        {/* Label (Bottom Left) */}
-                        <div className="absolute bottom-1 left-1 right-5 text-[10px] text-stone-300 truncate text-left font-medium drop-shadow-md">
-                            Reference {idx + 1}
-                        </div>
-
-                        {/* Icon (Bottom Right) */}
-                        <div className="absolute bottom-1 right-1">
-                            <span
-                                className="material-symbols-outlined text-white/90 !text-[12px] block drop-shadow-md"
-                                style={{ fontSize: '12px' }}
-                            >
-                                image
-                            </span>
-                        </div>
-                    </div>
-                ))}
-
-                {/* Previous Results (History) */}
-                {previousResults.map((item, idx) => (
-                    <div
-                        key={`hist-${idx}`}
-                        className="h-full aspect-video bg-stone-800 rounded border border-white/10 overflow-hidden relative group shrink-0 opacity-80 hover:opacity-100 transition-opacity"
-                        title={`Previous Result: ${item.type}`}
-                    >
-                        {(item.thumbnailPath || (item.type === 'IMAGE' && item.url)) ? (
-                            <img
-                                src={item.thumbnailPath || item.url}
-                                className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all"
-                                alt="Previous Result"
-                            />
-                        ) : (item.type === 'VIDEO' && item.url) ? (
-                            <video
-                                src={item.url}
-                                className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all"
-                                muted
-                                onMouseOver={e => e.currentTarget.play()}
-                                onMouseOut={e => {
-                                    e.currentTarget.pause();
-                                    e.currentTarget.currentTime = 0;
-                                }}
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-stone-500">
-                                {item.type}
-                            </div>
-                        )}
-
-                        {/* Icon (Bottom Right) */}
-                        <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/60 rounded flex items-center justify-center">
-                            <span className="material-symbols-outlined !text-[14px] text-white">
-                                {item.type === 'VIDEO' ? 'play_arrow' : 'auto_awesome'}
-                            </span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* RIGHT: Latest Result (Floating/Transparent) */}
-            <div className="flex-shrink-0 h-full">
-                {resultUrl ? (
-                    <div className="h-full aspect-video rounded border-2 border-primary overflow-hidden shadow-xl">
-                        {resultUrl.includes('.mp4') || resultUrl.includes('.webm') || resultUrl.includes('.mov') ? (
-                            <video
-                                src={resultUrl}
-                                className="w-full h-full object-cover"
-                                controls
-                                playsInline
-                                preload="metadata"
-                            />
-                        ) : (
-                            <img
-                                src={resultUrl}
-                                alt="Latest Result"
-                                className="w-full h-full object-cover"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                            />
-                        )}
-                    </div>
-                ) : (
-                    <div className="h-full aspect-video bg-stone-950/50 rounded border border-dashed border-stone-800 flex items-center justify-center">
-                        <span className="text-xs text-stone-600">No Result</span>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-export { BatchEditContent, VibesMenu, AssetPreviewStrip };
+export { BatchEditContent, VibesMenu };

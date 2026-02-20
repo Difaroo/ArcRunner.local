@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
                 }
             });
 
-            // Sync CSV - REMOVED (Strict Relational Mode)
-            // await db.clip.update({ ... refImageUrls ... });
+
+
             if (sourceClipId) {
                 const srcClipId = parseInt(sourceClipId, 10);
                 if (!isNaN(srcClipId)) {

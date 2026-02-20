@@ -14,7 +14,8 @@ import { ListOrdered, Download, Clapperboard, Image as ImageIcon, Loader2, Folde
 import { Clip } from "@/types"
 import { MODEL_LIST, getModelConfig } from "@/lib/models"
 import { MoveClipsDialog } from "./MoveClipsDialog"
-import { BatchEditModal } from "./BatchEditModal"
+import { resolveManifest } from "@/lib/structural-manifest";
+import { BatchEditModalV3 as BatchEditModal } from "./BatchEditModalV3"
 
 interface ActionToolbarProps {
     currentEpKey: string
@@ -231,7 +232,7 @@ export function ActionToolbar({
                                     <Fragment key={model.id}>
                                         {needsDivider && <DropdownMenuSeparator className="bg-zinc-700/50" />}
                                         <DropdownMenuItem
-                                            onClick={() => onModelChange(model.id)}
+                                            onSelect={() => onModelChange(model.id)}
                                             className="focus:bg-stone-800 focus:text-white cursor-pointer"
                                         >
                                             {model.label}
@@ -599,6 +600,7 @@ export function ActionToolbar({
                 onDataRefresh={onDataRefresh}
                 seriesId={seriesId || clips[0]?.series || ''}
                 episodeId={episodeUuid || currentEpKey} // Prefer UUID, fallback to Key (but Key will likely fail API)
+                defaultModel={selectedModel}
             />
         </>
     )

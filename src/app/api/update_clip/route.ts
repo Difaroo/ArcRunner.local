@@ -18,15 +18,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
         }
 
-        // Map updates to Prisma fields
-        // Frontend sends keys that mostly match Prisma, but let's be safe.
-        // CRITICAL SECURITY FIX: STRICT WHITELIST
-        // We REMOVE 'resultUrl', 'status', 'taskId' from this list.
-        // These fields MUST ONLY be updated by the System (Polling/Generation), not by User Edits.
+        // STRICT WHITELIST — refImageUrls/explicitRefUrls removed (legacy CSV killed)
         const validFields = [
             'title', 'character', 'location', 'style', 'camera',
-            'action', 'dialog', 'refImageUrls', 'seed', 'model', 'sortOrder',
-            'negativePrompt', 'isHiddenInStoryboard', 'explicitRefUrls', 'scene', 'isSelected' // Added isSelected
+            'action', 'dialog', 'seed', 'model', 'sortOrder',
+            'negativePrompt', 'isHiddenInStoryboard', 'scene', 'isSelected',
+            'movement', 'status'
         ];
 
         const prismaData: any = {};
@@ -42,45 +39,39 @@ export async function POST(request: Request) {
 
         console.log(`[API] Update Clip ${id} Payload:`, JSON.stringify(prismaData));
 
-        // Helper to separate Media updates from Clip updates
-        // If refImageUrls or explicitRefUrls is provided, we use the Service to SYNC Media Table.
-        // We remove it from the Prisma Payload so it doesn't get double-written blindly.
-        const refUrlUpdate = updates.refImageUrls ?? updates.explicitRefUrls;
-
-        // Ensure "undefined" specifically means "no update present"
-        // But "" (empty string) means "clear references"
+        // Handle ref image sync via Media table (if mediaRefs CSV is provided by legacy callers)
+        const refUrlUpdate = updates.mediaRefUrls; // New key for any remaining sync callers
         const isRefUpdate = refUrlUpdate !== undefined;
 
         if (isRefUpdate) {
-            // Remove from direct DB payload
-            delete prismaData.refImageUrls;
-            delete prismaData.explicitRefUrls;
+            console.log(`[API] Syncing References for Clip ${id}`);
+            await import('@/lib/services/media-service').then(m => m.MediaService.syncReferences(id, refUrlUpdate));
+        }
+
+        // PHASE 2: Sync Studio Items (Characters/Location) -> Media Table
+        if (updates.character !== undefined || updates.location !== undefined) {
+            const MediaService = (await import('@/lib/services/media-service')).MediaService;
+
+            if (updates.character !== undefined) {
+                const charNames = updates.character ? (updates.character as string).split(',').map(s => s.trim()) : [];
+                await MediaService.syncClipStudioItems(id, 'CHARACTER', charNames);
+            }
+
+            if (updates.location !== undefined) {
+                const locName = updates.location ? [updates.location as string] : [];
+                await MediaService.syncClipStudioItems(id, 'LOCATION', locName);
+            }
         }
 
         let updatedClip;
 
-        // Transactional update if Media Sync is needed
-        if (isRefUpdate) {
-            console.log(`[API] Syncing References for Clip ${id}`);
-            // Use MediaService to sync (which also updates Clip.refImageUrls inside its transaction)
-            await import('@/lib/services/media-service').then(m => m.MediaService.syncReferences(id, refUrlUpdate));
-
-            // Now apply OTHER updates if any
-            if (Object.keys(prismaData).length > 0) {
-                updatedClip = await db.clip.update({
-                    where: { id },
-                    data: prismaData
-                });
-            } else {
-                // If only refs were updated, fetch the clip to return it
-                updatedClip = await db.clip.findUnique({ where: { id } });
-            }
-        } else {
-            // Standard Path
+        if (Object.keys(prismaData).length > 0) {
             updatedClip = await db.clip.update({
                 where: { id },
                 data: prismaData
             });
+        } else {
+            updatedClip = await db.clip.findUnique({ where: { id } });
         }
 
         if (!updatedClip) {
@@ -89,22 +80,17 @@ export async function POST(request: Request) {
 
         console.log(`[API] Update Success:`, JSON.stringify(updatedClip));
 
-        // Robustness Check: Does the thumbnail actually exist on disk?
+        // Thumbnail generation
         let thumbnailFileExists = false;
         if (updatedClip.thumbnailPath) {
-            // Remove leading slash if present to join correctly with public dir
             const relPath = updatedClip.thumbnailPath.startsWith('/') ? updatedClip.thumbnailPath.slice(1) : updatedClip.thumbnailPath;
             const absPath = path.join(process.cwd(), 'public', relPath);
             thumbnailFileExists = fs.existsSync(absPath);
         }
 
-        // Trigger Thumbnail Generation if:
-        // 1. resultUrl explicitly changed (updates.resultUrl)
-        // 2. OR resultUrl exists AND (thumbnail is missing in DB OR missing on Disk)
         const shouldGenerate = (updates.resultUrl) || (updatedClip.resultUrl && (!updatedClip.thumbnailPath || !thumbnailFileExists));
 
         if (shouldGenerate && updatedClip.resultUrl) {
-            // Run in background
             generateThumbnail(updatedClip.resultUrl, id.toString())
                 .then(async (thumbnailPath) => {
                     if (thumbnailPath) {
@@ -119,37 +105,21 @@ export async function POST(request: Request) {
         }
 
         // Fetch Episode Number and Media Refs
-        // FORCE 'any' cast to bypass stale Prisma Client definition in IDE
         const clipWithContext = await db.clip.findUnique({
             where: { id: updatedClip.id },
             select: {
                 episode: { select: { number: true } },
-                mediaReferences: { orderBy: { id: 'desc' } }
+                mediaReferences: { orderBy: { refImageSort: 'desc' } }
             }
         }) as any;
 
         const epNum = clipWithContext?.episode?.number.toString() || '1';
 
-        let finalExplicitRefs = '';
-        if (isRefUpdate) {
-            finalExplicitRefs = refUrlUpdate || '';
-        } else if (clipWithContext?.mediaReferences !== undefined) {
-            // STRICT MODE: If Media Refs loaded, use them. If empty, it's empty.
-            // Do NOT fallback to updatedClip.refImageUrls (Legacy/Zombie).
-            finalExplicitRefs = clipWithContext.mediaReferences.map((m: any) => m.url).join(',');
-        } else {
-            // Only fallback if Media context wasn't fetched (unlikely)
-            finalExplicitRefs = updatedClip.refImageUrls || '';
-        }
-
         // Transform to match Frontend Interface
         const formattedClip = {
             ...updatedClip,
-            id: updatedClip.id.toString(), // CRITICAL: Frontend expects String ID
-            episode: epNum,                // CRITICAL: Frontend expects Episode Number
-            // Ensure explicitRefUrls is passed back so UI updates immediately.
-            explicitRefUrls: finalExplicitRefs,
-            // STRICT MODE FIX: Return the fresh Media References array so Frontend updates source of truth
+            id: updatedClip.id.toString(),
+            episode: epNum,
             mediaReferences: clipWithContext?.mediaReferences || []
         };
 

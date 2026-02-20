@@ -510,8 +510,7 @@ export default function Home() {
           ...c,
           ...data.clip,
           ...updates, // FORCE USER UPDATES (Prevent Stale Revert)
-          // CRITICAL FIX: Sync explicitRefUrls with the DB refImageUrls (which is now properly explicit in API)
-          explicitRefUrls: data.clip.explicitRefUrls || data.clip.refImageUrls // Use Explicit if available (preferred), fallback only if old API
+          mediaReferences: data.clip.mediaReferences || c.mediaReferences || []
         } : c).map(c => {
           // Post-Update Re-Resolution (Success Path)
           // Ensure derived fields are updated immediately using the fresh data
@@ -546,8 +545,6 @@ export default function Home() {
 
           return {
             ...merged,
-            refImageUrls: fullRefs,
-            explicitRefUrls: explicitRefs,
             characterImageUrls,
             locationImageUrls
           };
@@ -607,9 +604,7 @@ export default function Home() {
           const { fullRefs, explicitRefs } = resolveClipImages(clip, findUrl);
 
           return {
-            ...clip,
-            refImageUrls: fullRefs,
-            explicitRefUrls: explicitRefs // CRITICAL: Propagate explicit refs to prevent data loss
+            ...clip
           };
         }));
       }
@@ -862,19 +857,10 @@ export default function Home() {
     const config = getModelConfig(selectedModel);
     if (config?.validation?.explicitReference) {
       // Find invalid clips
-      const invalidClips = validToGen.filter(c => { // Check ONLY valid clips
-
-        // PRIMARY CHECK: Media Table References (Phase 4 Architecture)
+      const invalidClips = validToGen.filter(c => {
+        // Media Table References (Source of Truth)
         const hasMediaRefs = c.mediaReferences && c.mediaReferences.length > 0;
-
-        // FALLBACK: Legacy string fields (for backward compatibility)
-        const explicitStr = (c.explicitRefUrls !== undefined && c.explicitRefUrls !== null)
-          ? c.explicitRefUrls
-          : (c.refImageUrls || '');
-        const hasLegacyRefs = explicitStr.trim().length > 0;
-
-        // Clip is invalid if BOTH checks fail
-        return !hasMediaRefs && !hasLegacyRefs;
+        return !hasMediaRefs;
       });
 
       if (invalidClips.length > 0) {
@@ -1259,7 +1245,7 @@ export default function Home() {
     // Find the clip - prefer contextId, fallback to URL search
     const clip = clipId
       ? clips.find(c => c.id.toString() === clipId.toString())
-      : clips.find(c => (c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url));
+      : clips.find(c => (c.mediaReferences || []).some((m: any) => m.url === url));
 
     if (!clip) {
       console.error('[Unlink] Could not find clip for contextId:', contextId);
@@ -1358,9 +1344,10 @@ export default function Home() {
     // The backend handles the actual DB/CSV persistence, but we want instant feedback.
     setClips(prev => prev.map(c => {
       if (c.id === clip.id) {
-        const currentRefs = (c.refImageUrls || '').split(',').map(s => s.trim()).filter(Boolean);
-        const nextRefs = currentRefs.filter(r => r !== url).join(',');
-        return { ...c, refImageUrls: nextRefs };
+        return {
+          ...c,
+          mediaReferences: (c.mediaReferences || []).filter((m: any) => m.url !== url)
+        };
       }
       return c;
     }));
@@ -1458,8 +1445,7 @@ export default function Home() {
       resultUrl: parentClip.resultUrl, // Fix: Copy result logic
       thumbnailPath: parentClip.thumbnailPath, // Fix: Copy thumbnail path
       taskId: '',
-      refImageUrls: '',
-      explicitRefUrls: parentClip.explicitRefUrls // Keep explicit refs
+      mediaReferences: parentClip.mediaReferences || [] // Copy media references
     };
 
     // 5. Optimistic Update (Global List)
@@ -1557,8 +1543,6 @@ export default function Home() {
       status: 'Ready',
       resultUrl: '',
       taskId: '',
-      refImageUrls: '',
-      explicitRefUrls: '',
       episode: currentEpKey,
       series: currentSeriesId,
       // Optional Fields
@@ -1860,24 +1844,21 @@ export default function Home() {
     // 1. Optimistic Update
     setClips(prev => prev.map(c => {
       if (c.id !== clipId) return c;
-      const currentCsv = c.explicitRefUrls || c.refImageUrls || '';
-      const currentRefs = currentCsv.split(',').map(s => s.trim()).filter(Boolean);
-      if (currentRefs.includes(url)) return c;
-
-      const newCsv = [...currentRefs, url].join(',');
+      // Check for duplicate
+      if ((c.mediaReferences || []).some((m: any) => m.url === url)) return c;
 
       // Mock Media for immediate UI
       const newMediaRef = {
-        id: Date.now(), // Temp ID
+        id: `temp-${Date.now()}`,
         url,
         type,
         category: 'REFERENCE',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        refImageSort: 0
       } as any;
 
       return {
         ...c,
-        explicitRefUrls: newCsv,
         mediaReferences: [...(c.mediaReferences || []), newMediaRef]
       };
     }));
@@ -1923,7 +1904,7 @@ export default function Home() {
           const clip = clips.find(c =>
             (c.resultUrl === url) ||
             (c.resultUrl && c.resultUrl.split(',').map(s => s.trim()).includes(url)) ||
-            ((c.explicitRefUrls || c.refImageUrls || '').split(',').map(s => s.trim()).includes(url))
+            ((c.mediaReferences || []).some((m: any) => m.url === url))
           );
 
           const lib = !clip ? libraryItems.find(i => (i.refImageUrl || '').includes(url) || ((i as any).media || []).some((m: any) => m.url === url || m.localPath === url)) : undefined;
@@ -2270,6 +2251,8 @@ export default function Home() {
                 onModelChange={async (model) => {
                   setSelectedModel(model);
                   localStorage.setItem("selectedModel", model);
+                  // Fix: Persist to Episode to prevent revert
+                  updateEpisodeSetting({ model });
 
                   // Audio/Duration Reset Logic (Defensive UI)
                   const newConfig = getModelConfig(model);

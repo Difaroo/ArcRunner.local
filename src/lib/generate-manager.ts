@@ -22,7 +22,7 @@ export interface GenerateTaskInput {
     // Usually prompt is built from clip fields.
 
     // Or we accept the full Clip object?
-    clip: Clip & { prompt?: string, duration?: string, explicitRefUrls?: string, negativePrompt?: string | null, movement?: string | null }; // Extended for legacy/UI fields
+    clip: Clip & { prompt?: string, duration?: string, negativePrompt?: string | null, movement?: string | null }; // Extended for UI fields
 
     // Diagnosis
     dryRun?: boolean;
@@ -158,7 +158,6 @@ export class GenerateManager {
 
         // --- DB SOURCE OF TRUTH ---
         // Fetch the Clip + MediaReferences directly from DB to ensure we have the correct files.
-        // Do not trust the frontend 'refImageUrls' string blindly.
         const dbClip = await db.clip.findUnique({
             where: { id: parseInt(String(input.clipId)) },
             include: { mediaReferences: true }
@@ -166,39 +165,31 @@ export class GenerateManager {
 
         if (!dbClip) throw new Error(`Clip ID ${input.clipId} not found in DB`);
 
-        // Merge DB data back into input context if needed, or just use it below
-        // input.clip = dbClip; // Caution: dbClip might have different shape/types than InputClip interface?
-
         // --- RESOLVER PHASE ---
-        // 2. Resolve Explicit References from Media Relations (The "One True Place")
+        // 2. Resolve Explicit References from Media Relations (Source of Truth)
         let explicitRefPaths: string[] = [];
 
-        if (dbClip.mediaReferences && dbClip.mediaReferences.length > 0) {
-            // Sort by CreatedAt Ascending (Oldest First = FIFO)
-            // This ensures "Start Frame" (added first) comes before "End Frame" (added second) in the array.
-            const sortedRefs = dbClip.mediaReferences.sort((a, b) => {
-                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-            });
+        // Sort by refImageSort DESC (flagged refs first), then createdAt ASC (FIFO for equal sort)
+        const sortedRefs = (dbClip.mediaReferences || []).sort((a, b) => {
+            const sortDiff = (b.refImageSort || 0) - (a.refImageSort || 0);
+            if (sortDiff !== 0) return sortDiff;
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        });
 
-            // Extract valid paths
-            explicitRefPaths = sortedRefs.map(m => {
-                // FAST PATH: If we have a valid Remote URL, use it to avoid expensive re-upload (Timeout Fix)
-                if (m.url && m.url.startsWith('http')) {
-                    return m.url;
-                }
-                // PREFER localPath if it exists (Absolute connection to disk)
-                if (m.localPath && fs.existsSync(m.localPath)) {
-                    return m.localPath;
-                }
-                // Fallback to URL (Local /api/ path)
+        // Extract valid paths
+        explicitRefPaths = sortedRefs.map(m => {
+            // FAST PATH: If we have a valid Remote URL, use it to avoid expensive re-upload (Timeout Fix)
+            if (m.url && m.url.startsWith('http')) {
                 return m.url;
-            });
-            console.log(`[GenerateManager] Resolved ${explicitRefPaths.length} Media References from DB Relations.`);
-        } else {
-            // Fallback to Legacy CSV if no relations (Backward Compat)
-            const rawExplicit = (input.clip.refImageUrls || "").split(',').map((s: string) => s.trim()).filter(Boolean).reverse();
-            explicitRefPaths = rawExplicit;
-        }
+            }
+            // PREFER localPath if it exists (Absolute connection to disk)
+            if (m.localPath && fs.existsSync(m.localPath)) {
+                return m.localPath;
+            }
+            // Fallback to URL (Local /api/ path)
+            return m.url;
+        });
+        console.log(`[GenerateManager] Resolved ${explicitRefPaths.length} Media References (sorted by refImageSort).`);
 
         // ... ensureList logic will handle both Absolute Paths and URLs ...
         const libraryItems = await db.studioItem.findMany({

@@ -9,8 +9,6 @@ export interface Clip {
     movement?: string; // Phase 4 Migration
     action: string;
     dialog: string;
-    refImageUrls: string;
-    explicitRefUrls: string;
     characterImageUrls?: string[];
     locationImageUrls?: string[];
     status: string;
@@ -43,6 +41,7 @@ export interface Media {
     width?: number;
     height?: number;
     createdAt?: string | Date;
+    refImageSort?: number;
     studioItem?: { name: string }; // Relation
 }
 

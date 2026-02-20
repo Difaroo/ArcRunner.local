@@ -13,13 +13,14 @@ import { X, Loader2 } from "lucide-react";
 interface ImageUploadCellProps {
     value: string;
     onChange: (value: string) => void;
+    onRemove?: (url: string) => void; // Media-table unlink handler (bypasses CSV onChange)
     isEditing: boolean;
     autoOpen?: boolean;
     onAutoOpenComplete?: () => void;
     episode?: string; // Add episode prop
 }
 
-export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOpenComplete, episode }: ImageUploadCellProps) {
+export function ImageUploadCell({ value, onChange, onRemove, isEditing, autoOpen, onAutoOpenComplete, episode }: ImageUploadCellProps) {
     const [uploading, setUploading] = useState(false);
     const [imageToDelete, setImageToDelete] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,13 +77,19 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
     };
 
     const handleDeleteClick = (url: string) => {
-        const currentUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean) : [];
-        const newUrls = currentUrls.filter(u => u !== url);
-        onChange(newUrls.join(','));
+        if (onRemove) {
+            // Media-table path: delegate to parent's unlink handler
+            onRemove(url);
+        } else {
+            // Legacy CSV path: modify the comma-separated value string
+            const currentUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean) : [];
+            const newUrls = currentUrls.filter(u => u !== url);
+            onChange(newUrls.join(','));
+        }
         setImageToDelete(null);
     };
 
-    const imageUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean).reverse() : [];
+    const imageUrls = value ? value.split(',').map(u => u.trim()).filter(Boolean) : []; // No reverse: DB order is already LIFO (id: desc)
     // For display, prioritize library images if any, otherwise show first clip image
     // But for editing, we show all clip images
     const imageUrl = imageUrls.length > 0 ? imageUrls[0] : null;
@@ -161,6 +168,7 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                     const lower = url.toLowerCase();
                     const isStatus = lower === 'waiting' || lower === 'generating' || lower.startsWith('task:');
                     const isError = lower.includes('error');
+                    const isVideo = !!url.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
 
                     return (
                         <div
@@ -178,6 +186,8 @@ export function ImageUploadCell({ value, onChange, isEditing, autoOpen, onAutoOp
                                     <Loader2 className="h-3 w-3 animate-spin text-stone-500" />
                                 ) : isError ? (
                                     <span className="material-symbols-outlined text-red-500 text-xs">error</span>
+                                ) : isVideo ? (
+                                    <span className="material-symbols-outlined text-stone-400 !text-[16px]">play_circle</span>
                                 ) : (
                                     <img
                                         src={(url.startsWith('/api/') || url.startsWith('/media/') || url.startsWith('/uploads/') || url.startsWith('/thumbnails/')) ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}

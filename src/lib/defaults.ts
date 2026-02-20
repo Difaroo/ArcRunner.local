@@ -43,7 +43,7 @@ library
   "camera": "LowAngle_Heroic",
   "action": "Heroic 1950s framing: Jack in 50's hazmat suit with perspex sphere helmet, 50's metal detector, sweeping the ground with intense concentration, under lightning sky, cows watching.",
   "dialog": "Cut to closeup of Candy's face looking cheeky: \"Why are you vacuuming the desert?\"\\nZoom into close up of Jack's face inside the helmet.\\nJack says: \"Cleaning up weather balloon shit.\"",
-  "refImageUrls": "",
+
   "refVideoUrl": "",
   "seed": "64132",
   "duration": "5",
@@ -70,7 +70,7 @@ library
   "camera": "Wide_Shot",       // LIBRARY name
   "action": "Neo steps onto the platform...", // One short sentence of what happens
   "dialog": "NEO: Where are we?", // Exact dialogue. Prefix with speaker name.
-  "refImageUrls": "",          // Up to 3 URLs (optional)
+
   "refVideoUrl": "",           // Optional Video URL
   "seed": "",                  // Optional seed for consistency
   "duration": "4",             // Duration in seconds (typically 3–5)
@@ -169,7 +169,7 @@ library
   "camera": "Portrait_Length_85mm",
   "action": "A striking portrait of Jack in a 50's hazmat suit with perspex sphere helmet. The helmet reflects the lightning sky above. He looks determined. Cows are visible in the soft-focus background.",
   "dialog": "",
-  "refImageUrls": "",
+
   "refVideoUrl": "",
   "seed": "12345",
   "duration": "0",
@@ -196,7 +196,7 @@ library
   "camera": "Wide_Shot",       // LIBRARY name
   "action": "Neo steps onto the platform...", // Detailed visual description
   "dialog": "",                // Leave empty for Stills
-  "refImageUrls": "",          // Up to 3 URLs (optional)
+
   "refVideoUrl": "",           // Leave empty
   "seed": "",                  // Optional
   "duration": "0",             // 0 for Stills

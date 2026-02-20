@@ -19,7 +19,7 @@ export function StoryboardCard({ clip, onToggleHide, printLayout = '3x2' }: Stor
         if (clip.thumbnailPath) return { url: clip.thumbnailPath, isFallback: false };
         if (clip.resultUrl) return { url: clip.resultUrl, isFallback: false };
 
-        const refs = parseStringList(clip.explicitRefUrls || clip.refImageUrls || '');
+        const refs = (clip.mediaReferences || []).map((m: any) => m.url);
         if (refs.length > 0) return { url: refs[0], isFallback: true };
 
         return null;

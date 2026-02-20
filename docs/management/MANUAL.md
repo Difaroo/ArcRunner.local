@@ -71,10 +71,12 @@ To use Start-to-End generation correctly:
 3.  The system preserves this order (FIFO) when sending to Veo. Start = Image 1, End = Image 2.
 
 ### Batch Edit Modal & Asset Scroller
-The **Batch Edit Modal** now features an enhanced **Asset Scroller** on the left side:
--   **Visual Separation**: The scrollable asset area (Grey) is distinct from the latest result preview.
+The **Batch Edit Modal** has been upgraded to a **V3 Layout** maximizing space for inputs:
+-   **Visual Separation**: The scrollable Asset Pool area (Grey) is distinct from the dynamic Model Input Slots.
+-   **Persistent Layout**: The vertical split between the Asset Pool and the editing interface persists its position for the duration of your browser session (`sessionStorage`).
+-   **True Content Hugging**: Model Input Slots bypass Safari layout bugs by explicitly measuring their inner width and snapping perfectly to the content to prevent dead space.
 -   **Horizontal Scroll**: Swipe to browse through all associated assets (Characters, Locations, References).
--   **Result History**: The scroller now displays **all previous results** (Images `auto_awesome` & Videos `play_arrow`).
+-   **Result History**: The scroller displays **all previous results** (Images `auto_awesome` & Videos `play_arrow`).
 -   **Video Previews**: Hover over any video item in the scroller or Vibe Menu to play a preview.
 
 ### Movement Control (New)

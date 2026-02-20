@@ -3,6 +3,29 @@
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
 
+## 2026-02-20: v0.31.5 - Peregrine (BEM Layout & Persistence)
+
+### Context
+A feature-complete release for the Batch Edit Modal (BEM) V3. This iteration resolves long-standing horizontal margin issues via a programmatic `ResizeObserver` layout approach, completely bypassing Safari/Webkit `aspect-ratio` flexbox rendering bugs. It also introduces session-based persistence for the vertical layout grabbar and ensures strict logic alignment with the structural generation manifest.
+
+### Features
+- **BEM Layout Persistence**:
+  - The vertical resizer dividing the Asset Pool from the specific Model Input Slots now persists its ratio across the user's active browser session using `sessionStorage` (`react-resizable-panels`).
+- **Generation Alignment**:
+  - The UI now perfectly mirrors the backend `structural-manifest` (e.g., dynamically hiding "Style" for Veo, displaying single slots for Kling, explicit "Start Frame" / "End Frame" headers for Veo S2E).
+
+### Fixes
+- **Webkit Flexbox Bug**:
+  - **Issue**: Safari and Webkit-based browsers failed to accurately calculate `w-fit` or `fit-content` on the Model Input Slots container when child widths were dictated by a fluid `aspect-ratio`, resulting in aggressive right-hand margin bloat.
+  - **Solution**: Bypassed CSS layout engine constraints by implementing a React `ResizeObserver`. This mathematically calculates the exact required pixel width of the slots dynamically and strictly applies it as an inline style to the container.
+- **Scoping Errors**:
+  - Repositioned React Hooks (`useRef`, `ResizeObserver`) from the modal wrapper into the specific `BatchEditContent` scope to satisfy React's Rules of Hooks.
+
+### Version Bump
+- **Patch**: 0.31.4 -> 0.31.5.
+
+---
+
 ## 2026-02-16: v0.31.4 - Peregrine (Media Persistence & Display)
 
 ### Context

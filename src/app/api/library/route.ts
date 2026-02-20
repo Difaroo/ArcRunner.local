@@ -17,18 +17,28 @@ export async function GET(request: NextRequest) {
                 seriesId,
                 ...(type && { type })
             },
+            include: {
+                media: {
+                    where: { category: 'STUDIO_UPLOAD' },
+                    orderBy: { id: 'desc' },
+                    take: 1 // Only need latest
+                }
+            },
             orderBy: { name: 'asc' }
         });
 
-        // Map to standardized format - use refImageUrl as thumbnail fallback
-        return NextResponse.json(items.map(item => ({
-            id: item.id,
-            name: item.name,
-            type: item.type,
-            thumbnailPath: item.thumbnailPath || item.refImageUrl || null,
-            refImageUrl: item.refImageUrl,
-            description: item.description
-        })));
+        // Map to standardized format - use Media table URL as primary fallback (matches /api/clips logic)
+        return NextResponse.json(items.map((item: any) => {
+            const mediaUrl = (item.media && item.media.length > 0) ? item.media[0].url : null;
+            return {
+                id: item.id,
+                name: item.name,
+                type: item.type,
+                thumbnailPath: item.thumbnailPath || mediaUrl || item.refImageUrl || null,
+                refImageUrl: mediaUrl || item.refImageUrl || null,
+                description: item.description
+            };
+        }));
     } catch (error: any) {
         console.error('Library GET Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

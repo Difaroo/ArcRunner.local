@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 
             body.pipe(fileStream);
 
-            body.on('error', (err) => {
+            body.on('error', (err: any) => {
                 logPersist(`[Persistence] Read Stream Error: ${err}`);
                 reject(err);
             });

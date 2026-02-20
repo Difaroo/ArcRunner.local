@@ -41,6 +41,7 @@ export function MediaDisplay({
 }: MediaDisplayProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [imgError, setImgError] = useState(false); // Track if proxy failed
+    const [videoError, setVideoError] = useState(false); // Track if video failed
 
     // Handle comma-separated lists (take first)
     const effectiveUrl = url ? url.split(',')[0].trim() : '';
@@ -115,20 +116,26 @@ export function MediaDisplay({
                 }}
             >
                 {/* Visual Representation */}
-                {isImageDisplay ? (
+                {(imgError || videoError) ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-stone-900 border border-stone-800 p-2 text-center">
+                        <span className="material-symbols-outlined text-stone-600 mb-1">broken_image</span>
+                        <span className="text-[10px] text-stone-600 leading-tight line-clamp-2 md:line-clamp-none break-all">
+                            {title || (effectiveUrl ? effectiveUrl.split('/').pop() : 'Missing')}
+                        </span>
+                    </div>
+                ) : isImageDisplay ? (
                     <img
                         src={imgError ? effectiveUrl : getSrc(effectiveUrl, 'image')}
                         className="w-full h-full object-cover rounded border border-stone-800 shadow-sm transition-opacity group-hover:opacity-90 active:cursor-grabbing"
                         alt="Preview"
                         loading="lazy"
                         onError={(e) => {
-                            // If proxy failed, try direct URL as fallback
-                            if (!imgError) {
-                                setImgError(true);
-                            } else {
-                                // Both failed, dim the image
-                                (e.target as HTMLImageElement).style.opacity = '0.3';
-                            }
+                            // First try: Failed.
+                            // If we haven't tried fallback (or if we don't have one), show error.
+                            // Note: getSrc might be using proxy. If proxy fails, we could try direct.
+                            // But usually if proxy fails (404), direct will also fail or be CORS blocked.
+                            // Let's simplified: just show error.
+                            setImgError(true);
                         }}
                     />
                 ) : (
@@ -143,23 +150,26 @@ export function MediaDisplay({
                             e.currentTarget.pause();
                             e.currentTarget.currentTime = 0;
                         }}
+                        onError={() => setVideoError(true)}
                     />
                 )}
 
                 {/* Overlays / Icons - Based on CONTENT TYPE */}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/30 transition-colors print:hidden">
-                    {type === 'video' ? (
-                        <span className="material-symbols-outlined text-white/90 text-[24px] drop-shadow-lg group-hover:scale-110 transition-transform">
-                            play_circle
-                        </span>
-                    ) : (
-                        !isReference && (
-                            <span className="material-symbols-outlined text-white/80 text-[20px] drop-shadow-lg group-hover:scale-110 transition-transform opacity-0 group-hover:opacity-100">
-                                visibility
+                {!videoError && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/30 transition-colors print:hidden">
+                        {type === 'video' ? (
+                            <span className="material-symbols-outlined text-white/90 text-[24px] drop-shadow-lg group-hover:scale-110 transition-transform">
+                                play_circle
                             </span>
-                        )
-                    )}
-                </div>
+                        ) : (
+                            !isReference && (
+                                <span className="material-symbols-outlined text-white/80 text-[20px] drop-shadow-lg group-hover:scale-110 transition-transform opacity-0 group-hover:opacity-100">
+                                    visibility
+                                </span>
+                            )
+                        )}
+                    </div>
+                )}
             </div>
 
             <UniversalMediaViewer

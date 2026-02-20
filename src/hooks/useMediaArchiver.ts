@@ -95,11 +95,15 @@ export function useMediaArchiver({
                     updates.resultUrl = finalUrl;
                 }
 
-                // B) Append to Refs
-                const currentRefs = clip.refImageUrls || '';
-                // Check if already in refs
-                if (!currentRefs.includes(finalUrl)) {
-                    updates.refImageUrls = currentRefs ? `${currentRefs}, ${finalUrl}` : finalUrl;
+                // B) Add as reference via Media API
+                try {
+                    await fetch('/api/media/add-ref', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ targetClipId: clip.id, url: finalUrl, type: 'IMAGE' })
+                    });
+                } catch (refErr) {
+                    console.warn('Failed to add ref via Media API', refErr);
                 }
 
                 // C) Set Status to Saved

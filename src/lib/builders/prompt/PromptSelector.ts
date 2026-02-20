@@ -1,5 +1,6 @@
 import { GenerationContext } from '../PayloadBuilder';
 import { ImageManifest } from './types';
+import { resolveManifest } from '@/lib/structural-manifest';
 
 /**
  * IMAGE MANIFEST PRIORITY SPECIFICATION
@@ -26,156 +27,71 @@ export class PromptSelector {
 
     static select(context: GenerationContext): ImageManifest {
         const { input, characterImages, locationImages, explicitImages, styleImage } = context;
-        console.log(`[PromptSelector DEBUG] Input Arrays: Loc=${locationImages?.length}, Chars=${characterImages?.length}, Explicit=${explicitImages?.length}`);
 
-        // Model-specific capacity
-        const model = (input.model || '').toLowerCase();
-        const isNanoModel = model.includes('nano') || model.includes('banana') || model.includes('flux');
-        const isKlingModel = model.includes('kling');
-        const isS2E = input.model === 'veo-s2e';
+        // Map context to LibraryContext
+        const libraryContext = {
+            styleImage: styleImage || undefined, // Convert null to undefined
+            characterImages,
+            locationImages,
+            characterAssets: context.characterAssets
+        };
 
-        // Determine max images based on model
-        let maxTotal = 3; // Default for Veo
-        if (isNanoModel) maxTotal = 8;
-        if (isKlingModel) maxTotal = 1;
-        if (isS2E) maxTotal = 2;
+        // Map explicit strings to pseudo-ClipMediaReference for the resolver
+        // (The resolver expects objects with IDs, but for backend context we might only have URLs strings? 
+        // Context.explicitImages is string[]. We need to wrap them.)
+        // Actually, PromptSelector receives `explicitImages` as string[].
+        // But `resolveManifest` expects `ClipMediaReference[]` to handle S2E sort logic properly if needed.
+        // However, `explicitImages` in GenerateManager are ALREADY sorted by `refImageSort` in `resolveClipImages`.
+        // So we can map them to dummy objects preserving order.
 
-        // 1-based index trackers
-        let locImgIdx = 0;
-        const charImgIndices: number[] = new Array(characterImages.length).fill(0);
-        const refImgIndices: number[] = [];
-        let styleImgIdx = 0;
+        const explicitRefs = (explicitImages || []).map((url, index) => ({
+            id: `explicit-${index}`,
+            url,
+            type: 'IMAGE',
+            category: 'REF',
+            refImageSort: (explicitImages || []).length - index // Preserve order
+        })) as any;
 
-        let selectedImages: string[] = [];
+        // Call Shared Resolver
+        const manifest = resolveManifest(
+            { ...input } as any, // Cast input to Clip (it has model, etc)
+            input.model || '',
+            libraryContext,
+            explicitRefs
+        );
 
-        // --- KLING: Latest Filtered Ref Image Only ---
-        if (isKlingModel) {
-            // STRICT RULE: Kling requires Manual Reference Image. No Fallbacks.
-            // Robustness: Filter out failed uploads ("") or short junk
-            const validExplicit = explicitImages?.filter(u => u && u.length > 5) || [];
+        // Map back to old ImageManifest format if needed, OR just return the new Manifest
+        // The old 'ImageManifest' interface in 'types' might need update or we map to it.
+        // Old Interface: { selectedUrls: string[], slots: { location: number, ... }, counts: ... }
+        // New Manifest: { selectedUrls, slots: InputSlot[], counts }
 
-            if (validExplicit.length > 0) {
-                // validExplicit[0] is latest (reverse sorted)
-                selectedImages = [validExplicit[0]];
-                refImgIndices.push(1);
-            }
-            // If no explicit ref, selectedImages remains [], causing Builder to throw Validation Error.
-        }
-        // --- S2E: Start + End Frames ---
-        else if (isS2E) {
-            // S2E STRICT: Refs are LIFO (newest first), so [1]=START, [0]=END
-            // Reverse order for correct playback: [1, 0] → [START, END]
-            if (explicitImages && explicitImages.length >= 2) {
-                selectedImages = [explicitImages[1], explicitImages[0]];
-            } else if (explicitImages && explicitImages.length === 1) {
-                selectedImages = [explicitImages[0]];
-                refImgIndices.push(1);
-            }
-        } else {
-            // --- Standard Hierarchy Logic (Veo, Flux, Nano) ---
-            // Priority Order: Style → Location → Characters → Refs
-            const tempImages: string[] = [];
+        // We need to map `InputSlot[]` back to the `slots` indices format for legacy compatibility if `ImageManifest` is strict.
+        // Let's check `ImageManifest` type. It's imported from `./types`.
+        // If I change the return type, I might break `PromptConstructor`.
+        // SAFE APPROACH: Map new `slots` to old `indices`.
 
-            // Helper: Add unique, valid URL
-            const addImage = (url: string): number => {
-                // Defensive: Valid URL check ( > 5 chars, not undefined string)
-                if (url && url.length > 5 && url !== 'undefined' && url !== 'null' && !tempImages.includes(url)) {
-                    tempImages.push(url);
-                    return tempImages.length; // New 1-based index
-                }
-                return 0;
-            };
+        const slotIndices = {
+            style: 0,
+            location: 0,
+            characters: [] as number[],
+            references: [] as number[]
+        };
 
-            // 1. Style (First Priority - Reference for artistic direction)
-            if (styleImage) {
-                styleImgIdx = addImage(styleImage);
-            }
-
-            let slotsLeft = maxTotal - tempImages.length;
-
-            // 2. Location
-            if (locationImages && locationImages.length > 0 && slotsLeft > 0) {
-                locImgIdx = addImage(locationImages[0]);
-                if (locImgIdx > 0) slotsLeft--;
-            }
-
-            // 3. Characters (Smart Linkage)
-            // Strategy: Iterate granular images first. 
-            // If granular image missing, check if Asset has a URL that matches an Explicit Image.
-
-            // We iterate based on Asssets (Rich Data) if available, or just images?
-            // The context provides 'characterImages' (resolved array) AND 'characterAssets' (metadata).
-            // We want to map indices for each Asset.
-
-            const numChars = Math.max(
-                characterImages ? characterImages.length : 0,
-                context.characterAssets ? context.characterAssets.length : 0
-            );
-
-            for (let i = 0; i < numChars; i++) {
-                if (slotsLeft > 0) {
-                    let urlToUse = characterImages && characterImages[i] ? characterImages[i] : null;
-
-                    // Smart Linkage: If no direct URL, check Asset for a URL that might be in Explicit list
-                    if (!urlToUse && context.characterAssets && context.characterAssets[i]?.refImageUrl) {
-                        const assetUrl = context.characterAssets[i].refImageUrl;
-                        // Is this URL in explicit images?
-                        if (assetUrl && explicitImages && explicitImages.some(e => e.includes(assetUrl!) || assetUrl!.includes(e))) {
-                            // Loose match or exact match? 
-                            // Since URLs might get signed or modified, strict match is safest if possible, 
-                            // but we can try exact string match first.
-                            // Actually, let's just try to add the Asset URL. 
-                            // If it was already added (via explicit loop later? No, we are before explicit loop).
-                            // If we add it here, 'tempImages' will contain it. 
-                            // Later, the Explicit Loop will see it's already in tempImages and return the SAME index.
-                            urlToUse = assetUrl;
-                        }
-                    }
-
-                    if (urlToUse) {
-                        const idx = addImage(urlToUse);
-                        charImgIndices[i] = idx; // Assign the slot
-                        if (idx > 0) slotsLeft--;
-                    }
-                }
-            }
-
-            // 4. Explicit References (Fillers)
-            // Now we add any explicit refs that weren't "claimed" by characters
-            slotsLeft = maxTotal - tempImages.length;
-            if (explicitImages) {
-                for (let i = 0; i < explicitImages.length; i++) {
-                    if (slotsLeft > 0) {
-                        const idx = addImage(explicitImages[i]);
-                        if (idx > 0) {
-                            // Only add to 'references' list if it wasn't just claimed by a character!
-                            // How do we know? We check if this index is in charImgIndices.
-                            const isClaimedByChar = charImgIndices.includes(idx);
-
-                            if (!isClaimedByChar) {
-                                refImgIndices.push(idx);
-                                slotsLeft--;
-                            }
-                        }
-                    }
-                }
-            }
-
-            selectedImages = tempImages;
-        }
+        manifest.slots.forEach((s, i) => {
+            const oneBasedIndex = i + 1; // 1-based index used by PromptSelector legacy
+            if (s.type === 'style') slotIndices.style = oneBasedIndex;
+            if (s.type === 'location') slotIndices.location = oneBasedIndex;
+            if (s.type === 'character') slotIndices.characters.push(oneBasedIndex);
+            if (s.type === 'reference' || s.type === 'start-frame' || s.type === 'end-frame') slotIndices.references.push(oneBasedIndex);
+        });
 
         return {
-            selectedUrls: selectedImages,
-            slots: {
-                location: locImgIdx,
-                characters: charImgIndices,
-                style: styleImgIdx,
-                references: refImgIndices
-            },
+            selectedUrls: manifest.selectedUrls,
+            slots: slotIndices,
             counts: {
-                total: selectedImages.length,
-                chars: charImgIndices.filter(i => i > 0).length,
-                refs: refImgIndices.length
+                total: manifest.counts.total,
+                chars: manifest.counts.character,
+                refs: manifest.counts.reference
             }
         };
     }
