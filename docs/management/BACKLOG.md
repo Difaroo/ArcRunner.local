@@ -10,6 +10,9 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.31.6 (BEM Layout Persistence Hotfix)
+- [x] **DOM Observer Persistence**: Swapped the broken `react-resizable-panels` native component events for an explicit HTML `MutationObserver` that perfectly preserves dynamic BEM layout sizing into `sessionStorage`.
+
 ## 🚀 Released v0.31.5 (BEM Layout & Persistence)
 - [x] **Webkit Flexbox Bug**: Bypassed Safari/Webkit layout calculation flaws with explicit `ResizeObserver` width injection.
 - [x] **Layout Persistence**: The BEM grab bar split ratio securely persists across active sessions via `sessionStorage`.

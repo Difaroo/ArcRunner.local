@@ -46,22 +46,6 @@ interface BatchEditModalProps {
     defaultModel?: string;
 }
 
-// Custom storage adapter to persist the BEM layout only for the current session
-const sessionStorageAdapter = {
-    getItem: (name: string) => {
-        if (typeof window === 'undefined') return null;
-        try {
-            return window.sessionStorage.getItem(name);
-        } catch (e) { return null; }
-    },
-    setItem: (name: string, value: string) => {
-        if (typeof window === 'undefined') return;
-        try {
-            window.sessionStorage.setItem(name, value);
-        } catch (e) { }
-    }
-};
-
 export function BatchEditModalV3({
     clips,
     initialIndex,
@@ -219,6 +203,60 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     // Explicit sizing for Safari flex aspect-ratio bug
     const slotContainerRef = useRef<HTMLDivElement>(null);
     const [calculatedSlotWidth, setCalculatedSlotWidth] = useState<number | null>(null);
+
+    // Manual Panel Persistence (autoSaveId buggy on remount)
+    // We initialize lazily to avoid hydration mismatch, then let the effect take over.
+    const [initialLayout, setInitialLayout] = useState<number[] | null>(null);
+
+    useEffect(() => {
+        const saved = sessionStorage.getItem('arcrunner-bem-vertical-layout');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length === 2) {
+                    setInitialLayout(parsed);
+                    return;
+                }
+            } catch (e) {
+                // pass through to default
+            }
+        }
+        setInitialLayout([40, 60]);
+    }, []);
+
+    // Native DOM fallback for persistence, since react-resizable-panels events are swallowed
+    useEffect(() => {
+        if (!initialLayout) return; // Wait for initial render
+
+        const observer = new MutationObserver(() => {
+            const topPanel = document.getElementById('bem-top-panel');
+            const bottomPanel = document.getElementById('bem-bottom-panel');
+            if (topPanel && bottomPanel) {
+                // Read the actual flex percentage applied by the library
+                const topFlex = parseFloat(topPanel.style.flexGrow || '0');
+                const bottomFlex = parseFloat(bottomPanel.style.flexGrow || '0');
+                if (topFlex > 0 && bottomFlex > 0) {
+                    const total = topFlex + bottomFlex;
+                    const topPct = (topFlex / total) * 100;
+                    const bottomPct = (bottomFlex / total) * 100;
+                    sessionStorage.setItem('arcrunner-bem-vertical-layout', JSON.stringify([topPct, bottomPct]));
+                }
+            }
+        });
+
+        // The library creates the DOM nodes slightly after mount
+        const timer = setTimeout(() => {
+            const topPanel = document.getElementById('bem-top-panel');
+            if (topPanel) {
+                observer.observe(topPanel, { attributes: true, attributeFilter: ['style'] });
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(timer);
+            observer.disconnect();
+        };
+    }, [initialLayout]);
 
     // Track width changes of the model input slots using ResizeObserver
     useEffect(() => {
@@ -456,9 +494,18 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
         } catch (error) { setSaveError('Failed to save changes'); }
     };
 
+    if (!initialLayout) {
+        return <div className="h-full w-full flex items-center justify-center text-stone-500">Loading layout...</div>;
+    }
+
     return (
-        <ResizablePanelGroup autoSaveId="arcrunner-bem-vertical-layout" storage={sessionStorageAdapter} direction="vertical" className="h-full w-full">
-            <ResizablePanel defaultSize={40} minSize={20} className="pb-2">
+        <ResizablePanelGroup direction="vertical" className="h-full w-full">
+            <ResizablePanel
+                id="bem-top-panel"
+                defaultSize={initialLayout[0]}
+                minSize={20}
+                className="pb-2"
+            >
                 <div className="h-full flex flex-row gap-4 min-h-0 w-full overflow-hidden">
                     {/* Top Row: Asset Pool */}
                     <div className="flex-1 min-w-0 flex-shrink bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800 min-h-0">
@@ -518,7 +565,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
 
             <ResizableHandle withHandle direction="vertical" className="bg-transparent" />
 
-            <ResizablePanel defaultSize={60} minSize={20} className="pt-2">
+            <ResizablePanel id="bem-bottom-panel" defaultSize={initialLayout[1]} minSize={20} className="pt-2">
                 <div className="h-full flex flex-row gap-4 min-h-0 w-full overflow-hidden">
                     {/* Bottom Row: Vibes Menu (Col 1 equivalent) */}
                     <div className="w-[13rem] flex-shrink-0 rounded-lg overflow-hidden flex flex-col bg-stone-900/30 border border-stone-800/50 min-h-0">

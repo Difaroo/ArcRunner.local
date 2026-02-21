@@ -3,6 +3,22 @@
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
 
+## 2026-02-20: v0.31.6 - Peregrine (BEM Layout Persistence Hotfix)
+
+### Context
+An immediate follow-up to v0.31.5 addressing a complete failure of the `react-resizable-panels` `onLayout` and `onResize` events to fire within the Batch Edit Modal (BEM) component lifecycle.
+
+### Fixes
+- **Native DOM Persistence**:
+  - **Issue**: The React wrapper events for `react-resizable-panels` were silently swallowed due to the modal's unmount/remount architecture, breaking layout persistency across sessions.
+  - **Solution**: Bypassed the library's event system entirely by implementing a native HTML `MutationObserver` directly on the `bem-top-panel` DOM node. The observer continually calculates the implicit flex-grow percentages applied by the library during an active drag and serializes them reliably to `sessionStorage`.
+  - **Result**: Immediate, flawless layout restoration from persistent browser memory upon remount.
+
+### Version Bump
+- **Patch**: 0.31.5 -> 0.31.6.
+
+---
+
 ## 2026-02-20: v0.31.5 - Peregrine (BEM Layout & Persistence)
 
 ### Context

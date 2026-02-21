@@ -73,7 +73,7 @@ To use Start-to-End generation correctly:
 ### Batch Edit Modal & Asset Scroller
 The **Batch Edit Modal** has been upgraded to a **V3 Layout** maximizing space for inputs:
 -   **Visual Separation**: The scrollable Asset Pool area (Grey) is distinct from the dynamic Model Input Slots.
--   **Persistent Layout**: The vertical split between the Asset Pool and the editing interface persists its position for the duration of your browser session (`sessionStorage`).
+-   **Persistent Layout**: The vertical split between the Asset Pool and the editing interface persists its position for the duration of your browser session using `sessionStorage`. **Architecture Note**: `react-resizable-panels` native events scale poorly through Next.js conditionally rendered portals; the persistence mechanism utilizes an explicit HTML `MutationObserver` hook that reads the injected library flex-grow proportions strictly from the raw DOM.
 -   **True Content Hugging**: Model Input Slots bypass Safari layout bugs by explicitly measuring their inner width and snapping perfectly to the content to prevent dead space.
 -   **Horizontal Scroll**: Swipe to browse through all associated assets (Characters, Locations, References).
 -   **Result History**: The scroller displays **all previous results** (Images `auto_awesome` & Videos `play_arrow`).
