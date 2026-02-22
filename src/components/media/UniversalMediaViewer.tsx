@@ -160,13 +160,12 @@ export function UniversalMediaViewer({
                 case 'A': // Cmd+Shift+A: Add Result to Clip
                     if (e.metaKey || e.ctrlKey && e.shiftKey) {
                         e.preventDefault();
-                        const itemOwnerClipId = currentItem?.ownerClipId || ownerClipId;
-                        if (onAddAsRef && currentItem && itemOwnerClipId) {
-                            if (!currentItem.isReference) {
-                                // Direct Move
-                                onAddAsRef(currentItem.url, itemOwnerClipId, 'move', itemOwnerClipId);
+                        if (onAddAsRef && currentItem) {
+                            if (ownerClipId && !currentItem.isReference) {
+                                // Direct Move to the explicitly specified context clip
+                                onAddAsRef(currentItem.url, ownerClipId, 'move', currentItem.ownerClipId);
                             } else {
-                                // Dialog
+                                // Dialog required when no explicit destination is set (e.g. Media Gallery) or for references
                                 setShowAddRefDialog(true);
                             }
                         }
@@ -318,11 +317,11 @@ export function UniversalMediaViewer({
                                             className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                // @ts-ignore
-                                                const itemOwnerClipId = currentItem.ownerClipId || ownerClipId;
-                                                if (itemOwnerClipId && !currentItem.isReference && onAddAsRef) {
-                                                    onAddAsRef(currentItem.url, itemOwnerClipId, 'move', itemOwnerClipId);
+                                                if (ownerClipId && !currentItem.isReference && onAddAsRef) {
+                                                    // Direct Move to the explicitly specified context clip
+                                                    onAddAsRef(currentItem.url, ownerClipId, 'move', currentItem.ownerClipId);
                                                 } else {
+                                                    // Dialog required when no explicit destination is set (e.g. Media Gallery)
                                                     setShowAddRefDialog(true);
                                                 }
                                             }}
