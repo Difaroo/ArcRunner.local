@@ -45,7 +45,7 @@ export function ClipAssetScroller({ mediaItems, onSelect, isLoading, className, 
                                         contentType={item.type === 'VIDEO' ? 'video' : 'image'}
                                         isThumbnail={!!item.thumbnailPath}
                                         className="w-full h-full object-cover"
-                                        onUpdate={onUpdate ? async (_, updates) => await onUpdate(item.id, updates) : undefined}
+                                        onUpdate={onUpdate && item.isStudioItem ? async (_, updates) => await onUpdate(item.id, updates) : undefined}
                                     />
                                 </div>
 

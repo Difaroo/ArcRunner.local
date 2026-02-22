@@ -63,7 +63,7 @@ export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate,
                                             contentType={media.type === 'VIDEO' ? 'video' : 'image'}
                                             isThumbnail={!!media.thumbnailPath}
                                             className="w-full h-full object-cover"
-                                            onUpdate={onUpdate && media.originalId ? async (_, updates) => await onUpdate(media.originalId, updates) : undefined}
+                                            onUpdate={onUpdate && media.originalId && media.isStudioItem ? async (_, updates) => await onUpdate(media.originalId, updates) : undefined}
                                         />
                                     </div>
 
