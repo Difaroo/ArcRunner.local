@@ -3,6 +3,28 @@
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
 
+## 2026-02-22: v0.32.0 - Kestrel (Universal Viewer Overhaul)
+
+### Context
+A major UI and architectural harmonization for the Universal Media Viewer (UVM). This release refactors the UVM constraint boundaries for portrait/vertical video, creates a unified layout spanning Episode Clips to Studio Assets, and tightly integrates Description/Action data persistence when editing inside the Batch Edit Modal.
+
+### Features
+- **UI Harmonization**:
+  - The "Add as Reference" workflow now uses the BEM `arrow_forward` iconography to indicate sending to a Model Input Slot.
+  - Removed "Delete" permanently from the UVM overlay to strictly restrict destructive actions to list-views.
+
+### Fixes
+- **Vertical Layout Bounds**:
+  - **Issue**: 9:16 vertical Kling and Veo generations overflowed the screen modal bounds.
+  - **Solution**: Rebuilt the container CSS with a strict `h-full` and `max-h-full` flex-col pipeline. 
+- **Contextual Unlink Safety**: Introduced smart `AlertDialog` states that dynamically detect whether unlinking an asset returns it to the Episode Pool or explicitly detaches a Studio object.
+- **Description Persistence**: BEM "Asset Pool" elements now successfully pipe `description` properties into the UVM for rapid text mutation.
+
+### Version Bump
+- **Minor**: 0.31.6 -> 0.32.0.
+
+---
+
 ## 2026-02-20: v0.31.6 - Peregrine (BEM Layout Persistence Hotfix)
 
 ### Context

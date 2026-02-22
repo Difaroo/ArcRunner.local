@@ -37,6 +37,7 @@ import { downloadFile, getClipFilename, getNextStatus } from "@/lib/download-uti
 import { useClickOutside } from "@/hooks/useClickOutside"
 import { useRowShortcuts } from "@/hooks/useRowShortcuts"
 import { useMediaPersistence } from "@/hooks/useMediaPersistence"
+import { getComputedClipStatus } from "@/lib/clip-status"
 import React from "react"
 
 interface ClipRowProps {
@@ -88,6 +89,9 @@ export function ClipRow({
     const [showEditGuard, setShowEditGuard] = useState(false)
     const [autoOpenUpload, setAutoOpenUpload] = useState(false);
     const [isRefDragOver, setIsRefDragOver] = useState(false);
+
+    // Structural State
+    const derivedStatus = getComputedClipStatus(clip);
 
     // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
     // UPDATE v0.16.7: Hybrid Approach
@@ -494,7 +498,7 @@ export function ClipRow({
 
             if (success) {
                 setDownloadCount(prev => prev + 1)
-                const newStatus = getNextStatus(clip.status || '');
+                const newStatus = getNextStatus(clip.status || derivedStatus.label);
                 onSave(clip.id, { status: newStatus })
             }
         }
@@ -545,18 +549,14 @@ export function ClipRow({
                 <TooltipProvider>
                     <Tooltip delayDuration={300}>
                         <TooltipTrigger asChild>
-                            <div className={`mt-3 mx-auto w-2 h-2 rounded-full ring-1 ring-white/10 shadow-sm ${clip.status === 'Ready' ? 'bg-orange-500' :
-                                    clip.status === 'Generating' || clip.status === 'Done' ? 'bg-green-500' :
-                                        clip.status === 'Saved' || clip.status === 'Complete' ? 'bg-black ring-stone-600' :
-                                            'bg-red-500'
-                                }`} />
+                            <div className={`mt-3 mx-auto w-2 h-2 rounded-full ring-1 ring-white/10 shadow-sm ${derivedStatus.colorClass}`} />
                         </TooltipTrigger>
                         <TooltipContent side="right" className="bg-stone-900 border-stone-800 text-stone-200">
                             <p className="text-xs">{
-                                clip.status === 'Ready' ? 'Render' :
-                                    clip.status === 'Generating' || clip.status === 'Done' ? 'Download' :
-                                        clip.status === 'Saved' || clip.status === 'Complete' ? 'Complete' :
-                                            'Review'
+                                derivedStatus.state === 'Ready' ? 'Render' :
+                                    derivedStatus.state === 'Generating' || derivedStatus.state === 'Done' ? 'Download' :
+                                        derivedStatus.state === 'Complete' ? 'Complete' :
+                                            derivedStatus.isError ? 'Error' : 'Review'
                             }</p>
                         </TooltipContent>
                     </Tooltip>
@@ -908,7 +908,7 @@ export function ClipRow({
                                             let fullPlaylist = [...refItems];
                                             const resultUrls = parseStringList(clip.resultUrl || '');
 
-                                            if (resultUrls.length > 0 && (clip.status === 'Done' || clip.status === 'Saved' || clip.status === 'Ready')) {
+                                            if (resultUrls.length > 0 && (derivedStatus.state === 'Done' || derivedStatus.state === 'Complete' || derivedStatus.state === 'Ready' || derivedStatus.state === 'Generating')) {
                                                 const resultItems = resultUrls.map((resUrl, idx) => {
                                                     const isResVideo = resUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
                                                     // Only use the stored thumbnail for the MOST RECENT result (index 0)
@@ -965,14 +965,14 @@ export function ClipRow({
             < TableCell className="align-top py-3 w-[80px] text-left" >
                 {/* RESULT Column using MediaDisplay */}
                 {
-                    clip.status?.toUpperCase() === 'GENERATING' ? (
+                    derivedStatus.state === 'Generating' ? (
                         <div className="flex items-center justify-center w-[70px] h-[70px] bg-stone-900 border border-stone-800 rounded-md">
                             <Loader2 className="h-6 w-6 text-primary animate-spin" />
                         </div>
                     ) : (clip.resultUrl) && (
-                        <div className={`flex justify-start relative ${clip.status?.startsWith('Error') ? 'opacity-50 grayscale border-red-500 border-2 rounded-md' : ''}`}>
+                        <div className={`flex justify-start relative ${derivedStatus.isError ? 'opacity-50 grayscale border-red-500 border-2 rounded-md' : ''}`}>
                             {/* Visual Warning for Stale/Error State */}
-                            {clip.status?.startsWith('Error') && (
+                            {derivedStatus.isError && (
                                 <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                                     <span className="material-symbols-outlined text-red-500 bg-black/50 rounded-full p-1">warning</span>
                                 </div>
@@ -1020,7 +1020,7 @@ export function ClipRow({
             <TableCell className="align-top text-left py-3 w-[40px] px-1">
                 {/* ACTION Column using RowActions */}
                 <RowActions
-                    status={clip.status || ''}
+                    status={derivedStatus.label}
                     resultUrl={clip.resultUrl}
                     isEditing={isEditing}
                     isSaving={saving}

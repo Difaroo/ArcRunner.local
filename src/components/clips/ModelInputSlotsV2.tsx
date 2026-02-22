@@ -7,11 +7,12 @@ interface ModelInputSlotsProps {
     modelConfig: ModelConfig;
     mediaItems: any[];
     onRemove: (item: any) => void;
+    onUpdate?: (id: string, updates: any) => Promise<void> | void;
     className?: string;
     orientation?: 'vertical' | 'horizontal';
 }
 
-export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, className, orientation = 'vertical' }: ModelInputSlotsProps) {
+export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate, className, orientation = 'vertical' }: ModelInputSlotsProps) {
     // 1. Structure the Active Media
     // We trust `mediaItems` (passed from BEM resolved manifest) entirely for order and inclusion.
     const activeMedia = mediaItems || [];
@@ -57,9 +58,12 @@ export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, className
                                         <MediaDisplay
                                             url={media.thumbnailPath || media.url}
                                             title={media.category}
+                                            description={media.description}
+                                            action={media.action}
                                             contentType={media.type === 'VIDEO' ? 'video' : 'image'}
                                             isThumbnail={!!media.thumbnailPath}
                                             className="w-full h-full object-cover"
+                                            onUpdate={onUpdate && media.originalId ? async (_, updates) => await onUpdate(media.originalId, updates) : undefined}
                                         />
                                     </div>
 

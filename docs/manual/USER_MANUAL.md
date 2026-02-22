@@ -141,6 +141,30 @@ For a deep dive into the technical "under-the-hood" flow of the generating engin
 ## Data Hygiene: Style Descriptions
 **Critical Note**: When using "Text Only" styles (State B or D), ensure your Style Asset's text description does NOT contain phrases like "Follow STYLE REFERENCE IMAGE". Using such text without an actual image attached may confuse the model or cause it to hallucinate an image source.
 
+## Media Management & Pool Logic (v0.31.5)
+
+The distinction between the Asset Pool and Model Input Slots (MIS) is a core architectural concept ensuring clean separation between long-term references and active generation styling.
+
+### 1. Asset Pool vs. Model Input Slots (MIS)
+- **Asset Pool**: The Pool represents the broader collection of media available for an Episode, including explicitly defining Studio Items (Characters, Locations) and generated raw media. It acts as the source gallery.
+- **Model Input Slots (MIS)**: The MIS represents the active payload destination. When you "Add Reference" (using the Arrow button) from the Pool or the Universal Media Viewer, you are loading that asset into an active slot to be dispatched in the next generation payload in the absence of Studio items.
+
+### 2. Unlink Logic
+The behaviour of the "Unlink" action depends contextually on the asset type being detached:
+- **Studio Items**: Unlinking a Character or Location removes it from the Clip, deleting the entry from the relevant text classification fields.
+- **Pool Items**: Unlinking returns the media record to the broader episode Media screen by detaching it from the specific target Clip (essentially nullifying the `clipId` on the Media item).
+- **MIS Loaded Assets**: Unlinking an asset actively sitting inside an MIS slot simply returns it to the Pool.
+- *Note: **Delete** is exclusively reserved for the Media Screen and permanently trashes the record. It is intentionally omitted from the UVM to prevent accidental destructive actions.*
+
+### 3. Persist & Download Architecture
+Media results are handled differently based on output type to optimize bandwidth and local storage:
+- **Image Results**: Generated as static assets or downloaded locally by default. Users can save them to their own local file using the Download button.
+- **Video Results**: Video generation results are hosted temporarily at Kie.ai (the API aggregator). 
+  - The "Persist/Download" action pulls this video from the temporary cloud layer to the server's local storage.
+  - On the first interaction, it presents an OS-level save dialogue to define a destination folder for video editing.
+  - The system then saves this directory path to the current Episode record. 
+  - Thereafter, it operates silently in the background, downloading results directly to the established local folder and inserting an alias back into the ArcRunner UI for seamless playback.
+
 ## Visual Reference Management (v0.18.0)
 
 ### Drag & Drop Workflow

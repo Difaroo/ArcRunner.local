@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
                 return {
                     id: `studio_item_${item.id}`,
                     name: item.name, // Fixed: Added missing name field
+                    description: item.description || '', // EXPOSE DESCRIPTION
                     url: bestUrl,
                     thumbnailPath: bestThumb,
                     type: 'IMAGE',
@@ -97,11 +98,12 @@ export async function GET(request: NextRequest) {
                 .filter(item => item.url && item.url.length > 0);
         }
 
-        const [mediaRaw] = await Promise.all([mediaPromise]);
+        const mediaRaw = await mediaPromise;
 
-        const media = mediaRaw.map(m => ({
+        const media = mediaRaw.map((m: any) => ({
             ...m,
             name: m.studioItem?.name || '', // Expose name for Contextual Matching
+            description: m.studioItem?.description || m.prompt || '', // Expose description
             // Ensure compatibility with StudioItem shape if needed
             isStudioItem: false
         }));

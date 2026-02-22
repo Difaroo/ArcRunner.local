@@ -11,6 +11,8 @@ interface MediaDisplayProps {
     isThumbnail?: boolean // If true, force image rendering for the preview
     contentType?: 'video' | 'image' | 'auto' // Explicit type override
     className?: string
+    description?: string // For UVM editing
+    action?: string // For UVM editing
     onSave?: (url: string) => void
     onUseAsRef?: (url: string) => void
     onUpdate?: (id: string, updates: any) => Promise<void> | void
@@ -30,6 +32,8 @@ export function MediaDisplay({
     isThumbnail,
     contentType = 'auto',
     className,
+    description,
+    action,
     onSave,
     onUseAsRef, // Destructure new prop
     onUpdate,
@@ -180,6 +184,8 @@ export function MediaDisplay({
                     url: u,
                     type: u.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image',
                     title: title || model || 'Media Preview',
+                    description: description, // Pass to UVM
+                    action: action, // Pass to UVM
                     isReference: !!isReference, // Respect prop
                     episodeId, // Pass episodeId for persistence
                     ownerClipId // Pass ownerClipId for persistence

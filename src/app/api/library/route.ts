@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { MediaService } from '@/lib/services/media-service';
 
 // GET /api/library?seriesId=xxx&type=LIB_CHARACTER (optional type filter)
 export async function GET(request: NextRequest) {
@@ -90,6 +91,10 @@ export async function POST(req: Request) {
             }
         });
 
+        if (refImageUrl) {
+            await MediaService.syncStudioReferences(newItem.id, refImageUrl);
+        }
+
         // Return standardized LibraryItem
         return NextResponse.json({
             success: true,
@@ -109,6 +114,29 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error('Library POST Error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+export async function PATCH(req: Request) {
+    try {
+        const { id, description } = await req.json();
+
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+        const intId = parseInt(id);
+        if (isNaN(intId)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+
+        const updatedItem = await db.studioItem.update({
+            where: { id: intId },
+            data: {
+                description: description !== undefined ? description : undefined
+            }
+        });
+
+        return NextResponse.json({ success: true, item: updatedItem });
+    } catch (error: any) {
+        console.error('Library PATCH Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

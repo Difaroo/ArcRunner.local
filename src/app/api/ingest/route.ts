@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { MediaService } from '@/lib/services/media-service';
 
 export async function POST(request: Request) {
     try {
@@ -86,8 +87,8 @@ export async function POST(request: Request) {
         }
 
         // 3. Process Library
-        const libPromises = library.map((item: any) => {
-            return db.studioItem.create({
+        const libPromises = library.map(async (item: any) => {
+            const newItem = await db.studioItem.create({
                 data: {
                     seriesId: series.id,
                     type: item.type || 'LIB_UNKNOWN',
@@ -99,6 +100,11 @@ export async function POST(request: Request) {
                     episode: episodeId.toString() // Store as string "1" for now
                 }
             });
+
+            if (newItem.refImageUrl) {
+                await MediaService.syncStudioReferences(newItem.id, newItem.refImageUrl);
+            }
+            return newItem;
         });
 
         if (libPromises.length > 0) {

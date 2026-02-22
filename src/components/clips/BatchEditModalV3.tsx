@@ -13,6 +13,7 @@ import { ClipAssetScroller } from './ClipAssetScroller';
 import { ModelInputSlotsV2 } from './ModelInputSlotsV2';
 import { getModelConfig } from '@/lib/models';
 import { resolveManifest } from '@/lib/structural-manifest';
+import { getComputedClipStatus } from '@/lib/clip-status';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 // VibesMenu Imports
@@ -126,6 +127,8 @@ export function BatchEditModalV3({
 
     if (!isOpen || clips.length === 0 || !currentClip) return null;
 
+    const structuralStatus = getComputedClipStatus(currentClip);
+
     return (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-8">
             <div className="w-full h-full max-w-[95vw] max-h-[95vh] bg-stone-950 border border-stone-800 rounded-lg flex flex-col overflow-hidden">
@@ -133,9 +136,9 @@ export function BatchEditModalV3({
                 <div className="flex items-center justify-between px-4 py-2">
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5 mr-1">
-                            <div className={`w-3 h-3 rounded-full bg-red-500 ${currentClip.status === 'Pending' ? 'opacity-100 ring-2 ring-white/20' : 'opacity-30'}`} />
-                            <div className={`w-3 h-3 rounded-full bg-orange-500 ${currentClip.status === 'Ready' ? 'opacity-100 ring-2 ring-white/20' : 'opacity-30'}`} />
-                            <div className={`w-3 h-3 rounded-full bg-green-500 ${(currentClip.status === 'Done' || currentClip.status === 'Generating') ? 'opacity-100 ring-2 ring-white/20' : 'opacity-30'}`} />
+                            <div className={`w-3 h-3 rounded-full bg-red-500 ${structuralStatus.state === 'Pending' || structuralStatus.isError ? 'opacity-100 ring-2 ring-white/20' : 'opacity-30'}`} />
+                            <div className={`w-3 h-3 rounded-full bg-orange-500 ${structuralStatus.state === 'Ready' ? 'opacity-100 ring-2 ring-white/20' : 'opacity-30'}`} />
+                            <div className={`w-3 h-3 rounded-full bg-green-500 ${(structuralStatus.state === 'Done' || structuralStatus.state === 'Complete' || structuralStatus.state === 'Generating') ? 'opacity-100 ring-2 ring-white/20' : 'opacity-30'}`} />
                         </div>
                         <span className="text-lg text-stone-400">{currentClip.scene || safeIndex + 1}</span>
                         <h2 className="text-lg font-normal text-white">{currentClip.title || `Scene ${safeIndex + 1}`}</h2>
@@ -174,6 +177,7 @@ export function BatchEditModalV3({
                         onNavigate={handleNavigate}
                         model={effectiveModel}
                         onDirtyChange={setIsDirty}
+                        onDataRefresh={onDataRefresh}
                     />
                 </div>
             </div>
@@ -192,9 +196,11 @@ interface BatchEditContentProps {
     onNavigate: (direction: 'up' | 'down') => void;
     model: string;
     onDirtyChange?: (isDirty: boolean) => void;
+    onDataRefresh?: () => void;
 }
 
-function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavigate, model, onDirtyChange }: BatchEditContentProps) {
+function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavigate, model, onDirtyChange, onDataRefresh }: BatchEditContentProps) {
+    const derivedStatus = getComputedClipStatus(clip);
     const [activeField, setActiveField] = useState<'character' | 'location' | 'camera' | 'movement' | 'action' | 'dialog' | 'media'>('character');
     const [lastVibeId, setLastVibeId] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -294,32 +300,92 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             .catch(console.error);
     }, [episodeId]);
 
+    const [localReferences, setLocalReferences] = useState<any[]>(clip.mediaReferences || []);
+
+    useEffect(() => {
+        setLocalReferences(clip.mediaReferences || []);
+    }, [clip.id, clip.mediaReferences]);
+
     const handleAddToSlot = async (item: any) => {
-        const currentSlots = mediaItems.filter(m => m.refImageSort && m.refImageSort > 0);
+        // Calculate next sort order based on current clip's explicit references
+        const currentSlots = localReferences.filter(m => m.refImageSort && m.refImageSort > 0);
         const maxSort = currentSlots.length > 0 ? Math.max(...currentSlots.map(m => m.refImageSort)) : 0;
         const newSort = maxSort + 1;
-        const updatedItem = { ...item, refImageSort: newSort };
-        setMediaItems(prev => prev.map(m => m.id === item.id ? updatedItem : m));
+
+        // Optimistic UI Update
+        const tempId = `temp-${Date.now()}`;
+        const newRef = {
+            id: tempId,
+            url: item.url,
+            type: item.type || 'IMAGE',
+            category: 'REFERENCE',
+            refImageSort: newSort
+        };
+
+        setLocalReferences(prev => [...prev, newRef]);
         if (status === 'Pending' || !status) setStatus('Ready');
+
         try {
-            await fetch('/api/media', {
-                method: 'PATCH',
+            // Persist: Copy the item to a new REFERENCE record linked to the clip
+            const res = await fetch('/api/media/add-ref', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: item.id, refImageSort: newSort })
+                body: JSON.stringify({
+                    url: item.url,
+                    targetClipId: clip.id,
+                    action: 'copy'
+                })
             });
-        } catch (e) { console.error(e); }
+            const data = await res.json();
+
+            if (data.success && data.mediaId) {
+                // Apply sort order to the new copied record
+                await fetch('/api/media', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: data.mediaId, refImageSort: newSort })
+                });
+
+                // Hot-swap temp ID
+                setLocalReferences(prev => prev.map(r => r.id === tempId ? { ...r, id: data.mediaId } : r));
+
+                if (onDataRefresh) {
+                    onDataRefresh();
+                }
+            } else {
+                throw new Error("Failed to link reference item to clip.");
+            }
+        } catch (e) {
+            console.error(e);
+            // Revert
+            setLocalReferences(prev => prev.filter(r => r.id !== tempId));
+        }
     };
 
     const handleRemoveFromSlot = async (item: any) => {
-        setMediaItems(prev => prev.map(m => m.id === item.id ? { ...m, refImageSort: 0 } : m));
+        // item is derived from uiSlots -> explicitItems -> localReferences
+        setLocalReferences(prev => prev.filter(m => m.id !== item.id));
         if (status === 'Pending' || !status) setStatus('Ready');
+
         try {
-            await fetch('/api/media', {
-                method: 'PATCH',
+            // Unlink physically deletes the explicit relation Media record without destroying the file
+            await fetch('/api/media/unlink', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: item.id, refImageSort: 0 })
+                body: JSON.stringify({
+                    url: item.url,
+                    clipId: clip.id,
+                    isResult: false
+                })
             });
-        } catch (e) { console.error(e); }
+
+            if (onDataRefresh) {
+                onDataRefresh();
+            }
+        } catch (e) {
+            console.error(e);
+            // We ignore revert logic here, removal is generally safe.
+        }
     };
 
     const [editValues, setEditValues] = useState({
@@ -395,11 +461,8 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
         const charItems = mediaItems.filter(i => targetChar && i.category?.includes('CHARACTER') && targetChar.toLowerCase().includes(i.name?.toLowerCase() || '___')).map(i => i.url);
 
         // 4. Explicit Refs
-        // These are items where `refImageSort > 0` locally? 
-        // Or items that are linked in `clip.mediaReferences`.
-        // In BEM, `mediaItems` includes EVERYTHING. We need to identify which ones are "Explicit".
-        // `mediaItems` come from `api/media`. They have `refImageSort` if they are linked.
-        const explicitItems = mediaItems
+        // Using the locally managed specific clip references instead of the global media pool.
+        const explicitItems = localReferences
             .filter(i => i.refImageSort && i.refImageSort > 0)
             .map(i => ({
                 id: i.id,
@@ -521,6 +584,28 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                             isLoading={false}
                             orientation="horizontal"
                             className="flex-1 w-full"
+                            onUpdate={async (id, updates) => {
+                                const item = mediaItems.find(m => m.id === id);
+                                if (!item) return;
+                                try {
+                                    if (item.isStudioItem) {
+                                        await fetch('/api/library', {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ id: item.studioItemId, description: updates.description })
+                                        });
+                                    } else {
+                                        await fetch('/api/media', {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ id, action: updates.action, description: updates.description })
+                                        });
+                                    }
+                                    if (onDataRefresh) onDataRefresh();
+                                } catch (e) {
+                                    console.error('Failed to update media item from pool', e);
+                                }
+                            }}
                         />
                     </div>
 
@@ -550,7 +635,12 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                             <h3 className="text-xs text-orange-500 uppercase tracking-wider font-medium drop-shadow-md">Latest Result</h3>
                         </div>
                         <div className="flex-1 relative bg-black flex items-center justify-center min-h-0 w-full">
-                            {clip.resultUrl ? (
+                            {derivedStatus.state === 'Generating' ? (
+                                <div className="flex flex-col items-center justify-center gap-3 text-primary">
+                                    <Loader2 className="h-8 w-8 animate-spin opacity-80" />
+                                    <span className="text-xs font-mono uppercase tracking-widest text-primary/80">Generating...</span>
+                                </div>
+                            ) : clip.resultUrl ? (
                                 <MediaDisplay
                                     url={clip.resultUrl}
                                     ownerClipId={clip.id}

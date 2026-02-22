@@ -8,9 +8,10 @@ interface ClipAssetScrollerProps {
     isLoading?: boolean;
     className?: string;
     orientation?: 'vertical' | 'horizontal';
+    onUpdate?: (id: string, updates: any) => Promise<void> | void;
 }
 
-export function ClipAssetScroller({ mediaItems, onSelect, isLoading, className, orientation = 'horizontal' }: ClipAssetScrollerProps) {
+export function ClipAssetScroller({ mediaItems, onSelect, isLoading, className, orientation = 'horizontal', onUpdate }: ClipAssetScrollerProps) {
     // Filter for pool items (sort 0 or null/undefined)
     const poolItems = mediaItems.filter(m => !m.refImageSort || m.refImageSort === 0);
     const isVertical = orientation === 'vertical';
@@ -39,9 +40,12 @@ export function ClipAssetScroller({ mediaItems, onSelect, isLoading, className, 
                                     <MediaDisplay
                                         url={item.thumbnailPath || item.url}
                                         title={item.category || 'Asset'}
+                                        description={item.description}
+                                        action={item.action}
                                         contentType={item.type === 'VIDEO' ? 'video' : 'image'}
                                         isThumbnail={!!item.thumbnailPath}
                                         className="w-full h-full object-cover"
+                                        onUpdate={onUpdate ? async (_, updates) => await onUpdate(item.id, updates) : undefined}
                                     />
                                 </div>
 

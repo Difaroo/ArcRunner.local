@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.32.0 (Universal Viewer Overhaul & Harmonization)
+- [x] **Vertical Support**: Universal Media Viewer now strictly computes layout boundaries for 9:16 vertical modes.
+- [x] **Contextual Unlink**: Added explicit context-aware `AlertDialog` Unlink validations for Studio vs Pool assets.
+- [x] **Action & Description Fields**: Edited text properties inside the UVM now securely propagate backwards into the BEM layout state.
+- [x] **Iconography**: Harmonized UVM "Add Reference" slot logic with BEM using the `arrow_forward` Symbol.
+
 ## 🚀 Released v0.31.6 (BEM Layout Persistence Hotfix)
 - [x] **DOM Observer Persistence**: Swapped the broken `react-resizable-panels` native component events for an explicit HTML `MutationObserver` that perfectly preserves dynamic BEM layout sizing into `sessionStorage`.
 
