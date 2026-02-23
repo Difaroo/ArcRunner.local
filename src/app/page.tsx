@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader2, Sun, Moon, Pencil, Check, X } from "lucide-react";
 import { Clip, Series, Episode } from '@/types';
 import { deleteMedia } from '@/app/actions/media';
-import { resolveClipImages } from '@/lib/shared-resolvers';
+
 import { getModelConfig } from '@/lib/models';
 import { downloadFile, getClipFilename } from '@/lib/download-utils';
 import { Button } from "@/components/ui/button"
@@ -515,8 +515,7 @@ export default function Home() {
           // Post-Update Re-Resolution (Success Path)
           // Ensure derived fields are updated immediately using the fresh data
           if (c.id === clipId) {
-            const { characterImageUrls, locationImageUrls } = resolveClipImages(c, findLibUrl, 'single');
-            return { ...c, characterImageUrls, locationImageUrls };
+            return c;
           }
           return c;
         }));
@@ -527,27 +526,7 @@ export default function Home() {
 
           const merged = { ...c, ...updates };
 
-          // Re-calculate Derived Ref Image URLs for display using SHARED RESOLVER
-          // 1. Setup
-          const findUrl = (name: string) => {
-            // Resolver for Live Previews
-            // Robust: Trim and Lowercase
-            const cleanName = name.trim().toLowerCase();
-            // Find item independent of source casing
-            const item = allSeriesAssets.find(i => i.name.trim().toLowerCase() === cleanName);
-            if (item?.refImageUrl) {
-              // Fix: Handle multi-url strings (take first)
-              return item.refImageUrl.split(',')[0].trim();
-            }
-            return undefined;
-          };
-          const { fullRefs, explicitRefs, characterImageUrls, locationImageUrls } = resolveClipImages(merged, findUrl);
-
-          return {
-            ...merged,
-            characterImageUrls,
-            locationImageUrls
-          };
+          return merged;
         }));
       }
 
@@ -594,18 +573,7 @@ export default function Home() {
 
 
         setClips(prevClips => prevClips.map(clip => {
-          // Helper to lookup in NEW library list
-          const findUrl = (name: string) => {
-            const item = newLibraryItems.find(i => i.name.toLowerCase() === name.toLowerCase() && i.series === currentSeriesId);
-            return item?.refImageUrl;
-          };
-
-
-          const { fullRefs, explicitRefs } = resolveClipImages(clip, findUrl);
-
-          return {
-            ...clip
-          };
+          return clip;
         }));
       }
 
@@ -719,13 +687,7 @@ export default function Home() {
     return rawActiveClips
       .filter(c => !deletedClipIds.has(c.id))
       .map(clip => {
-        // Resolve images on the fly!
-        const { characterImageUrls, locationImageUrls } = resolveClipImages(clip, findLibUrl, 'single');
-        return {
-          ...clip,
-          characterImageUrls,
-          locationImageUrls
-        };
+        return clip;
       });
   }, [rawActiveClips, deletedClipIds, seriesLibraryMap]);
 
@@ -799,6 +761,24 @@ export default function Home() {
     });
 
   }, [activeClips, selectedIds, handleSave]);
+
+  const handleClipSelectMultiple = useCallback((idsToSelect: string[]) => {
+    const targetSet = new Set(idsToSelect);
+
+    // Find all clips whose `isSelected` state is going to change
+    const idsToUpdate = activeClips
+      .filter(c => {
+        const currentlySelected = Boolean(c.isSelected);
+        const shouldBeSelected = targetSet.has(c.id);
+        return currentlySelected !== shouldBeSelected;
+      })
+      .map(c => ({ id: c.id, shouldBeSelected: targetSet.has(c.id) }));
+
+    // Update them individually (optimistic)
+    idsToUpdate.forEach(update => {
+      handleSave(update.id, { isSelected: update.shouldBeSelected });
+    });
+  }, [activeClips, handleSave]);
 
   /*
   const {
@@ -2485,6 +2465,7 @@ export default function Home() {
                 editingId={editingId}
                 saving={saving}
                 onSelect={handleClipSelect}
+                onSelectMultiple={handleClipSelectMultiple}
                 onSelectAll={handleClipSelectAll}
                 onEdit={startEditing}
                 onSave={handleSave}

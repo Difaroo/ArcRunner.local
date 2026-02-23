@@ -96,7 +96,7 @@ function normalizeKieStatus(rawStatus: any, successFlag?: any, hasError?: boolea
     }
 
     // 3. Error Codes
-    if (hasError || ['FAILED', 'ERROR', 'CANCELLED', 'TIMEOUT', '2', '3'].includes(s)) {
+    if (hasError || ['FAILED', 'FAIL', 'ERROR', 'CANCELLED', 'TIMEOUT', '2', '3'].includes(s)) {
         return { status: 'Error', isDone: false, isError: true };
     }
 

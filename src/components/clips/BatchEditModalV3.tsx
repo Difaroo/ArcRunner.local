@@ -149,10 +149,10 @@ export function BatchEditModalV3({
                     <div className="flex items-center gap-3">
                         <span className="text-sm text-stone-400">{safeIndex + 1} / {clips.length} CLIPS</span>
                         <div className="flex items-center gap-1">
-                            <Button variant="outline" size="icon" onClick={() => handleNavigate('up')} disabled={!canGoUp} className="h-7 w-7 border-orange-500 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50">
+                            <Button variant="outline" size="icon" onClick={() => handleNavigate('up')} disabled={!canGoUp} className="h-7 w-7 border-orange-500 text-orange-500 hover:bg-orange-500/10 hover:text-orange-500 disabled:opacity-50">
                                 <span className="material-symbols-outlined !text-xl">keyboard_arrow_up</span>
                             </Button>
-                            <Button variant="outline" size="icon" onClick={() => handleNavigate('down')} disabled={!canGoDown} className="h-7 w-7 border-orange-500 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50">
+                            <Button variant="outline" size="icon" onClick={() => handleNavigate('down')} disabled={!canGoDown} className="h-7 w-7 border-orange-500 text-orange-500 hover:bg-orange-500/10 hover:text-orange-500 disabled:opacity-50">
                                 <span className="material-symbols-outlined !text-xl">keyboard_arrow_down</span>
                             </Button>
                         </div>
@@ -205,6 +205,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     const [lastVibeId, setLastVibeId] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [mediaItems, setMediaItems] = useState<any[]>([]);
+    const [vibeRefreshTrigger, setVibeRefreshTrigger] = useState(0);
 
     // Explicit sizing for Safari flex aspect-ratio bug
     const slotContainerRef = useRef<HTMLDivElement>(null);
@@ -308,7 +309,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
 
     const handleAddToSlot = async (item: any) => {
         // Calculate next sort order based on current clip's explicit references
-        const currentSlots = localReferences.filter(m => m.refImageSort && m.refImageSort > 0);
+        const currentSlots = localReferences;
         const maxSort = currentSlots.length > 0 ? Math.max(...currentSlots.map(m => m.refImageSort)) : 0;
         const newSort = maxSort + 1;
 
@@ -364,7 +365,8 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
 
     const handleRemoveFromSlot = async (item: any) => {
         // item is derived from uiSlots -> explicitItems -> localReferences
-        setLocalReferences(prev => prev.filter(m => m.id !== item.id));
+        const idToRemove = item.originalId || item.id;
+        setLocalReferences(prev => prev.filter(m => m.id !== idToRemove));
         if (status === 'Pending' || !status) setStatus('Ready');
 
         try {
@@ -441,29 +443,28 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     const targetChar = editValues.character ?? clip.character ?? '';
 
     // --- Structural Manifest Resolution ---
-    // Use the Shared Logic (Source of Truth) to determine what goes into the slots
+    // User Rule: Studio Items auto-populate. Other items must be explicit.
     const manifest = React.useMemo(() => {
-        // Prepare context for resolver
-        // We have `mediaItems` which are all available media.
-        // We need to categorize them for the LibraryContext
+        // We must ONLY auto-populate from Studio items (which we can identify from the pool via their type or explicit name match).
+        // Since `mediaItems` (the pool) contains both Studio items (e.g. from the Series library) and raw Episode refs, 
+        // we'll strictly try to match the text fields to known Studio assets if possible, or just exact name matches.
 
-        // 1. Find Style
-        const styleItem = mediaItems.find(i => targetStyle && i.name === targetStyle.toLowerCase());
+        // 1. Find Style (Auto-populates)
+        const styleItem = mediaItems.find(i => targetStyle && i.name?.trim().toLowerCase() === targetStyle.trim().toLowerCase());
 
-        // 2. Find Location
-        const locItems = mediaItems.filter(i => targetLoc && i.category?.includes('LOCATION') && i.name?.toLowerCase().includes(targetLoc.toLowerCase())).map(i => i.url);
+        // 2. Find Location (Auto-populates IF it's a Studio item matching the text)
+        const locItems = mediaItems
+            .filter(i => targetLoc && i.category?.includes('LOCATION') && i.name?.trim().toLowerCase() === targetLoc.trim().toLowerCase())
+            .map(i => i.url);
 
-        // 3. Find Characters
-        // This is tricky because `mediaItems` is a flat list. Current logic tried to match based on `editValues.character`.
-        // We need to emulate `resolveClipImages` logic or just do a best-effort match here.
-        // For BEM, we assume `targetChar` is a comma-separated list? 
-        // Existing code: `targetChar && item.category?.includes('CHARACTER')`
-        const charItems = mediaItems.filter(i => targetChar && i.category?.includes('CHARACTER') && targetChar.toLowerCase().includes(i.name?.toLowerCase() || '___')).map(i => i.url);
+        // 3. Find Characters (Auto-populates IF Studio item matching the text)
+        const targetCharsList = targetChar ? targetChar.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+        const charItems = mediaItems
+            .filter(i => targetCharsList.length > 0 && i.category?.includes('CHARACTER') && i.name && targetCharsList.includes(i.name.trim().toLowerCase()))
+            .map(i => i.url);
 
-        // 4. Explicit Refs
-        // Using the locally managed specific clip references instead of the global media pool.
+        // 4. Explicit Refs (The ones the user dragged in)
         const explicitItems = localReferences
-            .filter(i => i.refImageSort && i.refImageSort > 0)
             .map(i => ({
                 id: i.id,
                 url: i.url,
@@ -480,7 +481,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             },
             explicitItems
         );
-    }, [mediaItems, editValues, clip, model, targetStyle, targetLoc, targetChar]);
+    }, [mediaItems, localReferences, clip, model, targetStyle, targetLoc, targetChar]);
 
     // Map Manifest Slots to UI Items
     // ModelInputSlotsV2 expects `mediaItems` with `refImageSort` to order them.
@@ -491,6 +492,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     const uiSlots = React.useMemo(() => {
         return manifest.slots.map(slot => ({
             id: slot.id,
+            originalId: slot.originalRefId,
             url: slot.url,
             name: slot.label, // Semantic Name: e.g. "Start Frame"
             type: 'IMAGE', // Mock
@@ -520,6 +522,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: lastVibeId, prompt: editValues.action })
             });
+            setVibeRefreshTrigger(prev => prev + 1);
         } catch (error) { setSaveError('Failed to update vibe'); }
     };
 
@@ -538,6 +541,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             });
             const newVibe = await response.json();
             setLastVibeId(newVibe.id);
+            setVibeRefreshTrigger(prev => prev + 1);
         } catch (error) { setSaveError('Failed to create vibe'); }
     };
 
@@ -665,6 +669,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                 episodeId={episodeId}
                                 activeField={activeField}
                                 model={model}
+                                refreshTrigger={vibeRefreshTrigger}
                                 onSelectVibe={(vibeId, value) => {
                                     if (activeField === 'action') {
                                         handleVibeSelect(vibeId, value, 'action');
@@ -705,10 +710,10 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                 <div className="flex items-center justify-between h-7 mb-1">
                                     <label className="text-xs text-stone-400 uppercase tracking-wider font-medium">Action</label>
                                     <div className="flex items-center gap-1">
-                                        <Button variant="ghost" size="icon" onClick={handleRefreshVibe} disabled={!lastVibeId} className="h-6 w-6 bg-orange-500/20 hover:bg-orange-500/40 text-orange-400"><span className="material-symbols-outlined !text-sm">refresh</span></Button>
-                                        <Button variant="ghost" size="icon" onClick={handleCreateVibe} disabled={!editValues.action.trim()} className="h-6 w-6 bg-orange-500/20 hover:bg-orange-500/40 text-orange-400"><span className="material-symbols-outlined !text-sm">add</span></Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleFieldChange('action', '')} className="h-6 w-6 bg-orange-500/20 hover:bg-orange-500/40 text-orange-400"><span className="material-symbols-outlined !text-sm">clear_all</span></Button>
-                                        <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(editValues.action)} className="h-6 w-6 bg-orange-500/20 hover:bg-orange-500/40 text-orange-400"><span className="material-symbols-outlined !text-sm">content_copy</span></Button>
+                                        <Button variant="ghost" size="icon" onClick={handleRefreshVibe} disabled={!lastVibeId} className="h-6 w-6 bg-orange-500/10 hover:bg-orange-500/20 text-orange-500"><span className="material-symbols-outlined !text-sm">refresh</span></Button>
+                                        <Button variant="ghost" size="icon" onClick={handleCreateVibe} disabled={!editValues.action.trim()} className="h-6 w-6 bg-orange-500/10 hover:bg-orange-500/20 text-orange-500"><span className="material-symbols-outlined !text-sm">add</span></Button>
+                                        <Button variant="ghost" size="icon" onClick={() => handleFieldChange('action', '')} className="h-6 w-6 bg-orange-500/10 hover:bg-orange-500/20 text-orange-500"><span className="material-symbols-outlined !text-sm">clear_all</span></Button>
+                                        <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(editValues.action)} className="h-6 w-6 bg-orange-500/10 hover:bg-orange-500/20 text-orange-500"><span className="material-symbols-outlined !text-sm">content_copy</span></Button>
                                     </div>
                                 </div>
                                 <textarea value={editValues.action} onChange={(e) => handleFieldChange('action', e.target.value)} onFocus={() => setActiveField('action')} className="modal-field flex-1 py-1.5 resize-none text-xs leading-4" />

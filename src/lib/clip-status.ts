@@ -25,7 +25,18 @@ export function getComputedClipStatus(clip: Partial<Clip>): ClipStatusInfo {
         };
     }
 
-    // 2. Structural Results Exist (Highest Truth)
+    // 2. In Progress (Generating) explicitly set by UI or Poll
+    // CRITICAL: Must be checked before 'Done' state to ensure regenerating a clip with history shows a spinner.
+    if (clip.status === 'Generating') {
+        return {
+            label: 'Generating',
+            state: 'Generating',
+            colorClass: 'bg-green-500', // UI usually animates this
+            isError: false
+        };
+    }
+
+    // 3. Structural Results Exist (Highest Truth)
     const hasMediaResults = (clip.mediaResults && clip.mediaResults.length > 0);
     const hasResultUrl = !!clip.resultUrl;
 
@@ -51,22 +62,12 @@ export function getComputedClipStatus(clip: Partial<Clip>): ClipStatusInfo {
         };
     }
 
-    // 3. In Progress (No Results Yet)
+    // 4. In Progress (Fallback for taskID without explicit status)
     if (clip.taskId) {
         return {
             label: 'Generating',
             state: 'Generating',
             colorClass: 'bg-green-500', // UI usually animates this
-            isError: false
-        };
-    }
-
-    // Fallback to legacy string if explicitly generating without taskId
-    if (clip.status === 'Generating') {
-        return {
-            label: 'Generating',
-            state: 'Generating',
-            colorClass: 'bg-green-500',
             isError: false
         };
     }

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Loader2, MinusCircle, Check, X, ChevronLeft, ChevronRight, DownloadCloud, Play, Pause, Maximize2, Minimize2, Volume2, VolumeX, Clapperboard } from 'lucide-react'; // Added Clapperboard and other video controls
+import { Loader2, MinusCircle, Trash2, Check, X, ChevronLeft, ChevronRight, DownloadCloud, Play, Pause, Maximize2, Minimize2, Volume2, VolumeX, Clapperboard } from 'lucide-react'; // Added Clapperboard and other video controls
 import { Button } from "@/components/ui/button";
 import { downloadFile } from '@/lib/download-utils';
 import {
@@ -355,6 +355,30 @@ export function UniversalMediaViewer({
                                     </TooltipTrigger>
                                     <TooltipContent>
                                         {currentItem.isReference ? 'Unlink Reference (⌘⇧U)' : 'Unlink Result (⌘⇧U)'}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+
+                        {/* Delete (Trash) */}
+                        {onDelete && (!currentItem.isReference && currentItem.deleteIcon !== 'minus') && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteClick();
+                                            }}
+                                        >
+                                            <Trash2 className="h-5 w-5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        Delete Media (Del/Backspace)
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>

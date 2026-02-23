@@ -59,6 +59,11 @@ The Universal Viewer now stores the full history of every generation.
 -   **Swipe Left/Right** (or click < >) to view previous versions of a clip result.
 -   The "Latest" result is always shown first.
 
+### Traffic Light Bulk Selection (New)
+The Episode Clips table uses a status indicator (Red, Orange, Green) on the far-left grab bar of each row.
+- **Cycle Filter:** Click the circular button in the top-left table header to cycle through status filters (`Red` > `Orange` > `Green` > `Off`).
+- **Bulk Selection:** Selecting a color instantly checkmarks all rows matching that exact status, and clears all others. Use this to quickly isolate all "Ready" (Orange) clips for a batch generation.
+
 ### Instant Downloads
 Downloads are now streamed directly from the internal proxy.
 -   **Zero Wait**: The "Save As" file dialog appears instantly.

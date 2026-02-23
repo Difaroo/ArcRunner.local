@@ -2,6 +2,7 @@ import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { ClipRow } from "./ClipRow"
 import { Clip } from "@/types"
+import { getComputedClipStatus } from "@/lib/clip-status"
 import { useState, useEffect } from "react"
 import {
     DndContext,
@@ -25,6 +26,7 @@ interface ClipTableProps {
     editingId: string | null
     saving: boolean
     onSelectAll: () => void
+    onSelectMultiple?: (ids: string[]) => void
     onSelect: (id: string) => void
     onEdit: (clip: Clip) => void
     onSave: (id: string, values: Partial<Clip>) => void | Promise<void>
@@ -51,6 +53,7 @@ export function ClipTable({
     editingId,
     saving,
     onSelectAll,
+    onSelectMultiple,
     onSelect,
     onEdit,
     onSave,
@@ -65,15 +68,40 @@ export function ClipTable({
     onAddReference,
     seriesTitle
 }: ClipTableProps) {
-    // ... (skip down to SortableContext)
-    // I need to use replace_file_content targeted chunks.
-    // This single block is safer for the Props interface.
-    // But I also need to update the <ClipRow> call further down.
-    // I will split this into two tool calls or use multi_replace.
-    // I'll assume sequential for safety.
     const allSelected = clips.length > 0 && selectedIds.size === clips.length
 
     const [orderedClips, setOrderedClips] = useState(clips)
+
+    // Traffic Light Bulk Selection Filter State
+    const [trafficFilter, setTrafficFilter] = useState<'none' | 'red' | 'orange' | 'green'>('none')
+
+    const handleTrafficCycle = () => {
+        const sequence: ('none' | 'red' | 'orange' | 'green')[] = ['none', 'red', 'orange', 'green'];
+        const currentIdx = sequence.indexOf(trafficFilter);
+        const nextFilter = sequence[(currentIdx + 1) % sequence.length];
+        setTrafficFilter(nextFilter);
+
+        if (onSelectMultiple) {
+            if (nextFilter === 'none') {
+                onSelectMultiple([]);
+            } else {
+                const matchingIds = clips.filter(c => {
+                    const status = getComputedClipStatus(c);
+                    return status.colorClass.includes(nextFilter);
+                }).map(c => c.id);
+                onSelectMultiple(matchingIds);
+            }
+        }
+    };
+
+    const getTrafficColorClass = () => {
+        switch (trafficFilter) {
+            case 'red': return 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]';
+            case 'orange': return 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]';
+            case 'green': return 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]';
+            default: return 'bg-stone-700 hover:bg-stone-500';
+        }
+    };
 
     useEffect(() => {
         setOrderedClips(currentOrdered => {
@@ -167,7 +195,13 @@ export function ClipTable({
                 <Table className="table-fixed border-collapse">
                     <TableHeader className="sticky top-0 bg-black backdrop-blur-sm z-10">
                         <TableRow>
-                            <TableHead className="w-[10px] p-0 text-center align-top py-3"></TableHead>
+                            <TableHead className="w-[20px] p-0 text-center align-middle py-3">
+                                <button
+                                    onClick={handleTrafficCycle}
+                                    className={`w-3 h-3 mt-1.5 mx-auto block rounded-full ring-1 ring-white/10 transition-all duration-200 cursor-pointer ${getTrafficColorClass()}`}
+                                    title={`Filter Status: ${trafficFilter === 'none' ? 'Off' : trafficFilter}`}
+                                />
+                            </TableHead>
                             <TableHead className="w-[28px] px-0 text-center align-top py-3">
                                 <Checkbox
                                     checked={allSelected}
@@ -181,7 +215,7 @@ export function ClipTable({
                             <TableHead className="w-[140px] font-medium text-stone-500 text-left align-top py-3">CAMERA</TableHead>
                             <TableHead className="w-[15%] font-medium text-stone-500 text-left align-top py-3">ACTION</TableHead>
                             <TableHead className="w-[15%] font-medium text-stone-500 text-left align-top py-3">DIALOG</TableHead>
-                            <TableHead className="w-[80px] font-medium text-stone-500 text-right align-top py-3">REF IMAGES</TableHead>
+                            <TableHead className="w-[80px] font-medium text-stone-500 text-right align-top py-3">GENERATE</TableHead>
                             <TableHead className="w-[80px] font-medium text-stone-500 text-left align-top py-3">RESULT</TableHead>
                             <TableHead className="w-[40px] font-medium text-stone-500 text-left align-top py-3 px-1">STATUS</TableHead>
                         </TableRow>

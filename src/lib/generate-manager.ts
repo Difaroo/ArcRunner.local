@@ -7,6 +7,7 @@ import path from 'path';
 import { BuilderFactory } from '@/lib/builders/BuilderFactory';
 import { getModelConfig } from '@/lib/models';
 import { Clip } from '@prisma/client';
+import { resolveManifest, LibraryContext, InputSlot } from '@/lib/structural-manifest';
 
 // Input payload for a generation task
 export interface GenerateTaskInput {
@@ -143,8 +144,13 @@ export class GenerateManager {
                         // For now we trust the logic.
 
                         if (filteredChars.length !== originalChars.length) {
-                            console.log(`[GenerateManager] Start Frame Intelligence: Filtered Characters.\nOriginal: ${originalChars.join(', ')}\nFiltered: ${filteredChars.join(', ')}`);
-                            input.clip.character = filteredChars.join(', ');
+                            if (filteredChars.length === 0 && originalChars.length > 0) {
+                                console.log(`[GenerateManager] Start Frame Intelligence: All characters filtered out. Restoring originals to prevent empty subject.\nOriginal: ${originalChars.join(', ')}`);
+                                // Do not mutate input.clip.character
+                            } else {
+                                console.log(`[GenerateManager] Start Frame Intelligence: Filtered Characters.\nOriginal: ${originalChars.join(', ')}\nFiltered: ${filteredChars.join(', ')}`);
+                                input.clip.character = filteredChars.join(', ');
+                            }
                         }
                     }
 
@@ -221,10 +227,40 @@ export class GenerateManager {
             return seriesLib[k] || seriesLib[k.replace(/ /g, '_')] || seriesLib[k.replace(/_/g, ' ')];
         };
 
-        // Resolve! Nano/Veo get ALL images, others (Flux legacy?) get SINGLE
-        const resolveMode = (apiType === 'nano' || apiType === 'veo') ? 'all' : 'single';
-        const { fullRefs, characterImageUrls, locationImageUrls } = resolveClipImages(input.clip, findLib, resolveMode);
-        console.log(`[GenerateManager] Resolved References (${resolveMode}):`, { fullRefs, charCount: characterImageUrls.length });
+        // --- MANIFEST RESOLUTION (The Single Source of Truth) ---
+        // Instead of fuzzy-matching the pool, we strictly mimic the BEM's structural manifest rules
+
+        // 1. Build strict LibraryContext (Only exact Studio item matches)
+        const styleItemUrl = findLib(input.clip.style || "");
+
+        // Locations: Must match exactly (text field -> Studio Library)
+        const locItemUrl = findLib(input.clip.location || "");
+        const locationImages = locItemUrl ? [locItemUrl] : [];
+
+        // Characters: Must match exactly
+        const charNames = input.clip.character ? input.clip.character.split(',') : [];
+        const characterImages = charNames
+            .map(n => findLib(n.trim()))
+            .filter((url): url is string => !!url);
+
+        const libraryContext: LibraryContext = {
+            styleImage: styleItemUrl,
+            locationImages,
+            characterImages
+        };
+
+        // 2. Format Explicit Refs
+        // We know explicitly-linked refs are sorted and valid from the `explicitRefPaths` query above.
+        // We need to map them to the `Media` type expected by `resolveManifest`.
+        const formattedExplicitRefs = sortedRefs.map(m => ({
+            id: m.id,
+            url: explicitRefPaths[sortedRefs.indexOf(m)] || m.url,
+            refImageSort: m.refImageSort
+        })) as any;
+
+        // 3. Resolve Manifest!
+        const manifest = resolveManifest(dbClip as any, effectiveModelId || 'veo-fast', libraryContext, formattedExplicitRefs);
+        console.log(`[GenerateManager] Structural Manifest Slots:`, manifest.slots.map(s => `${s.type} (${s.isAutoPopulated ? 'Auto' : 'Explicit'})`));
 
         const isVideo = apiType === 'veo';
 
@@ -341,31 +377,26 @@ export class GenerateManager {
                 });
             };
 
-            // Style Image
-            let publicStyleImage: string | null = null;
-            if (styleItem?.refImageUrl) {
-                const [res] = await ensureList([styleItem.refImageUrl]);
-                publicStyleImage = res || null;
-            }
+            // --- MAP MANIFEST BACK TO BUILDER CONTEXT ---
+            // The builders expect these specific segmented arrays.
+            // We map the resolved manifest slots back into these buckets.
 
-            // Character Images
-            const rawCharUrls = characterImageUrls; // From shared-resolver
-            const publicCharImages = await ensureList(rawCharUrls);
+            const manifestPublicUrls = await ensureList(manifest.selectedUrls);
 
-            // Location Images
-            const rawLocUrls = locationImageUrls; // From shared-resolver
-            const publicLocImages = await ensureList(rawLocUrls);
+            // Map the ensured URLs back to their slots
+            const ensuredSlots = manifest.slots.map((slot: InputSlot, index: number) => ({
+                ...slot,
+                ensuredUrl: manifestPublicUrls[index]
+            }));
 
-            // Explicit Images (Prioritize DB Media Relations)
-            // We resolved 'explicitRefPaths' earlier from the DB Source of Truth.
-            const publicExplicitImages = await ensureList(explicitRefPaths);
+            // Filter ensured slots by type for the legacy BuilderContext inputs
+            let publicStyleImage: string | null = ensuredSlots.find((s: any) => s.type === 'style')?.ensuredUrl || null;
+            const publicCharImages = ensuredSlots.filter((s: any) => s.type === 'character').map((s: any) => s.ensuredUrl);
+            const publicLocImages = ensuredSlots.filter((s: any) => s.type === 'location').map((s: any) => s.ensuredUrl);
+            const publicExplicitImages = ensuredSlots.filter((s: any) => ['reference', 'start-frame', 'end-frame'].includes(s.type)).map((s: any) => s.ensuredUrl);
 
-            // Legacy Fallback (keeping fullRefs for safety if needed, but PromptConstructor should use granular)
-            let publicImageUrls: string[] = [];
-            if (fullRefs) {
-                const rawUrls = fullRefs.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
-                publicImageUrls = await ensureList(rawUrls);
-            }
+            // Legacy generic publicImageUrls (for models that just take a flat list of refs)
+            const publicImageUrls = publicExplicitImages;
 
             // --- FLUX T2I PATCH ---
             // 'flux-2/flex-image-to-image' requires input_urls to be non-empty.

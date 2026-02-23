@@ -10,6 +10,13 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.32.1 (Traffic Light UX & BEM UX)
+- [x] **Global Traffic Filter**: Added cycle UI to Clips Table header to isolate rows by Red/Orange/Green ready state.
+- [x] **Bulk Selection**: Selecting a Traffic Light state auto-checks all matching rows.
+- [x] **Grab Bar Indicators**: Replaced row-level status dots with edge-to-edge colored margins on the drag handles.
+- [x] **BEM Vibe Refresh**: Fixed bug where creating a new Action Vibe failed to re-render the side menu.
+- [x] **UVM Legacy Restore**: Restored the permanent delete Trashcan icon to the Universal Media Viewer overlay.
+
 ## 🚀 Released v0.32.0 (Universal Viewer Overhaul & Harmonization)
 - [x] **Vertical Support**: Universal Media Viewer now strictly computes layout boundaries for 9:16 vertical modes.
 - [x] **Contextual Unlink**: Added explicit context-aware `AlertDialog` Unlink validations for Studio vs Pool assets.

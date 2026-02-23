@@ -39,6 +39,7 @@ import { useRowShortcuts } from "@/hooks/useRowShortcuts"
 import { useMediaPersistence } from "@/hooks/useMediaPersistence"
 import { getComputedClipStatus } from "@/lib/clip-status"
 import React from "react"
+import { resolveManifest, LibraryContext } from '@/lib/structural-manifest'
 
 interface ClipRowProps {
     clip: Clip
@@ -186,7 +187,32 @@ export function ClipRow({
         }
     };
 
-    const renderedRefs = [...getEffectiveRefs()]; // FIX: No reverse, backend is Newest First (Desc)
+    // --- Model Input Slots Manifest Resolution ---
+    const explicitRefsForManifest = getEffectiveRefs().map((url, i) => ({
+        id: `ref-${i}`,
+        url,
+        episodeId: clip.episodeId || '',
+        type: (url.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'VIDEO' : 'IMAGE') as any,
+        ownerIds: [],
+        refImageSort: getEffectiveRefs().length - i // Descending priority matches legacy behavior
+    } as any));
+
+    // STRICT MANIFEST RESOLUTION: We only auto-populate exact matches found in the Studio library via onResolveImage
+    const resolveStrict = (name: string) => onResolveImage ? onResolveImage(name.trim()) : undefined;
+
+    const locItemUrl = clip.location ? resolveStrict(clip.location) : undefined;
+    const locationImages = locItemUrl ? [locItemUrl] : [];
+
+    const charNames = clip.character ? clip.character.split(',') : [];
+    const characterImages = charNames.map(resolveStrict).filter((url): url is string => !!url);
+
+    const libraryContext: LibraryContext = {
+        styleImage: clip.style ? resolveStrict(clip.style) : undefined,
+        characterImages,
+        locationImages
+    };
+
+    const manifest = resolveManifest(clip, clip.model || 'veo', libraryContext, explicitRefsForManifest);
 
     const {
         attributes,
@@ -529,6 +555,11 @@ export function ClipRow({
         onDownload: handleDownload
     });
 
+    const rowStatusBorder = derivedStatus.colorClass.includes('red') ? 'border-red-500 bg-red-500/10' :
+        derivedStatus.colorClass.includes('green') ? 'border-green-500 bg-green-500/10' :
+            derivedStatus.colorClass.includes('orange') ? 'border-orange-500 bg-orange-500/10' :
+                'border-stone-600 bg-stone-800/10';
+
     return (
         <TableRow
             ref={setNodeRef}
@@ -536,20 +567,13 @@ export function ClipRow({
             className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''} ${isDragging ? 'opacity-50 bg-stone-800' : ''}`}
             data-testid="clip-row"
         >
-            <TableCell className="w-[10px] p-0 text-center align-top py-3 cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
-                <div className="flex items-center justify-center h-4 w-4">
-                    <span className="material-symbols-outlined text-stone-600 hover:text-stone-400 !text-base leading-none">drag_indicator</span>
-                </div>
-            </TableCell>
-            <TableCell className="w-[28px] px-0 text-center align-top py-3">
-                <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => onSelect(clip.id)}
-                />
+            <TableCell className={`w-[10px] p-0 text-center align-top relative cursor-grab active:cursor-grabbing touch-none border-l-[3px] ${rowStatusBorder}`} {...attributes} {...listeners}>
                 <TooltipProvider>
                     <Tooltip delayDuration={300}>
                         <TooltipTrigger asChild>
-                            <div className={`mt-3 mx-auto w-2 h-2 rounded-full ring-1 ring-white/10 shadow-sm ${derivedStatus.colorClass}`} />
+                            <div className="flex items-center justify-center h-full min-h-[46px] w-full py-3">
+                                <span className="material-symbols-outlined text-stone-600 group-hover:text-stone-400 !text-base leading-none transition-colors">drag_indicator</span>
+                            </div>
                         </TooltipTrigger>
                         <TooltipContent side="right" className="bg-stone-900 border-stone-800 text-stone-200">
                             <p className="text-xs">{
@@ -561,6 +585,12 @@ export function ClipRow({
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
+            </TableCell>
+            <TableCell className="w-[28px] px-0 text-center align-top py-3">
+                <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onSelect(clip.id)}
+                />
             </TableCell>
             <TableCell className={`align-top font-sans font-extralight text-stone-500 text-xs w-[35px] px-1 py-3`}>
                 <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-stone-500">
@@ -879,26 +909,26 @@ export function ClipRow({
                         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(false); }}
                         onDrop={handleRefDropRef}
                     >
-                        {renderedRefs.length > 0 ? (
-                            renderedRefs.slice(0, 9).map((url, i) => (
-                                <div key={url} className="w-[24px] h-[24px]">
+                        {manifest.slots.length > 0 ? (
+                            manifest.slots.slice(0, 9).map((slot, i) => (
+                                <div key={slot.id} className="w-[24px] h-[24px]">
                                     <MediaDisplay
-                                        url={url}
-                                        title={`Ref ${i + 1}`}
+                                        url={slot.url}
+                                        title={slot.label}
                                         className="w-full h-full object-cover rounded shadow-sm hover:opacity-80 transition-opacity"
                                         isReference={true}
                                         contentType="auto" // Let it auto-detect video vs image
-                                        onUnlink={handleRefUnlink}
+                                        onUnlink={slot.isAutoPopulated ? undefined : handleRefUnlink}
                                         onPlay={(clickedUrl) => {
                                             // 1. Build List of References (Rich Objects)
-                                            const refItems = renderedRefs.map(rUrl => {
-                                                const cleanUrl = rUrl.trim();
+                                            const refItems = manifest.slots.map(s => {
+                                                const cleanUrl = s.url.trim();
                                                 const isVideo = cleanUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
                                                 return {
                                                     id: cleanUrl,
                                                     url: cleanUrl,
                                                     type: (isVideo ? 'video' : 'image') as 'video' | 'image',
-                                                    title: isVideo ? 'Reference Video' : 'Reference Image',
+                                                    title: s.label,
                                                     isReference: true,
                                                     ownerClipId: clip.id.toString()
                                                 };
@@ -935,15 +965,7 @@ export function ClipRow({
                                                 fullPlaylist = [...resultItems, ...refItems];
                                             }
 
-                                            // 3. Append Character/Location Images
-                                            const charItems = (clip.characterImageUrls || []).map(u => ({
-                                                id: u, url: u, type: 'image' as const, title: 'Character Ref', isReference: true, ownerClipId: clip.id.toString()
-                                            }));
-                                            const locItems = (clip.locationImageUrls || []).map(u => ({
-                                                id: u, url: u, type: 'image' as const, title: 'Location Ref', isReference: true, ownerClipId: clip.id.toString()
-                                            }));
-
-                                            fullPlaylist = [...fullPlaylist, ...charItems, ...locItems];
+                                            // 3. Characters/Locations already in slots, no need to append
 
                                             onPlay(clickedUrl, fullPlaylist);
                                         }}

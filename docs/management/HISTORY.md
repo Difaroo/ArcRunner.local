@@ -3,6 +3,29 @@
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
 
+## 2026-02-23: v0.32.1 - Kestrel Update (Traffic Light UX & BEM UX)
+
+### Context
+An immediate feature patch following the Universal Viewer overhaul that significantly enhances the productivity workflows within the Episode Clips table, while also shoring up missed functionality in the Universal Media Viewer and Batch Edit Modal.
+
+### Features
+- **Traffic Light Global Filter & Bulk Selection**:
+  - The standalone "Traffic Light" rendering dot on individual rows (`ClipRow.tsx`) has been removed.
+  - The row's functional status (Red/Orange/Green) is now rendered as a thick, solid-colored strip along the drag handle grab bar, making status instantly identifiable edge-to-edge.
+  - A global "Cycle" filter button was added to the table header. Clicking this cycles through statuses (Red > Orange > Green > Off).
+  - Bulk Selection: When a status is selected, the application computes the subset of rows matching that status and automatically bulk-selects them via `page.tsx`, severely cutting down batch operation friction.
+
+### Fixes
+- **BEM Vibe Controls**:
+  - "Add (+)", "Refresh", and "Copy" actions within the Action area toolbar now strictly adhere to ArcRunner's core `orange-500` CSS instead of the muted `orange-400` hue.
+  - **Live UI Updates**: Fixed an issue where creating a new Vibe successfully persisted to the backend but the side menu failed to display it without a full modal remount. This was resolved with a strict `vibeRefreshTrigger` passdown into `VibesMenu.tsx`.
+- **UVM Permanent Delete Restoration**: Re-wired the `Trash2` deletion hook within `UniversalMediaViewer.tsx` when accessed from the Media Pool, guaranteeing the overlay delete modal functions precisely as it did in the legacy UI.
+
+### Version Bump
+- **Patch**: 0.32.0 -> 0.32.1.
+
+---
+
 ## 2026-02-22: v0.32.0 - Kestrel (Universal Viewer Overhaul)
 
 ### Context

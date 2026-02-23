@@ -19,18 +19,55 @@ async function getSheetsClient() {
 }
 
 // Helper: Ensure URL is public (upload local files to Kie)
-async function ensurePublicUrl(url: string): Promise<string> {
+async function ensurePublicUrl(rawUrl: string): Promise<string> {
+    const url = rawUrl.trim();
     if (!url) return '';
-    if (url.startsWith('http')) return url;
+    if (url.startsWith('http')) return encodeURI(url);
 
-    // Detect Local Path
+    // Detect Absolute Path (from DB localPath)
     let filePath = '';
-    if (url.startsWith('/api/media/uploads/')) {
-        const filename = url.replace('/api/media/uploads/', '');
-        filePath = path.join(process.cwd(), 'storage/media/uploads', filename);
+    if (path.isAbsolute(url) && fs.existsSync(url)) {
+        filePath = url;
+    }
+    // Detect Local URL Path
+    else if (url.startsWith('/api/media/uploads/')) {
+        const filename = decodeURIComponent(url.replace('/api/media/uploads/', ''));
+        filePath = path.join(process.cwd(), 'public/media/uploads', filename);
     } else if (url.startsWith('/api/images/')) {
-        const filename = url.replace('/api/images/', '');
-        filePath = path.join(process.cwd(), 'storage/media/uploads', filename);
+        const filename = decodeURIComponent(url.replace('/api/images/', ''));
+        filePath = path.join(process.cwd(), 'public/media/uploads', filename);
+    } else if (url.startsWith('/media/library/')) {
+        const filename = decodeURIComponent(url.replace('/media/library/', ''));
+        filePath = path.join(process.cwd(), 'public/media/library', filename);
+    } else if (url.startsWith('/media/clips/')) {
+        const filename = decodeURIComponent(url.replace('/media/clips/', ''));
+        filePath = path.join(process.cwd(), 'public/media/clips', filename);
+    } else if (url.startsWith('/api/media/clips/')) {
+        const filename = decodeURIComponent(url.replace('/api/media/clips/', ''));
+        filePath = path.join(process.cwd(), 'public/media/clips', filename);
+    } else if (url.startsWith('/media/uploads/')) {
+        const filename = decodeURIComponent(url.replace('/media/uploads/', ''));
+        filePath = path.join(process.cwd(), 'public/media/uploads', filename);
+    }
+
+    // --- ROBUSTNESS: Fuzzy Search if path not resolved or file missing ---
+    if (!filePath || !fs.existsSync(filePath)) {
+        const basename = decodeURIComponent(path.basename(url));
+        const candidateDirs = [
+            path.join(process.cwd(), 'public/media/uploads'),
+            path.join(process.cwd(), 'public/media/clips'),
+            path.join(process.cwd(), 'public/media/library'),
+            path.join(process.cwd(), 'storage/media/uploads'),
+            path.join(process.cwd(), 'storage/media/generated')
+        ];
+
+        for (const dir of candidateDirs) {
+            const candidate = path.join(dir, basename);
+            if (fs.existsSync(candidate)) {
+                filePath = candidate;
+                break;
+            }
+        }
     }
 
     if (filePath && fs.existsSync(filePath)) {
@@ -46,7 +83,7 @@ async function ensurePublicUrl(url: string): Promise<string> {
             const publicUrl = uploadRes.data?.url || uploadRes.url || (uploadRes.data as any)?.downloadUrl;
 
             if (publicUrl) {
-                return publicUrl;
+                return encodeURI(publicUrl);
             }
 
             throw new Error('Upload response missing URL/downloadUrl');
@@ -55,6 +92,8 @@ async function ensurePublicUrl(url: string): Promise<string> {
             // Don't fail hard, return original (will likely fail downstream but keeps process alive)
             return url;
         }
+    } else if (url.startsWith('/') && !url.startsWith('http')) {
+        console.warn(`[LibraryGen] Local file not found for URL: ${url}`);
     }
 
     return url;
@@ -100,10 +139,28 @@ export async function POST(req: Request) {
         // 2. Prepare Payload via Builder Factory
         // Combine Item Ref + Style Ref
         const rawUrls: string[] = [];
-        if (item.refImageUrl && !item.refImageUrl.startsWith('TASK:')) {
-            // Handle comma-separated input if user uploaded multiple
+
+        // Fetch full Studio Item to get all media records bypassing frontend truncation
+        const dbIdForMedia = parseInt(item.id);
+        const trueStudioItem = await db.studioItem.findUnique({
+            where: { id: dbIdForMedia },
+            include: {
+                media: {
+                    where: { category: 'STUDIO_UPLOAD' },
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
+        });
+
+        if (trueStudioItem && trueStudioItem.media && trueStudioItem.media.length > 0) {
+            trueStudioItem.media.forEach(m => {
+                if (m.url) rawUrls.push(m.url);
+            });
+        } else if (item.refImageUrl && !item.refImageUrl.startsWith('TASK:')) {
+            // Handle comma-separated input if user uploaded multiple (Legacy Fallback)
             item.refImageUrl.split(',').forEach((u: string) => rawUrls.push(u.trim()));
         }
+
         if (styleRefUrl && !styleRefUrl.startsWith('TASK:')) rawUrls.push(styleRefUrl);
 
         // Resolve Local Files to Public URLs

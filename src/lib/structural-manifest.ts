@@ -24,7 +24,7 @@ export interface Manifest {
     }
 }
 
-interface LibraryContext {
+export interface LibraryContext {
     styleImage?: string;
     characterImages?: string[]; // Array of resolved URLs
     characterAssets?: any[]; // Metadata if needed
