@@ -48,6 +48,7 @@ import { LibraryItem } from '@/lib/library';
 import { useDataStore } from '@/hooks/useDataStore';
 import { useSharedSelection } from '@/hooks/useSharedSelection';
 import { useMediaArchiver } from "@/hooks/useMediaArchiver";
+import { useMediaPersistence } from "@/hooks/useMediaPersistence";
 import { usePolling } from '@/hooks/usePolling';
 
 export default function Home() {
@@ -813,6 +814,8 @@ export default function Home() {
   const [pendingGenerateExtras, setPendingGenerateExtras] = useState<any>(null);
 
 
+  const { persistMedia } = useMediaPersistence();
+
   // --- Actions ---
   const handleGenerateSelected = async (extras?: any) => {
     // Check if any selected
@@ -890,84 +893,46 @@ export default function Home() {
     const toDownload = activeClips.filter(c => selectedIds.has(c.id) && c.resultUrl);
     if (toDownload.length === 0) return alert("No completed clips selected.");
 
-    // Capture list for post-download reset
-    // "On download generation deselect all traffic lights in clip." -> Reset to Pending (Red)
-    const processedClips = [...toDownload];
+    let successCount = 0;
+    setCopyMessage(`Downloading ${toDownload.length} clips...`);
 
+    // Sequential download ensures order and avoids overwhelming the server/browser
+    for (const clip of toDownload) {
+      if (!clip.resultUrl) continue;
 
-    // Check for File System Access API support
-    if ('showDirectoryPicker' in window) {
+      const cleanUrl = clip.resultUrl.split(',')[0].trim();
+      const isVideo = cleanUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+
       try {
-        // Prompt user to select destination folder ONCE
-        const dirHandle = await (window as any).showDirectoryPicker({
-          mode: 'readwrite',
-          startIn: 'downloads'
-        });
-
-        // Download all files to the selected folder
-        let successCount = 0;
-        for (const clip of toDownload) {
-          if (clip.resultUrl) {
-            try {
-              const filename = getClipFilename(clip);
-
-              // Fetch the file content
-              const url = clip.resultUrl.startsWith('http') && !clip.resultUrl.includes('localhost')
-                ? `/api/proxy-download?url=${encodeURIComponent(clip.resultUrl)}&filename=${encodeURIComponent(filename)}`
-                : clip.resultUrl;
-
-              const response = await fetch(url);
-              if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
-
-              const blob = await response.blob();
-
-              // Create file in the selected directory
-              const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-              const writable = await fileHandle.createWritable();
-              await writable.write(blob);
-              await writable.close();
-
+        if (isVideo) {
+          const epId = clip.episodeId || clip.episode;
+          if (epId) {
+            const result = await persistMedia({ clipId: clip.id, episodeId: epId });
+            if (result.success) {
               successCount++;
-            } catch (fileError) {
-              console.error(`Failed to download ${clip.title}:`, fileError);
+              // Explicitly clear traffic light status on success
+              await handleSave(clip.id, { isPersisted: true, status: '' });
             }
           }
-        }
+        } else {
+          // Fallback: Browser Download (Images or Missing Context)
+          const seriesTitle = seriesList.find(s => s.id === currentSeriesId)?.title || "Unknown_Series";
+          const filename = getClipFilename(clip, seriesTitle);
+          const success = await downloadFile(cleanUrl, filename);
 
-        alert(`Downloaded ${successCount} of ${toDownload.length} files to selected folder.`);
-
-        // Reset Traffic Lights for downloaded clips
-        processedClips.forEach(c => {
-          // Reset to 'Pending' (Red) as requested
-          handleSave(c.id, { status: 'Pending' }).catch(console.error);
-        });
-
-      } catch (e: any) {
-        // User cancelled folder picker or other error
-        if (e.name !== 'AbortError') {
-          console.error('Batch download error:', e);
-          alert('Batch download failed. Falling back to individual downloads.');
-          // Fallback to sequential downloads
-          for (const clip of toDownload) {
-            if (clip.resultUrl) {
-              const filename = getClipFilename(clip);
-              await downloadFile(clip.resultUrl, filename);
-              await new Promise(r => setTimeout(r, 500));
-            }
+          if (success) {
+            successCount++;
+            await handleSave(clip.id, { status: '' });
           }
+          await new Promise(r => setTimeout(r, 500)); // Delay between browser downloads
         }
-      }
-    } else {
-      // Fallback for browsers without File System Access API
-      alert('Your browser does not support folder selection. Files will be downloaded individually.');
-      for (const clip of toDownload) {
-        if (clip.resultUrl) {
-          const filename = getClipFilename(clip);
-          await downloadFile(clip.resultUrl, filename);
-          await new Promise(r => setTimeout(r, 500));
-        }
+      } catch (err) {
+        console.error(`Failed to download ${clip.title}:`, err);
       }
     }
+
+    setTimeout(() => setCopyMessage(null), 3000);
+    alert(`Successfully processed ${successCount} of ${toDownload.length} clips.`);
   };
 
   const generateLibraryItem = async (item: LibraryItem) => {
@@ -2277,6 +2242,8 @@ export default function Home() {
                 onDurationChange={setClipDuration}
                 seed={currentSeed}
                 onSeedChange={(val) => updateEpisodeSetting({ seed: val })}
+                onSaveClip={handleSave}
+                onDataRefresh={refreshData}
               />
             )}
             {currentView === 'library' && (

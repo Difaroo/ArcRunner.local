@@ -505,7 +505,8 @@ export function ClipRow({
     const handleDownload = async () => {
         // UNIFIED: Use Persistence for Videos, Download for Images
         if (clip.resultUrl) {
-            const isVideo = clip.resultUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+            const cleanUrl = clip.resultUrl.split(',')[0].trim();
+            const isVideo = cleanUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
 
             if (isVideo) {
                 const epId = clip.episodeId || clip.episode; // Type safety
@@ -513,6 +514,8 @@ export function ClipRow({
                     const result = await persistMedia({ clipId: clip.id, episodeId: epId });
                     if (result.success) {
                         setIsPersisted(true);
+                        // User explicitly requested status turns to 'empty' upon download/persistence
+                        onSave(clip.id, { status: '' });
                     }
                     return;
                 }
@@ -524,8 +527,8 @@ export function ClipRow({
 
             if (success) {
                 setDownloadCount(prev => prev + 1)
-                const newStatus = getNextStatus(clip.status || derivedStatus.label);
-                onSave(clip.id, { status: newStatus })
+                // User explicitly requested status turns to 'empty' upon download/persistence
+                onSave(clip.id, { status: '' })
             }
         }
     }
@@ -1033,6 +1036,16 @@ export function ClipRow({
                                 }}
                                 episodeId={clip.episodeId || clip.episode} // Pass Persistence Context
                                 ownerClipId={clip.id} // Pass Clip ID for Persistence
+                                isPersisted={isPersisted} // NEW: Ensure UVM has matching feedback state
+                                onUpdate={async (id, updates) => {
+                                    if (updates && updates.isPersisted !== undefined) {
+                                        setIsPersisted(updates.isPersisted);
+                                    }
+                                    if (updates && updates.status !== undefined) {
+                                        // Push up to Episode Screen so the row data actually formally clears the traffic light!
+                                        onSave(clip.id, { status: updates.status });
+                                    }
+                                }}
                             />
                         </div>
                     )

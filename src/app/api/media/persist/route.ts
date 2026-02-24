@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
-import stream from 'stream';
+import stream, { Readable } from 'stream';
 import { exec } from 'child_process';
 
 const pipeline = promisify(stream.pipeline);
@@ -88,14 +88,17 @@ export async function POST(request: NextRequest) {
         const filename = `${clip.id}_${Date.now()}.mp4`;
         const serverFilePath = path.join(SERVER_STORAGE_ROOT, filename);
 
+        // Extract clean URL (handle comma separated errors or multiple urls)
+        const cleanUrl = clip.resultUrl.split(',')[0].trim();
+
         // LOGGING: Debug Write Failure
         logPersist(`[Persistence] Starting download...`);
-        logPersist(`[Persistence] Source URL: ${clip.resultUrl}`);
+        logPersist(`[Persistence] Source URL: ${cleanUrl} (from original: ${clip.resultUrl})`);
         logPersist(`[Persistence] Target Server Path: ${serverFilePath}`);
 
-        const response = await fetch(clip.resultUrl);
+        const response = await fetch(cleanUrl);
         if (!response.ok) {
-            const err = `Failed to fetch media: ${response.statusText} (${clip.resultUrl})`;
+            const err = `Failed to fetch media: ${response.statusText} (${cleanUrl})`;
             logPersist(err);
             throw new Error(err);
         }
@@ -138,18 +141,15 @@ export async function POST(request: NextRequest) {
         }
 
         // 4. Create Alias (Symlink) in User Folder
-        // Filename: "{Scene} {Title}.mp4" (User friendly)
-        const safeTitle = (clip.title || 'Untitled').replace(/[^a-z0-9]/gi, '_');
-        const safeScene = (clip.scene || '').replace(/[^a-z0-9]/gi, '_');
-        let userFilename = `${safeScene}_${safeTitle}.mp4`.trim();
+        // Filename: "[SCN NUMBER] [CLIP TITLE] [VERSION]"
+        // Sanitize but preserve spaces
+        const safeTitle = (clip.title || 'Untitled').replace(/[^a-zA-Z0-9\s-]/g, '').trim();
+        const safeScene = (clip.scene || '').replace(/[^a-zA-Z0-9\.\s-]/g, '').trim();
+        const baseSceneTitle = `${safeScene} ${safeTitle}`.trim() || 'Clip';
 
-        // Defensive: Handle Collisions
-        // If file exists, check if it's our symlink or a user file.
-        // If it sends to same server file, no op.
-        // If different server file, or user file -> Version it.
-
-        let userFilePath = path.join(targetUserFolder!, userFilename);
         let counter = 1;
+        let userFilename = `${baseSceneTitle} ${counter.toString().padStart(2, '0')}.mp4`;
+        let userFilePath = path.join(targetUserFolder!, userFilename);
 
         while (fs.existsSync(userFilePath)) {
             // Check if it's a symlink
@@ -161,26 +161,15 @@ export async function POST(request: NextRequest) {
                         console.log(`[Persistence] Symlink already exists and points to correct file.`);
                         break; // All good
                     } else {
-                        // Points to different file -> Overwrite (Update) or Version? 
-                        // If it's the SAME Clip but different generation, we probably want to update the link?
-                        // But user might want history.
-                        // Decision: Version it to be safe.
+                        // Points to different file -> Version it.
                     }
                 }
             } catch (e) { } // Ignore error, proceed to versioning
 
-            // Create Version: "Scene_Title_v1.mp4"
-            const ext = path.extname(userFilename);
-            const base = path.basename(userFilename, ext);
-            // Check if already has version
-            const match = base.match(/^(.*)_v(\d+)$/);
-            if (match) {
-                userFilename = `${match[1]}_v${parseInt(match[2]) + 1}${ext}`;
-            } else {
-                userFilename = `${base}_v${counter}${ext}`;
-            }
-            userFilePath = path.join(targetUserFolder!, userFilename);
+            // Create Version: "Scene Title 02.mp4"
             counter++;
+            userFilename = `${baseSceneTitle} ${counter.toString().padStart(2, '0')}.mp4`;
+            userFilePath = path.join(targetUserFolder!, userFilename);
         }
 
         if (!fs.existsSync(userFilePath)) {
@@ -207,6 +196,7 @@ export async function POST(request: NextRequest) {
             where: { id: clipIdInt },
             data: {
                 isPersisted: true,
+                status: '', // Clear traffic light status (Red->Orange->Green->Clear)
                 // We could store the server path in a Media relation here
             }
         });

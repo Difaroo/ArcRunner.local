@@ -127,16 +127,16 @@ export function RowActions({
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
-                                    variant={isPersisted ? "ghost" : "outline-primary"} // Ghost if peristed (subtle), Outline if not
+                                    variant={isPersisted ? "ghost" : "outline"} // Ghost if peristed (subtle), Outline if not
                                     size="icon"
                                     onClick={handleDownloadClick}
                                     disabled={isSaving || isDownloading}
-                                    className={`h-8 w-8 ${isPersisted ? 'text-green-500 hover:text-green-400 hover:bg-green-500/10' : ''}`}
+                                    className={`h-8 w-8 ${isPersisted ? '!text-green-500 hover:!text-green-400 hover:bg-green-500/10' : '!text-orange-500 hover:!text-orange-400 border-orange-500/50 hover:bg-orange-500/10'}`}
                                 >
                                     {isDownloading ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
                                     ) : isPersisted ? (
-                                        <span className="material-symbols-outlined !text-lg">movie</span>
+                                        <span className="material-symbols-outlined !text-lg">theaters</span>
                                     ) : (
                                         <span className="material-symbols-outlined !text-lg">download</span>
                                     )}

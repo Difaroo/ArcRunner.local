@@ -21,6 +21,7 @@ interface MediaDisplayProps {
     isReference?: boolean // Override context
     episodeId?: string; // For Persistence context
     ownerClipId?: string; // For Persistence context
+    isPersisted?: boolean; // NEW: For UVM context
 }
 
 export function MediaDisplay({
@@ -41,7 +42,8 @@ export function MediaDisplay({
     onUnlink, // Destructure unlink handler
     isReference = false, // Default to false (Root Asset) unless specified
     episodeId,
-    ownerClipId // NEW: Accept ownerClipId
+    ownerClipId, // NEW: Accept ownerClipId
+    isPersisted = false // NEW: Accept persistence state
 }: MediaDisplayProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [imgError, setImgError] = useState(false); // Track if proxy failed
@@ -188,7 +190,8 @@ export function MediaDisplay({
                     action: action, // Pass to UVM
                     isReference: !!isReference, // Respect prop
                     episodeId, // Pass episodeId for persistence
-                    ownerClipId // Pass ownerClipId for persistence
+                    ownerClipId, // Pass ownerClipId for persistence
+                    isPersisted // NEW: Pass down value to UVM feedback Action Button
                 }))}
                 initialIndex={allUrls.indexOf(effectiveOriginalUrl || '')}
                 onUpdate={onUpdate ? async (id, updates) => { await onUpdate(id, updates); } : undefined}

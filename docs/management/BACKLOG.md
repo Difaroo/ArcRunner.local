@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.32.2 (Batch Download & UX Polish)
+- [x] **Context-Agnostic SDK Unification**: Rewrote the Episode Header Batch Download to route through the unified `useMediaPersistence` SDK, silently persisting to the machine's library.
+- [x] **Clear Traffic Light on Download**: Modified frontend UI logic and API to explicitly clear traffic light statuses when a download succeeds.
+- [x] **Fixed UI Reactive Loop**: Integrated `onUpdate` throughout the Universal Media Viewer to correctly provide immediate visual feedback.
+- [x] **Download Naming**: Export algorithm enforces padded counter versioning matching `[SCN] [TITLE] 01.mp4`.
+
 ## 🚀 Released v0.32.1 (Traffic Light UX & BEM UX)
 - [x] **Global Traffic Filter**: Added cycle UI to Clips Table header to isolate rows by Red/Orange/Green ready state.
 - [x] **Bulk Selection**: Selecting a Traffic Light state auto-checks all matching rows.

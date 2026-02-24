@@ -392,16 +392,19 @@ export function UniversalMediaViewer({
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className={`h-9 w-9 ${currentItem.isPersisted ? 'text-green-500 hover:text-green-400' : 'text-zinc-400 hover:text-white'}`}
+                                        className={`h-9 w-9 ${currentItem.isPersisted ? '!text-green-500 hover:!text-green-400 hover:bg-green-500/10' : '!text-orange-500 hover:!text-orange-400 hover:bg-orange-500/10'}`}
                                         disabled={isPersisting}
                                         onClick={async (e) => {
                                             e.stopPropagation();
                                             if (isVideo && currentItem.episodeId && currentItem.ownerClipId) {
                                                 try {
-                                                    await persistMedia({
+                                                    const result = await persistMedia({
                                                         clipId: currentItem.ownerClipId,
                                                         episodeId: currentItem.episodeId
                                                     });
+                                                    if (result?.success && onUpdate) {
+                                                        await onUpdate(currentItem.id, { isPersisted: true, status: '' });
+                                                    }
                                                 } catch (err) {
                                                     console.error('[UniversalMediaViewer] Persist Error:', err);
                                                 }
@@ -415,16 +418,16 @@ export function UniversalMediaViewer({
                                         }}
                                     >
                                         {isPersisting ? (
-                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                            <Loader2 className="h-5 w-5 animate-spin !text-orange-500" />
                                         ) : (
                                             isVideo && currentItem.episodeId ? (
                                                 currentItem.isPersisted ? (
-                                                    <Clapperboard className="h-5 w-5 fill-current" />
+                                                    <span className="material-symbols-outlined !text-[20px]">theaters</span>
                                                 ) : (
-                                                    <Clapperboard className="h-5 w-5" />
+                                                    <span className="material-symbols-outlined !text-[20px]">download</span>
                                                 )
                                             ) : (
-                                                <DownloadCloud className="h-5 w-5" />
+                                                <span className="material-symbols-outlined !text-[20px]">download</span>
                                             )
                                         )}
                                     </Button>

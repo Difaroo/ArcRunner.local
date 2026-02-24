@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Clip } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { VibeItem } from './VibeItem';
 import { MediaDisplay } from '@/components/media/MediaDisplay';
@@ -576,11 +577,62 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                 <div className="h-full flex flex-row gap-4 min-h-0 w-full overflow-hidden">
                     {/* Top Row: Asset Pool */}
                     <div className="flex-1 min-w-0 flex-shrink bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800 min-h-0">
-                        <div className="px-3 pt-3 pb-1 flex justify-between items-center">
-                            <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider">Asset Pool</h3>
-                            <span className="text-xs text-stone-600 font-mono">
-                                {mediaItems.filter(m => !m.refImageSort || m.refImageSort === 0).length}
-                            </span>
+                        <div className="px-3 py-1 flex justify-between items-center group/poolheader h-[34px]">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider">Asset Pool</h3>
+                                <span className="text-xs text-orange-500 font-mono font-medium">
+                                    {mediaItems.filter(m => !m.refImageSort || m.refImageSort === 0).length}
+                                </span>
+                            </div>
+                            <div className="flex items-center">
+                                <div className="relative w-6 h-6">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        id="bem-pool-upload"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+
+                                            try {
+                                                const formData = new FormData();
+                                                formData.append('file', file);
+                                                if (episodeId) formData.append('episode', episodeId);
+
+                                                const res = await fetch('/api/upload', {
+                                                    method: 'POST',
+                                                    body: formData,
+                                                });
+
+                                                if (!res.ok) throw new Error('Upload failed');
+                                                if (onDataRefresh) onDataRefresh();
+                                            } catch (err) {
+                                                console.error('Upload error:', err);
+                                            } finally {
+                                                if (e.target) e.target.value = '';
+                                            }
+                                        }}
+                                    />
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline-primary"
+                                                    size="icon"
+                                                    className="w-7 h-7"
+                                                    onClick={() => document.getElementById('bem-pool-upload')?.click()}
+                                                >
+                                                    <span className="material-symbols-outlined !text-[16px]">add</span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Upload Image to Pool</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            </div>
                         </div>
                         <ClipAssetScroller
                             mediaItems={mediaItems}
@@ -619,14 +671,122 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                         style={{ width: calculatedSlotWidth ? `${calculatedSlotWidth}px` : undefined }}
                         className={`flex-none ${calculatedSlotWidth ? '' : 'w-fit'} bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800 relative transition-[width] duration-75`}
                     >
-                        <div className="px-2 pt-3 pb-1 w-fit">
+                        <div className="px-3 py-1 flex justify-between items-center group/slotsheader h-[34px]">
                             <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider">{getModelConfig(model).label}</h3>
+                            <div className="flex items-center">
+                                <div className="relative w-6 h-6">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        id="bem-slots-upload"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+
+                                            try {
+                                                const formData = new FormData();
+                                                formData.append('file', file);
+                                                if (episodeId) formData.append('episode', episodeId);
+
+                                                const res = await fetch('/api/upload', {
+                                                    method: 'POST',
+                                                    body: formData,
+                                                });
+
+                                                if (!res.ok) throw new Error('Upload failed');
+                                                const data = await res.json();
+
+                                                // Link directly to clip instead of just pool
+                                                await handleAddToSlot({
+                                                    url: data.url,
+                                                    type: 'IMAGE'
+                                                });
+
+                                                if (onDataRefresh) onDataRefresh();
+                                            } catch (err) {
+                                                console.error('Upload error:', err);
+                                            } finally {
+                                                if (e.target) e.target.value = '';
+                                            }
+                                        }}
+                                    />
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline-primary"
+                                                    size="icon"
+                                                    className="w-7 h-7"
+                                                    onClick={() => document.getElementById('bem-slots-upload')?.click()}
+                                                >
+                                                    <span className="material-symbols-outlined !text-[16px]">add</span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Upload Image to Slots</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            </div>
                         </div>
                         <div className="px-1.5 pb-2 pt-0 h-full w-fit">
                             <ModelInputSlotsV2
                                 modelConfig={getModelConfig(model)}
                                 mediaItems={uiSlots as any}
                                 onRemove={handleRemoveFromSlot}
+                                onReorder={async (sourceIndex, destIndex) => {
+                                    const newUiSlots = arrayMove(uiSlots, sourceIndex, destIndex);
+
+                                    const desiredExplicitIds = newUiSlots
+                                        .filter((slot: any) => slot && slot.originalId)
+                                        .map((slot: any) => slot.originalId as string);
+
+                                    if (desiredExplicitIds.length === 0) return;
+
+                                    const currentMaxSort = localReferences.length > 0 ? Math.max(...localReferences.map(r => r.refImageSort || 0)) : 0;
+                                    const baseSort = currentMaxSort + 10;
+                                    const updates: { id: string, refImageSort: number }[] = [];
+                                    const isS2E = (model || '').toLowerCase() === 'veo-s2e';
+
+                                    if (isS2E) {
+                                        if (desiredExplicitIds.length >= 2) {
+                                            updates.push({ id: desiredExplicitIds[0], refImageSort: baseSort + 1 }); // Start Frame
+                                            updates.push({ id: desiredExplicitIds[1], refImageSort: baseSort + 2 }); // End Frame
+                                        } else if (desiredExplicitIds.length === 1) {
+                                            updates.push({ id: desiredExplicitIds[0], refImageSort: baseSort + 1 });
+                                        }
+                                    } else {
+                                        let currentAssignSort = baseSort + desiredExplicitIds.length;
+                                        for (const id of desiredExplicitIds) {
+                                            updates.push({ id, refImageSort: currentAssignSort });
+                                            currentAssignSort--;
+                                        }
+                                    }
+
+                                    if (updates.length > 0) {
+                                        let newLocalRefs = [...localReferences];
+                                        updates.forEach(update => {
+                                            newLocalRefs = newLocalRefs.map(r => r.id === update.id ? { ...r, refImageSort: update.refImageSort } : r);
+                                        });
+                                        setLocalReferences(newLocalRefs);
+
+                                        try {
+                                            const promises = updates.map(update =>
+                                                fetch('/api/media', {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify(update)
+                                                })
+                                            );
+                                            await Promise.all(promises);
+                                            if (onDataRefresh) onDataRefresh();
+                                        } catch (e) {
+                                            console.error('Failed to reorder explicit refs', e);
+                                        }
+                                    }
+                                }}
                                 orientation="horizontal"
                                 className=""
                             />

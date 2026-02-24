@@ -2,6 +2,24 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-24: v0.32.2 - Kestrel Update (Batch Download & Persistence Standardization)
+
+### Context
+A targeted release unifying the video download and persistence architecture across the Universal Media Viewer, individual row actions, and batch downloads. The primary focus was removing OS-level save dialog interventions when saving media locally and correctly communicating state changes back to the UI.
+
+### Features & Fixes
+- **Unified SDK Architecture**:
+  - The Episode Batch Download button previously relied on an outdated HTML5 `window.showDirectoryPicker` call, generating an aggressive OS prompt. This was replaced with the centralized `persistMedia` SDK.
+  - Removed logic errors in the inline download button where appended `.mp4,Request temporarily unavailable` strings from the Kie API caused the app to fallback to native browser downloads.
+- **Traffic Light Clearing**:
+  - Downloading/Persisting media now intentionally flushes the Traffic Light status for that clip (setting it to empty/complete) across all components (UVM, ClipRow, and the Batch API).
+- **Reactive UI**: 
+  - Wired an `onUpdate` prop tunnel from `UniversalMediaViewer` -> `MediaDisplay` -> `ClipRow`, ensuring the "Persist" clapperboard icon immediately turns green upon a successful local disk write.
+
+### Version Bump
+- **Patch**: 0.32.1 -> 0.32.2.
+
+---
 
 ## 2026-02-23: v0.32.1 - Kestrel Update (Traffic Light UX & BEM UX)
 
