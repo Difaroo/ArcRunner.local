@@ -10,6 +10,10 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.32.4 (Traffic Light Hotfix)
+- [x] **API State Missing**: Updated `api/clips/route.ts` to properly forward `isPersisted` status to UI preventing false "Green" flags.
+- [x] **Production Lockdown**: Hardened `PLAYBOOK.md` to formally restrict agents operating directly against production architectures.
+
 ## 🚀 Released v0.32.3 (Backend Sync & Data Recovery)
 - [x] **Production Data Rescue**: Restored 28 legacy CSV image references from an offline Prod backup seamlessly into the new Media table.
 - [x] **Offline Batch Persistence**: Built an intelligent "reverse persistence" script that scans local desktop folders and binds local un-persisted `.mp4` video files to ArcRunner clips.

@@ -2,6 +2,20 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-24: v0.32.4 - Kestrel Update (Traffic Light Hotfix)
+
+### Context
+Following the v0.32.3 Offline Persistence Backfill, several clips correctly held an `isPersisted` state in the SQLite database but continued rendering as "Green" (Ready to Download) in the frontend `ClipRow.tsx`. It was discovered that `/api/clips/route.ts` was stripping the `isPersisted` boolean from the structural JSON return interface.
+
+### Features & Fixes
+- **API State Forwarding**: Hardcoded the `isPersisted: clip.isPersisted || false` key-value expression directly into the core `GET` payload loop inside `src/app/api/clips/route.ts` so `getComputedClipStatus` has the data required to turn the traffic light off.
+- **Production Lock Protocols**: Implemented strict anti-production operational guidelines inside `docs/management/PLAYBOOK.md` to prevent agentic scripts from accidentally touching `prod_v2.db` or deploying to port 3001 without explicit authorization.
+
+### Version Bump
+- **Patch**: 0.32.3 -> 0.32.4.
+
+---
+
 ## 2026-02-24: v0.32.3 - Kestrel Update (Backend Sync & Data Recovery)
 
 ### Context
