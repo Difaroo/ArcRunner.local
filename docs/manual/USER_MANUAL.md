@@ -156,7 +156,7 @@ The behaviour of the "Unlink" action depends contextually on the asset type bein
 - **MIS Loaded Assets**: Unlinking an asset actively sitting inside an MIS slot simply returns it to the Pool.
 - *Note: **Delete** is exclusively reserved for the Media Screen and permanently trashes the record. It is intentionally omitted from the UVM to prevent accidental destructive actions.*
 
-### 3. Persist & Download Architecture (v0.32.2)
+### 3. Persist & Download Architecture (v0.32.3)
 Media results are handled differently based on output type to optimize bandwidth and local storage:
 - **Image Results**: Generated as static assets or downloaded locally by default. Users can save them to their own local file using the Download button.
 - **Video Results**: Video generation results are hosted temporarily at Kie.ai (the API aggregator). 
@@ -165,6 +165,11 @@ Media results are handled differently based on output type to optimize bandwidth
   - The system then saves this directory path to the current Episode record. 
   - Thereafter, it operates silently in the background, downloading results directly to the established local folder and inserting an alias back into the ArcRunner UI for seamless playback.
   - **Batch Downloads**: Behave exactly identical to single-row downloads. Highlighting multiple completed clips and clicking download will silently route all files to the assigned episode alias path simultaneously, automatically clearing the Red/Orange traffic light status in the UI to signify completion.
+- **Offline Persistence & Sync (v0.32.3)**:
+  - If remote generation assets expire (404) before in-app persistence, ArcRunner provides a "Reverse Persistence" script (`scripts/offline-persist.ts`).
+  - By pointing the script at a master local folder of raw `.mp4` renders, the script structurally parses the filenames (requiring exact matches on Scene Number and Title logic) and forcefully binds them back into the Prisma database.
+  - The framework safely clones the local assets directly into `public/media/clips/`, provisions clean symlink aliases into nested output folders, seamlessly manages procedural render variations (producing `01.mp4`, `02.mp4` sequences bound to individual Media nodes), and activates the UI routing.
+  - **Environment Synchronization**: Because offline actions manipulate internal state directly, ArcRunner includes `scripts/sync-dev-to-prod.ts` to execute a one-click total file-system overwrite between databases. This allows Development sandboxes to reach 100% completion parity before completely overwriting the Production master architecture.
 
 ## Visual Reference Management (v0.18.0)
 

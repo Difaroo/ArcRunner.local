@@ -10,8 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.32.3 (Backend Sync & Data Recovery)
+- [x] **Production Data Rescue**: Restored 28 legacy CSV image references from an offline Prod backup seamlessly into the new Media table.
+- [x] **Offline Batch Persistence**: Built an intelligent "reverse persistence" script that scans local desktop folders and binds local un-persisted `.mp4` video files to ArcRunner clips.
+- [x] **Dev to Prod Sync**: Wrote a one-click deployment script that safely backs up the Prod database and completely overwrites it with the Dev database master.
+
 ## 🚀 Released v0.32.2 (Batch Download & UX Polish)
-- [x] **Context-Agnostic SDK Unification**: Rewrote the Episode Header Batch Download to route through the unified `useMediaPersistence` SDK, silently persisting to the machine's library.
 - [x] **Clear Traffic Light on Download**: Modified frontend UI logic and API to explicitly clear traffic light statuses when a download succeeds.
 - [x] **Fixed UI Reactive Loop**: Integrated `onUpdate` throughout the Universal Media Viewer to correctly provide immediate visual feedback.
 - [x] **Download Naming**: Export algorithm enforces padded counter versioning matching `[SCN] [TITLE] 01.mp4`.

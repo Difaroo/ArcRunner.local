@@ -2,6 +2,28 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-24: v0.32.3 - Kestrel Update (Backend Sync & Data Recovery)
+
+### Context
+This release focused on critical database synchronization and data recovery operations between the physically decoupled Development and Production environments. It included the successful rescue of legacy CSV image references and the automated batch persistence of offline video files before remote expiration.
+
+### Features & Fixes
+- **Production Data Recovery**: 
+  - Restored 28 legacy `refImageUrls` CSV references from an offline database backup, dynamically migrating them into the new decoupled `Media` table architecture within the active `prod_v2.db`.
+- **Targeted Clip Migration**: 
+  - Cloned specific missing clips (e.g., Clip 4.2) and all associated Model Input Slot `Media` records directly from the Dev environment to the Prod environment.
+- **Offline Batch Persistence Backfill**: 
+  - Engineered an offline reverse-sync script (`scripts/offline-persist.ts`) to scan local folders for previously downloaded `.mp4` generation files.
+  - The script utilizes regex heuristic matching (Scene Number + Title) to marry local files with ArcRunner database entries.
+  - Generates official `public/media/clips/` server cache clones, configures Episode `localMediaPath` routing, auto-creates organized Symlink Aliases, handles multiple render variants procedurally, and updates the UI Traffic Lights to Green.
+- **Final Environment Sync**: 
+  - Executed a safe file-level overwrite, cloning the master `dev.db` state directly onto `prod_v2.db` after securing an instant safety backup, ensuring 100% synchronization.
+
+### Version Bump
+- **Patch**: 0.32.2 -> 0.32.3.
+
+---
+
 ## 2026-02-24: v0.32.2 - Kestrel Update (Batch Download & Persistence Standardization)
 
 ### Context
