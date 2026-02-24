@@ -2,9 +2,10 @@
 > [!CAUTION]
 > **CRITICAL RULE: NO DIRECT WORK ON PRODUCTION**
 > *   **Do NOT** fix, debug, or experiment on the Production Server (Port 3001).
-> *   **Do NOT** restart `arcrunner-prod` unless explicitly instructed for a Release.
+> *   **Do NOT** run `npm run prod` or `sync` scripts to push changes to Prod unless explicitly instructed.
 > *   All works happens in **DEV (Port 3000)**.
-> *   Prod is "Sacred Ground" - it should only run stable, released code.
+> *   If a prompt asks you to fix something, ALWAYS target `dev.db`.
+> *   Prod is "Sacred Ground" - it should only run stable, released code manually synced by the user.
 
  & SOPs
 

@@ -191,6 +191,7 @@ export async function GET() {
                 model: clip.model || '',
                 isHiddenInStoryboard: clip.isHiddenInStoryboard || false,
                 isSelected: clip.isSelected || false, // Added for persistence
+                isPersisted: clip.isPersisted || false, // REQUIRED for UI Traffic Light to know it's complete
                 thumbnailPath: clip.thumbnailPath || ''
             };
         }).filter((c: any): c is NonNullable<typeof c> => c !== null); // Remove orphans
