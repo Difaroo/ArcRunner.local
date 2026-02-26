@@ -46,6 +46,7 @@ interface BatchEditModalProps {
     seriesId: string;
     episodeId?: string;
     defaultModel?: string;
+    onGenerate?: (clip: Clip) => void;
 }
 
 export function BatchEditModalV3({
@@ -57,7 +58,8 @@ export function BatchEditModalV3({
     onDataRefresh,
     seriesId,
     episodeId,
-    defaultModel = 'veo-fast'
+    defaultModel = 'veo-fast',
+    onGenerate
 }: BatchEditModalProps) {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [isSaving, setIsSaving] = useState(false);
@@ -158,6 +160,29 @@ export function BatchEditModalV3({
                             </Button>
                         </div>
                         <div className="w-px h-6 bg-stone-700" />
+                        {onGenerate && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            size="icon"
+                                            variant="default"
+                                            onClick={() => {
+                                                onGenerate(currentClip);
+                                            }}
+                                            className="h-7 w-7 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] transition-shadow"
+                                        >
+                                            <span className="material-symbols-outlined !text-base">
+                                                {getModelConfig(effectiveModel).isImage ? 'image' : 'movie_creation'}
+                                            </span>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Generate this clip</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => (document.querySelector('[data-save-trigger]') as HTMLButtonElement)?.click()} disabled={isSaving || !isDirty} className="h-7 w-7 bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:bg-primary/50">
                             <span className="material-symbols-outlined !text-base">{isSaving ? 'hourglass_empty' : 'save'}</span>
                         </Button>
@@ -206,7 +231,9 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     const [lastVibeId, setLastVibeId] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [mediaItems, setMediaItems] = useState<any[]>([]);
+    const [studioLibrary, setStudioLibrary] = useState<any[]>([]);
     const [vibeRefreshTrigger, setVibeRefreshTrigger] = useState(0);
+    const { persistMedia, isPersisting } = useMediaPersistence();
 
     // Explicit sizing for Safari flex aspect-ratio bug
     const slotContainerRef = useRef<HTMLDivElement>(null);
@@ -300,95 +327,46 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             .then(res => res.ok ? res.json() : [])
             .then(data => setMediaItems(Array.isArray(data) ? data : []))
             .catch(console.error);
-    }, [episodeId]);
 
-    const [localReferences, setLocalReferences] = useState<any[]>(clip.mediaReferences || []);
+        // Fetch Studio Library for Auto-Sync
+        fetch(`/api/library?seriesId=${seriesId}`)
+            .then(res => res.ok ? res.json() : [])
+            .then(data => setStudioLibrary(Array.isArray(data) ? data : []))
+            .catch(console.error);
+
+    }, [episodeId, seriesId]);
+
+    const [localSlots, setLocalSlots] = useState<any[]>(clip.modelInputSlots || []);
 
     useEffect(() => {
-        setLocalReferences(clip.mediaReferences || []);
-    }, [clip.id, clip.mediaReferences]);
+        setLocalSlots(clip.modelInputSlots || []);
+    }, [clip.id, clip.modelInputSlots]);
 
     const handleAddToSlot = async (item: any) => {
-        // Calculate next sort order based on current clip's explicit references
-        const currentSlots = localReferences;
-        const maxSort = currentSlots.length > 0 ? Math.max(...currentSlots.map(m => m.refImageSort)) : 0;
+        // Calculate next sort order based on current slots
+        const maxSort = localSlots.length > 0 ? Math.max(...localSlots.map(s => s.sortOrder)) : -1;
         const newSort = maxSort + 1;
 
-        // Optimistic UI Update
+        // Transient UI Update (Only saved strictly when clicking Save BEM)
+        const physicalMediaId = item.id || item.media?.id;
+
         const tempId = `temp-${Date.now()}`;
-        const newRef = {
+        const newSlot = {
             id: tempId,
-            url: item.url,
-            type: item.type || 'IMAGE',
-            category: 'REFERENCE',
-            refImageSort: newSort
+            mediaId: physicalMediaId,
+            media: item.media || item,
+            sortOrder: newSort
         };
 
-        setLocalReferences(prev => [...prev, newRef]);
+        setLocalSlots(prev => [...prev, newSlot]);
         if (status === 'Pending' || !status) setStatus('Ready');
-
-        try {
-            // Persist: Copy the item to a new REFERENCE record linked to the clip
-            const res = await fetch('/api/media/add-ref', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url: item.url,
-                    targetClipId: clip.id,
-                    action: 'copy'
-                })
-            });
-            const data = await res.json();
-
-            if (data.success && data.mediaId) {
-                // Apply sort order to the new copied record
-                await fetch('/api/media', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: data.mediaId, refImageSort: newSort })
-                });
-
-                // Hot-swap temp ID
-                setLocalReferences(prev => prev.map(r => r.id === tempId ? { ...r, id: data.mediaId } : r));
-
-                if (onDataRefresh) {
-                    onDataRefresh();
-                }
-            } else {
-                throw new Error("Failed to link reference item to clip.");
-            }
-        } catch (e) {
-            console.error(e);
-            // Revert
-            setLocalReferences(prev => prev.filter(r => r.id !== tempId));
-        }
+        onDirtyChange?.(true);
     };
 
-    const handleRemoveFromSlot = async (item: any) => {
-        // item is derived from uiSlots -> explicitItems -> localReferences
-        const idToRemove = item.originalId || item.id;
-        setLocalReferences(prev => prev.filter(m => m.id !== idToRemove));
+    const handleRemoveFromSlot = async (slotRecord: any) => {
+        setLocalSlots(prev => prev.filter(s => s.id !== slotRecord.id));
         if (status === 'Pending' || !status) setStatus('Ready');
-
-        try {
-            // Unlink physically deletes the explicit relation Media record without destroying the file
-            await fetch('/api/media/unlink', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url: item.url,
-                    clipId: clip.id,
-                    isResult: false
-                })
-            });
-
-            if (onDataRefresh) {
-                onDataRefresh();
-            }
-        } catch (e) {
-            console.error(e);
-            // We ignore revert logic here, removal is generally safe.
-        }
+        onDirtyChange?.(true);
     };
 
     const [editValues, setEditValues] = useState({
@@ -403,6 +381,90 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     });
 
     const [status, setStatus] = useState<string>(clip.status || 'Pending');
+
+    // === PHASE 3: AUTOMATED TEXT-TO-SLOT SYNCHRONIZATION ===
+    // Ensure that any name typed into Character or Location is instantly
+    // represented as a StudioItem in the visual Model Input Slots.
+    useEffect(() => {
+        if (!studioLibrary.length) return;
+
+        // 1. Parse target names from text fields
+        const chars = editValues.character.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+        const locs = editValues.location.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+        const requiredNames = new Set([...chars, ...locs]);
+
+        setLocalSlots(prev => {
+            let next = [...prev];
+            let modified = false;
+
+            // 2. Discover missing items (typed in text, but missing from slots)
+            for (const name of requiredNames) {
+                // Check if we already have it in slots
+                const alreadyHas = next.some(slot =>
+                    slot.studioItem?.name?.toLowerCase() === name ||
+                    slot.media?.studioItem?.name?.toLowerCase() === name ||
+                    (slot.media?.name && slot.media.name.toLowerCase() === name)
+                );
+
+                if (!alreadyHas) {
+                    // Try to find it in the global library by name
+                    // Prioritize records that actually possess an image (to avoid broken duplicates)
+                    let libraryItem = studioLibrary.find(lib => lib.name.toLowerCase() === name && (lib.refImageUrl || lib.thumbnailPath));
+
+                    // Fallback to whatever matches if no image is found
+                    if (!libraryItem) {
+                        libraryItem = studioLibrary.find(lib => lib.name.toLowerCase() === name);
+                    }
+
+                    if (libraryItem) {
+                        modified = true;
+                        // Construct the physical slot format so it renders correctly 
+                        const tempId = `temp-${Date.now()}-${Math.random()}`;
+                        next.push({
+                            id: tempId,
+                            mediaId: null, // It's a pure StudioItem mapping
+                            studioItemId: libraryItem.id,
+                            media: null,
+                            studioItem: libraryItem,
+                            sortOrder: next.length
+                        });
+                    }
+                }
+            }
+
+            // 3. Garbage collect stale items
+            // Ensure we purge Phase I (proxy mappings) and Phase III (direct mappings)
+            // ONLY if they explicitly represent a StudioItem that is no longer in the text fields.
+            for (let i = next.length - 1; i >= 0; i--) {
+                const slot = next[i];
+                const activeStudioItem = slot.studioItem || slot.media?.studioItem;
+
+                if (activeStudioItem) {
+                    const slotNameRaw = activeStudioItem.name.toLowerCase();
+                    // Looser matching: check if any required name is a substring of the slot name, or vice versa
+                    // This handles cases where user types "The Team" but the asset is "Team", or trailing spaces
+                    const isRequired = Array.from(requiredNames).some(req =>
+                        req.includes(slotNameRaw) || slotNameRaw.includes(req) || req === slotNameRaw
+                    );
+
+                    if (!isRequired) {
+                        modified = true;
+                        next.splice(i, 1);
+                    }
+                }
+            }
+
+            // Cleanly realign sort orders to prevent structural gaps
+            if (modified) {
+                next.forEach((s, idx) => s.sortOrder = idx);
+                onDirtyChange?.(true);
+                return next;
+            }
+
+            return prev;
+        });
+    }, [editValues.character, editValues.location, studioLibrary, onDirtyChange]);
+    // =======================================================
 
     useEffect(() => {
         setEditValues({
@@ -423,6 +485,8 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     useEffect(() => {
         // Compute Dirty State anytime editValues or status changes
         // Compare current editValues with clip
+        const slotsChanged = JSON.stringify(localSlots) !== JSON.stringify(clip.modelInputSlots || []);
+
         const isModified =
             editValues.character !== (clip.character || '') ||
             editValues.location !== (clip.location || '') ||
@@ -432,78 +496,17 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             editValues.action !== (clip.action || '') ||
             editValues.dialog !== (clip.dialog || '') ||
             editValues.negativePrompt !== (clip.negativePrompt || '') ||
-            status !== (clip.status || 'Pending');
+            status !== (clip.status || 'Pending') ||
+            slotsChanged;
 
         onDirtyChange?.(isModified);
-    }, [editValues, status, clip, onDirtyChange]);
+    }, [editValues, status, clip, localSlots, onDirtyChange]);
 
-    // --- RE-IMPLEMENT Auto-Population using editValues for real-time reactivity ---
-    // Use editValues for the text fields logic, fallback to clip for unmodified
-    const targetStyle = editValues.style ?? clip.style ?? '';
-    const targetLoc = editValues.location ?? clip.location ?? '';
-    const targetChar = editValues.character ?? clip.character ?? '';
+    // --- End Text Values ---
 
-    // --- Structural Manifest Resolution ---
-    // User Rule: Studio Items auto-populate. Other items must be explicit.
-    const manifest = React.useMemo(() => {
-        // We must ONLY auto-populate from Studio items (which we can identify from the pool via their type or explicit name match).
-        // Since `mediaItems` (the pool) contains both Studio items (e.g. from the Series library) and raw Episode refs, 
-        // we'll strictly try to match the text fields to known Studio assets if possible, or just exact name matches.
-
-        // 1. Find Style (Auto-populates)
-        const styleItem = mediaItems.find(i => targetStyle && i.name?.trim().toLowerCase() === targetStyle.trim().toLowerCase());
-
-        // 2. Find Location (Auto-populates IF it's a Studio item matching the text)
-        const locItems = mediaItems
-            .filter(i => targetLoc && i.category?.includes('LOCATION') && i.name?.trim().toLowerCase() === targetLoc.trim().toLowerCase())
-            .map(i => i.url);
-
-        // 3. Find Characters (Auto-populates IF Studio item matching the text)
-        const targetCharsList = targetChar ? targetChar.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : [];
-        const charItems = mediaItems
-            .filter(i => targetCharsList.length > 0 && i.category?.includes('CHARACTER') && i.name && targetCharsList.includes(i.name.trim().toLowerCase()))
-            .map(i => i.url);
-
-        // 4. Explicit Refs (The ones the user dragged in)
-        const explicitItems = localReferences
-            .map(i => ({
-                id: i.id,
-                url: i.url,
-                refImageSort: i.refImageSort
-            })) as any;
-
-        return resolveManifest(
-            clip,
-            model,
-            {
-                styleImage: styleItem?.url,
-                locationImages: locItems,
-                characterImages: charItems
-            },
-            explicitItems
-        );
-    }, [mediaItems, localReferences, clip, model, targetStyle, targetLoc, targetChar]);
-
-    // Map Manifest Slots to UI Items
-    // ModelInputSlotsV2 expects `mediaItems` with `refImageSort` to order them.
-    // But `manifest.slots` IS the ordered list.
-    // We can pass `manifest.slots` directly if we adapt ModelInputSlotsV2, OR we map back to a list of items.
-    // Let's adapt `mediaItems` passed to slots to ONLY be the manifest slots.
-
-    const uiSlots = React.useMemo(() => {
-        return manifest.slots.map(slot => ({
-            id: slot.id,
-            originalId: slot.originalRefId,
-            url: slot.url,
-            name: slot.label, // Semantic Name: e.g. "Start Frame"
-            type: 'IMAGE', // Mock
-            category: slot.type.toUpperCase(),
-            isAutoPopulated: slot.isAutoPopulated, // Forward flag for UI lock
-            refImageSort: slot.sortOrder // Retain sort order metadata loosely
-        }));
-    }, [manifest]);
-
-    // --- End Structural Resolution ---
+    // Map `localSlots` to pure state for visual rendering.
+    // Ensure it holds structural sortOrder integrity required by `ModelInputSlotsV2`.
+    const uiSlots = [...localSlots].sort((a, b) => a.sortOrder - b.sortOrder);
 
     const handleFieldChange = (field: keyof typeof editValues, value: string) => {
         setEditValues(prev => ({ ...prev, [field]: value }));
@@ -557,7 +560,8 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                 action: editValues.action,
                 dialog: editValues.dialog,
                 negativePrompt: editValues.negativePrompt,
-                status: status
+                status: status,
+                modelInputSlots: localSlots
             });
         } catch (error) { setSaveError('Failed to save changes'); }
     };
@@ -565,6 +569,26 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     if (!initialLayout) {
         return <div className="h-full w-full flex items-center justify-center text-stone-500">Loading layout...</div>;
     }
+
+    const activeResultUrl = clip.resultUrl ? clip.resultUrl.split(',')[0].trim() : '';
+    const activeRemoteUrl = clip.remoteResultUrl ? clip.remoteResultUrl.split(',')[0].trim() : '';
+
+    const poolItems = mediaItems.filter(m => {
+        // Exclude active UI Slots from Pool (Relational Architecture)
+        const isCurrentlySlotted = uiSlots.some(slot => slot.mediaId === m.id || (slot.media && slot.media.id === m.id));
+        if (isCurrentlySlotted) return false;
+
+        // 1. Include Explicit Uploads/References immediately
+        if (m.referenceForClipId === parseInt(clip.id)) return true;
+
+        // 2. Include Historical Results (but explicitly EXCLUDE the currently playing Active Result AND its remote twin)
+        if (m.resultForClipId === parseInt(clip.id)) {
+            if (m.url === activeResultUrl || m.url === activeRemoteUrl) return false;
+            return true;
+        }
+
+        return false;
+    });
 
     return (
         <ResizablePanelGroup direction="vertical" className="h-full w-full">
@@ -581,7 +605,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                             <div className="flex items-center gap-2">
                                 <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider">Asset Pool</h3>
                                 <span className="text-xs text-orange-500 font-mono font-medium">
-                                    {mediaItems.filter(m => !m.refImageSort || m.refImageSort === 0).length}
+                                    {poolItems.length}
                                 </span>
                             </div>
                             <div className="flex items-center">
@@ -606,6 +630,18 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                                 });
 
                                                 if (!res.ok) throw new Error('Upload failed');
+                                                const data = await res.json();
+
+                                                await fetch('/api/media/add-ref', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                        url: data.url,
+                                                        targetClipId: clip.id,
+                                                        action: 'copy'
+                                                    })
+                                                });
+
                                                 if (onDataRefresh) onDataRefresh();
                                             } catch (err) {
                                                 console.error('Upload error:', err);
@@ -635,8 +671,25 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                             </div>
                         </div>
                         <ClipAssetScroller
-                            mediaItems={mediaItems}
+                            mediaItems={poolItems}
                             onSelect={handleAddToSlot}
+                            onUnlink={async (item) => {
+                                try {
+                                    const isResult = item.resultForClipId === parseInt(clip.id);
+                                    await fetch('/api/media/unlink', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            url: item.url,
+                                            clipId: clip.id,
+                                            isResult
+                                        })
+                                    });
+                                    if (onDataRefresh) onDataRefresh();
+                                } catch (e) {
+                                    console.error('Failed to unlink pool item', e);
+                                }
+                            }}
                             isLoading={false}
                             orientation="horizontal"
                             className="flex-1 w-full"
@@ -737,55 +790,17 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                 mediaItems={uiSlots as any}
                                 onRemove={handleRemoveFromSlot}
                                 onReorder={async (sourceIndex, destIndex) => {
-                                    const newUiSlots = arrayMove(uiSlots, sourceIndex, destIndex);
+                                    const reordered = arrayMove(uiSlots, sourceIndex, destIndex);
 
-                                    const desiredExplicitIds = newUiSlots
-                                        .filter((slot: any) => slot && slot.originalId)
-                                        .map((slot: any) => slot.originalId as string);
+                                    // Update transient localSlots sortOrders purely based on visual array order
+                                    const updatedSlots = reordered.map((slot, index) => ({
+                                        ...slot,
+                                        sortOrder: index
+                                    }));
 
-                                    if (desiredExplicitIds.length === 0) return;
-
-                                    const currentMaxSort = localReferences.length > 0 ? Math.max(...localReferences.map(r => r.refImageSort || 0)) : 0;
-                                    const baseSort = currentMaxSort + 10;
-                                    const updates: { id: string, refImageSort: number }[] = [];
-                                    const isS2E = (model || '').toLowerCase() === 'veo-s2e';
-
-                                    if (isS2E) {
-                                        if (desiredExplicitIds.length >= 2) {
-                                            updates.push({ id: desiredExplicitIds[0], refImageSort: baseSort + 1 }); // Start Frame
-                                            updates.push({ id: desiredExplicitIds[1], refImageSort: baseSort + 2 }); // End Frame
-                                        } else if (desiredExplicitIds.length === 1) {
-                                            updates.push({ id: desiredExplicitIds[0], refImageSort: baseSort + 1 });
-                                        }
-                                    } else {
-                                        let currentAssignSort = baseSort + desiredExplicitIds.length;
-                                        for (const id of desiredExplicitIds) {
-                                            updates.push({ id, refImageSort: currentAssignSort });
-                                            currentAssignSort--;
-                                        }
-                                    }
-
-                                    if (updates.length > 0) {
-                                        let newLocalRefs = [...localReferences];
-                                        updates.forEach(update => {
-                                            newLocalRefs = newLocalRefs.map(r => r.id === update.id ? { ...r, refImageSort: update.refImageSort } : r);
-                                        });
-                                        setLocalReferences(newLocalRefs);
-
-                                        try {
-                                            const promises = updates.map(update =>
-                                                fetch('/api/media', {
-                                                    method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify(update)
-                                                })
-                                            );
-                                            await Promise.all(promises);
-                                            if (onDataRefresh) onDataRefresh();
-                                        } catch (e) {
-                                            console.error('Failed to reorder explicit refs', e);
-                                        }
-                                    }
+                                    setLocalSlots(updatedSlots);
+                                    if (status === 'Pending' || !status) setStatus('Ready');
+                                    onDirtyChange?.(true);
                                 }}
                                 orientation="horizontal"
                                 className=""
@@ -797,6 +812,52 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                     <div className="h-full aspect-video flex-shrink-0 bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800">
                         <div className="px-3 pt-3 pb-1 flex justify-between items-center bg-stone-950/20 backdrop-blur-sm z-10">
                             <h3 className="text-xs text-orange-500 uppercase tracking-wider font-medium drop-shadow-md">Latest Result</h3>
+                            {clip.resultUrl && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant={clip.isPersisted ? 'ghost' : 'outline'}
+                                                size="icon"
+                                                className={`h-6 w-6 ${clip.isPersisted ? '!text-green-500 hover:!text-green-400 hover:bg-green-500/10' : '!text-orange-500 hover:!text-orange-400 border-orange-500/50 hover:bg-orange-500/10'}`}
+                                                disabled={isPersisting}
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    if (clip.isPersisted) {
+                                                        // PERSISTED: Open episode edit folder in Finder
+                                                        try {
+                                                            await fetch('/api/media/open-folder', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ episodeId })
+                                                            });
+                                                        } catch (err) {
+                                                            console.error('[BEM] Failed to open folder:', err);
+                                                        }
+                                                    } else {
+                                                        // NOT PERSISTED: Download to episode folder
+                                                        const result = await persistMedia({ clipId: String(clip.id), episodeId });
+                                                        if (result.success) {
+                                                            onDataRefresh?.();
+                                                        }
+                                                    }
+                                                }}
+                                            >
+                                                {isPersisting ? (
+                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                ) : clip.isPersisted ? (
+                                                    <span className="material-symbols-outlined !text-[14px]">theaters</span>
+                                                ) : (
+                                                    <Download className="h-3 w-3" />
+                                                )}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{clip.isPersisted ? 'Open Edit Folder' : 'Download to Episode Folder'}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
                         </div>
                         <div className="flex-1 relative bg-black flex items-center justify-center min-h-0 w-full">
                             {derivedStatus.state === 'Generating' ? (
@@ -806,7 +867,10 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                 </div>
                             ) : clip.resultUrl ? (
                                 <MediaDisplay
+                                    key={`preview-${clip.id}-${clip.resultUrl}`}
                                     url={clip.resultUrl}
+                                    originalUrl={clip.resultUrl}
+                                    posterUrl={clip.thumbnailPath}
                                     ownerClipId={clip.id}
                                 />
                             ) : (

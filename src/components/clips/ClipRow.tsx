@@ -40,6 +40,7 @@ import { useMediaPersistence } from "@/hooks/useMediaPersistence"
 import { getComputedClipStatus } from "@/lib/clip-status"
 import React from "react"
 import { resolveManifest, LibraryContext } from '@/lib/structural-manifest'
+import { getModelConfig } from "@/lib/models"
 
 interface ClipRowProps {
     clip: Clip
@@ -94,11 +95,18 @@ export function ClipRow({
     // Structural State
     const derivedStatus = getComputedClipStatus(clip);
 
+    // Helper: resolve URL from a ModelInputSlot record
+    const getMISSlotUrl = (slot: any): string => {
+        if (slot.media) return slot.media.url || slot.media.thumbnailPath || '';
+        if (slot.studioItem) return slot.studioItem.refImageUrl?.split(',')[0] || slot.studioItem.thumbnailPath?.split(',')[0] || '';
+        return '';
+    };
+
     // Helper to filter out auto-resolved images (Char/Loc) from the Explicit list
-    // UPDATE v0.16.7: Hybrid Approach
+    // UPDATE v0.33: MIS is the single source of truth
     const getCleanExplicitRefs = () => {
-        // Media table is the ONLY source of truth
-        return clip.mediaReferences ? clip.mediaReferences.map(m => m.url) : [];
+        const slots = clip.modelInputSlots || [];
+        return slots.map(getMISSlotUrl).filter(Boolean);
     };
 
     // Optimistic UI for References
@@ -107,7 +115,7 @@ export function ClipRow({
     // Sync Optimistic State with Props when they update (e.g. after successful save)
     useEffect(() => {
         setOptimisticRefs(null);
-    }, [clip.mediaReferences]);
+    }, [clip.modelInputSlots]);
 
     // Helper to get current refs (Optimistic > Explicit > Legacy)
     // We only use Optimistic if it's not null.
@@ -162,23 +170,32 @@ export function ClipRow({
                 return current.filter(u => u !== url);
             });
 
-            // 2. API Call
-            const res = await fetch('/api/media/unlink', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url,
-                    clipId: contextId || clip.id, // Use context if provided (for safety), else self
-                    isResult: !!isResult
-                })
-            });
-
-            if (!res.ok) throw new Error('Unlink failed');
-
-            // 3. Notify Parent (Trigger Save/Refresh to persist DB state to UI)
-            // Ideally, we just assume optimistic is enough until next refresh, 
-            // but triggering a save guarantees sync if user navigates away.
-            // onSave(clip.id, {}); // No-op save to trigger refresh?
+            // 2. Delete ModelInputSlot that matches this URL
+            const slots = clip.modelInputSlots || [];
+            const matchingSlot = slots.find((s: any) => getMISSlotUrl(s) === url);
+            if (matchingSlot) {
+                await fetch('/api/media/unlink', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url,
+                        clipId: contextId || clip.id,
+                        isResult: !!isResult,
+                        modelInputSlotId: matchingSlot.id
+                    })
+                });
+            } else {
+                // Fallback: legacy unlink
+                await fetch('/api/media/unlink', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url,
+                        clipId: contextId || clip.id,
+                        isResult: !!isResult
+                    })
+                });
+            }
 
         } catch (e) {
             console.error("Unlink error:", e);
@@ -570,12 +587,12 @@ export function ClipRow({
             className={`group hover:bg-black transition-colors ${isSelected ? 'bg-stone-900' : ''} ${isEditing ? 'bg-black' : ''} ${isDragging ? 'opacity-50 bg-stone-800' : ''}`}
             data-testid="clip-row"
         >
-            <TableCell className={`w-[10px] p-0 text-center align-top relative cursor-grab active:cursor-grabbing touch-none border-l-[3px] ${rowStatusBorder}`} {...attributes} {...listeners}>
+            <TableCell className={`w-[10px] py-[1px] px-0 text-center align-middle relative cursor-grab active:cursor-grabbing touch-none border-l-[3px] ${rowStatusBorder}`} {...attributes} {...listeners}>
                 <TooltipProvider>
                     <Tooltip delayDuration={300}>
                         <TooltipTrigger asChild>
                             <div className="flex items-center justify-center h-full min-h-[46px] w-full py-3">
-                                <span className="material-symbols-outlined text-stone-600 group-hover:text-stone-400 !text-base leading-none transition-colors">drag_indicator</span>
+                                <span className={`material-symbols-outlined !text-base leading-none transition-colors ${derivedStatus.colorClass.includes('red') ? 'text-red-500' : derivedStatus.colorClass.includes('orange') ? 'text-orange-500' : derivedStatus.colorClass.includes('green') ? 'text-green-500' : 'text-stone-600 group-hover:text-stone-400'}`}>drag_indicator</span>
                             </div>
                         </TooltipTrigger>
                         <TooltipContent side="right" className="bg-stone-900 border-stone-800 text-stone-200">
@@ -893,7 +910,7 @@ export function ClipRow({
                 {isEditing ? (
                     <div className="flex flex-col gap-2 w-full">
                         <ImageUploadCell
-                            value={getCleanExplicitRefs().join(',')}
+                            value={getEffectiveRefs().join(',')}
                             onChange={(url) => {
                                 if (onAddReference) onAddReference(clip.id, url, 'IMAGE');
                             }}
@@ -912,70 +929,51 @@ export function ClipRow({
                         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(false); }}
                         onDrop={handleRefDropRef}
                     >
-                        {manifest.slots.length > 0 ? (
-                            manifest.slots.slice(0, 9).map((slot, i) => (
-                                <div key={slot.id} className="w-[24px] h-[24px]">
-                                    <MediaDisplay
-                                        url={slot.url}
-                                        title={slot.label}
-                                        className="w-full h-full object-cover rounded shadow-sm hover:opacity-80 transition-opacity"
-                                        isReference={true}
-                                        contentType="auto" // Let it auto-detect video vs image
-                                        onUnlink={slot.isAutoPopulated ? undefined : handleRefUnlink}
-                                        onPlay={(clickedUrl) => {
-                                            // 1. Build List of References (Rich Objects)
-                                            const refItems = manifest.slots.map(s => {
-                                                const cleanUrl = s.url.trim();
-                                                const isVideo = cleanUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
-                                                return {
-                                                    id: cleanUrl,
-                                                    url: cleanUrl,
-                                                    type: (isVideo ? 'video' : 'image') as 'video' | 'image',
-                                                    title: s.label,
+                        {getEffectiveRefs().length > 0 ? (
+                            getEffectiveRefs().slice(0, 9).map((url: string, i: number) => {
+                                if (!url) return null;
+                                const slot = (clip.modelInputSlots || []).find((s: any) => getMISSlotUrl(s) === url);
+                                const label = slot?.studioItem?.name || slot?.media?.studioItem?.name || 'Reference';
+                                return (
+                                    <div key={`mis-${i}`} className="w-[24px] h-[24px]">
+                                        <MediaDisplay
+                                            url={url}
+                                            title={label}
+                                            className="w-full h-full object-cover rounded shadow-sm hover:opacity-80 transition-opacity"
+                                            isReference={true}
+                                            contentType="auto"
+                                            onUnlink={() => handleRefUnlink(url)}
+                                            onPlay={(clickedUrl) => {
+                                                const allUrls = getEffectiveRefs();
+                                                const resultUrls = parseStringList(clip.resultUrl || '');
+                                                const refItems = allUrls.map((u: string, idx: number) => ({
+                                                    id: u,
+                                                    url: u,
+                                                    type: (u.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'video' : 'image') as 'video' | 'image',
+                                                    title: 'Reference',
                                                     isReference: true,
                                                     ownerClipId: clip.id.toString()
-                                                };
-                                            });
+                                                }));
 
-                                            // 2. Build Result Items (History Support)
-                                            let fullPlaylist = [...refItems];
-                                            const resultUrls = parseStringList(clip.resultUrl || '');
-
-                                            if (resultUrls.length > 0 && (derivedStatus.state === 'Done' || derivedStatus.state === 'Complete' || derivedStatus.state === 'Ready' || derivedStatus.state === 'Generating')) {
-                                                const resultItems = resultUrls.map((resUrl, idx) => {
-                                                    const isResVideo = resUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
-                                                    // Only use the stored thumbnail for the MOST RECENT result (index 0)
-                                                    const thumb = idx === 0 ? clip.thumbnailPath : undefined;
-
-                                                    // Versioning Title: Most recent is base title, older ones get (vX)
-                                                    // Logic: If 3 results, idx 0 = (Latest), idx 1 = (v2), idx 2 = (v1)
-                                                    // Actually, simplified: "Result (History N)"
-                                                    const baseTitle = getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "") || 'Result';
-                                                    const verTitle = idx === 0 ? baseTitle : `${baseTitle} (History ${idx})`;
-
-                                                    return {
+                                                let fullPlaylist = [...refItems];
+                                                if (resultUrls.length > 0) {
+                                                    const resultItems = resultUrls.map((resUrl, idx) => ({
                                                         id: `result-${clip.id}-${idx}`,
                                                         url: resUrl,
-                                                        type: (isResVideo ? 'video' : 'image') as 'video' | 'image',
-                                                        title: verTitle,
+                                                        type: (resUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'video' : 'image') as 'video' | 'image',
+                                                        title: idx === 0 ? 'Latest Result' : `History ${idx}`,
                                                         isReference: false,
-                                                        ownerClipId: clip.id.toString(),
-                                                        thumbnailPath: thumb
-                                                    };
-                                                });
+                                                        ownerClipId: clip.id.toString()
+                                                    }));
+                                                    fullPlaylist = [...resultItems, ...refItems];
+                                                }
 
-                                                // Prepend Results to Playlist
-                                                fullPlaylist = [...resultItems, ...refItems];
-                                            }
-
-                                            // 3. Characters/Locations already in slots, no need to append
-
-                                            onPlay(clickedUrl, fullPlaylist);
-                                        }}
-                                    // Pass specific delete handler if needed, but MediaDisplay usually handles internal logic
-                                    />
-                                </div>
-                            ))
+                                                onPlay(clickedUrl, fullPlaylist);
+                                            }}
+                                        />
+                                    </div>
+                                );
+                            })
                         ) : (
                             <div className="w-full h-full flex items-center justify-end text-stone-600 text-[10px] px-2 opacity-50 group-hover:opacity-100">
                                 Drop Refs
@@ -1069,6 +1067,7 @@ export function ClipRow({
                     className="items-center"
                     data-testid="row-actions"
                     isPersisted={isPersisted}
+                    isImageModel={getModelConfig(clip.model || '').isImage}
                 />
             </TableCell>
 

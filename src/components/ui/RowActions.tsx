@@ -19,6 +19,7 @@ interface RowActionsProps {
     alignStatus?: 'left' | 'right' | 'center'
     'data-testid'?: string
     isPersisted?: boolean // NEW: Visual feedback for persistence
+    isImageModel?: boolean // NEW: Video/Image model icon toggle
 }
 
 export function RowActions({
@@ -36,7 +37,8 @@ export function RowActions({
     className,
     alignStatus = 'left',
     'data-testid': dataTestId,
-    isPersisted // Destructure new prop
+    isPersisted, // Destructure new prop
+    isImageModel // Destructure new prop
 }: RowActionsProps) {
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -158,7 +160,7 @@ export function RowActions({
                                     onClick={(e) => { e.stopPropagation(); onGenerate(); }}
                                     className="h-8 w-8 hover:!bg-red-500 transition-all duration-300"
                                 >
-                                    <span className="material-symbols-outlined !text-lg">auto_awesome</span>
+                                    <span className="material-symbols-outlined !text-lg">{isImageModel ? 'image' : 'movie_creation'}</span>
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent><p>Generate Asset</p></TooltipContent>

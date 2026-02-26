@@ -9,7 +9,7 @@ import { db } from '@/lib/db';
  */
 export async function POST(req: NextRequest) {
     try {
-        const { url, clipId, isResult } = await req.json();
+        const { url, clipId, isResult, modelInputSlotId } = await req.json();
 
         console.log(`[Unlink] Request: url=${url?.substring(0, 50)}... clipId=${clipId} isResult=${isResult}`);
 
@@ -98,6 +98,16 @@ export async function POST(req: NextRequest) {
             where: { id: media.id },
             data: updateData
         });
+
+        // BRIDGE: Also delete ModelInputSlot if provided (Relational Architecture v0.28+)
+        if (modelInputSlotId) {
+            try {
+                await db.modelInputSlot.delete({ where: { id: modelInputSlotId } });
+                console.log(`[Unlink] Deleted ModelInputSlot ${modelInputSlotId}`);
+            } catch (e) {
+                console.warn(`[Unlink] ModelInputSlot ${modelInputSlotId} not found or already deleted`);
+            }
+        }
 
         return NextResponse.json({ success: true, mediaId: media.id });
 

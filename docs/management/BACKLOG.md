@@ -10,6 +10,20 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.33.0 (BEM Overhaul & Generate Alignment)
+- [x] **BEM Persistent Unlink**: MIS slots now show a permanent orange-outline "Unlink" button (replaces hover-only).
+- [x] **BEM Download/Open Folder**: Context-aware button in "Latest Result" header — downloads when not persisted, opens Finder when persisted.
+- [x] **BEM Generate Button**: Added generate button to BEM header (left of Save), same solid orange/icon style as batch button.
+- [x] **Overflow Slot Styling**: Overflow slots use outline style to distinguish from legit model slots.
+- [x] **Server File Ops**: Added `/api/media/delete-local` and `/api/media/open-folder` endpoints.
+- [x] **UVM Filmstrip Open Folder**: Green filmstrip in UVM opens episode edit folder in Finder.
+- [x] **Row Generate Dialog**: Row generate button now shows same confirmation dialog as batch generate (model/style/view).
+- [x] **Generate Icon Consistency**: Row generate uses `movie_creation`/`image` matching batch button by model type.
+- [x] **Header Traffic Light Alignment**: Vertically centered with checkbox column.
+- [x] **Grab Pad Color**: Dynamically colored to match row traffic light status.
+- [x] **isPersisted Integrity**: Reset on regeneration + cleaned 130 stale flags in DB.
+- [x] **BEM Filmstrip 500 Fix**: Fixed re-persist call on already-persisted clips.
+
 ## 🚀 Released v0.32.4 (Traffic Light Hotfix)
 - [x] **API State Missing**: Updated `api/clips/route.ts` to properly forward `isPersisted` status to UI preventing false "Green" flags.
 - [x] **Production Lockdown**: Hardened `PLAYBOOK.md` to formally restrict agents operating directly against production architectures.

@@ -34,21 +34,24 @@ ArcRunner is a local-first, AI-assisted video production studio. It orchestrates
 ## 🔄 Key Flows
 
 ### A. Generation Flow
-1.  **User Click**: "Generate" button triggered in UI.
-2.  **Optimistic UI**: `useDataStore` updates Clip status to "Generating" immediately.
-3.  **API Call**: `POST /api/generate` is called with Clip Data.
-4.  **Manager**: `GenerateManager` resolves assets, builds payload, and calls `Kie`.
-5.  **Task ID**: `Kie` returns a Task ID. Manager writes this to DB.
-6.  **Polling**: Frontend `usePolling` hook detects "Generating" status and polls `/api/poll` until completion.
+1.  **User Click**: "Generate" button triggered in UI (Row, Batch, or BEM).
+2.  **Validation (v0.33.0)**: `handleGenerateSingle` checks model-specific requirements (e.g., reference image for Kling). For batch, `handleGenerateSelected` applies traffic light filtering.
+3.  **Confirmation**: `ClipConfirmDialog` shows Model, Style, Aspect Ratio, and count for user review.
+4.  **Optimistic UI**: `useDataStore` updates Clip status to "Generating" immediately, resets `isPersisted` to `false`.
+5.  **API Call**: `POST /api/generate` is called with Clip Data.
+6.  **Manager**: `GenerateManager` resolves assets, builds payload, and calls `Kie`.
+7.  **Task ID**: `Kie` returns a Task ID. Manager writes this to DB.
+8.  **Polling**: Frontend `usePolling` hook detects "Generating" status and polls `/api/poll` until completion.
     *   *Robustness*: Poller waits for Task ID visibility to prevent "Flicker".
 
-### B. Media Persistence Flow (v0.31.4+)
-1.  **User Action**: Click Clapperboard icon (UV or ClipRow) or download a video result.
+### B. Media Persistence Flow (v0.33.0)
+1.  **User Action**: Click Clapperboard icon (UV, ClipRow, or BEM) or download a video result.
 2.  **API Call**: `POST /api/media/persist` with `clipId` and `episodeId`.
 3.  **Download**: Server downloads the video from the generation CDN.
 4.  **Symlink**: Creates symlink from Episode's `localMediaPath` folder to the cached file.
 5.  **DB Update**: Sets `clip.isPersisted = true` via Prisma.
 6.  **UI Feedback**: Clapperboard icon fills green.
+7.  **Open Folder (v0.33.0)**: Clicking the green clapperboard opens `localMediaPath` in macOS Finder via `POST /api/media/open-folder`.
 
 ### C. Storage Resolution
 - **Primary Path**: `public/media/` (uploads, clips).

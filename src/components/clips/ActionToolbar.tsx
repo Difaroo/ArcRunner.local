@@ -48,6 +48,7 @@ interface ActionToolbarProps {
     episodeUuid?: string // NEW: Real UUID for API calls
     onSaveClip?: (clipId: string, updates: Partial<Clip>) => Promise<void> // For BatchEditModal
     onDataRefresh?: () => void // For refreshing after modal save
+    onGenerateSingle?: (clip: Clip) => void // For single-clip generate (row + BEM)
 }
 
 export function ActionToolbar({
@@ -76,7 +77,8 @@ export function ActionToolbar({
     seriesId,
     episodeUuid, // NEW
     onSaveClip,
-    onDataRefresh
+    onDataRefresh,
+    onGenerateSingle
 }: ActionToolbarProps) {
     const [showBatchDialog, setShowBatchDialog] = useState(false)
     const [showMoveDialog, setShowMoveDialog] = useState(false) // NEW
@@ -601,6 +603,7 @@ export function ActionToolbar({
                 seriesId={seriesId || clips[0]?.series || ''}
                 episodeId={episodeUuid || currentEpKey} // Prefer UUID, fallback to Key (but Key will likely fail API)
                 defaultModel={selectedModel}
+                onGenerate={onGenerateSingle}
             />
         </>
     )

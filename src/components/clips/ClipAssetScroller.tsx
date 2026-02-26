@@ -5,13 +5,14 @@ import { Loader2, ArrowRight } from 'lucide-react';
 interface ClipAssetScrollerProps {
     mediaItems: any[];
     onSelect: (item: any) => void;
+    onUnlink?: (item: any) => void;
     isLoading?: boolean;
     className?: string;
     orientation?: 'vertical' | 'horizontal';
     onUpdate?: (id: string, updates: any) => Promise<void> | void;
 }
 
-export function ClipAssetScroller({ mediaItems, onSelect, isLoading, className, orientation = 'horizontal', onUpdate }: ClipAssetScrollerProps) {
+export function ClipAssetScroller({ mediaItems, onSelect, onUnlink, isLoading, className, orientation = 'horizontal', onUpdate }: ClipAssetScrollerProps) {
     // Filter for pool items (sort 0 or null/undefined)
     const poolItems = mediaItems.filter(m => !m.refImageSort || m.refImageSort === 0);
     const isVertical = orientation === 'vertical';
@@ -57,13 +58,26 @@ export function ClipAssetScroller({ mediaItems, onSelect, isLoading, className, 
                                     </div>
                                 )}
 
-                                {/* Type Icon (Top Right) */}
-                                <div className="absolute top-1 right-1 p-1 bg-black/60 rounded flex items-center justify-center backdrop-blur-sm z-10 pointer-events-none">
-                                    <span className="material-symbols-outlined !text-[12px] text-stone-300">
-                                        {item.category?.includes('CHARACTER') ? 'person' :
-                                            item.category?.includes('LOCATION') ? 'location_on' :
-                                                item.type === 'VIDEO' ? 'movie' : 'image'}
-                                    </span>
+                                {/* Top Right: Type Icon + Unlink (stacked) */}
+                                <div className="absolute top-1 right-1 flex flex-col gap-1 z-20">
+                                    {/* Type Icon (Matches orange arrow button size) */}
+                                    <div className="h-[20px] w-[20px] bg-black/60 rounded flex items-center justify-center backdrop-blur-sm pointer-events-none">
+                                        <span className="material-symbols-outlined !text-[14px] text-stone-300">
+                                            {item.category?.includes('CHARACTER') ? 'person' :
+                                                item.category?.includes('LOCATION') ? 'location_on' :
+                                                    item.type === 'VIDEO' ? 'movie' : 'image'}
+                                        </span>
+                                    </div>
+                                    {/* Unlink Button (Orange Outline, persistent) */}
+                                    {onUnlink && (
+                                        <button
+                                            className="h-[20px] w-[20px] flex items-center justify-center border border-orange-500 text-orange-500 hover:bg-orange-500/20 rounded transition-colors"
+                                            onClick={(e) => { e.stopPropagation(); onUnlink(item); }}
+                                            title="Unlink from Clip"
+                                        >
+                                            <span className="material-symbols-outlined !text-[14px]">close</span>
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* File Name / Asset Name (Bottom Left) */}

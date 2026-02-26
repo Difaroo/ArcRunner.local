@@ -53,7 +53,6 @@ export async function generateThumbnail(videoUrl: string, clipId: string): Promi
         if (isImage) {
             // Processing for Static Images (Resize only, no seeking)
             proc.output(path.join(THUMBNAIL_DIR, filename))
-                .size('320x180')
                 .on('end', () => resolve(publicPath))
                 .on('error', (err) => {
                     console.error('Error generating image thumbnail:', err);
@@ -65,8 +64,7 @@ export async function generateThumbnail(videoUrl: string, clipId: string): Promi
             proc.screenshots({
                 timestamps: ['1'], // Take shot at 1s mark
                 filename: filename,
-                folder: THUMBNAIL_DIR,
-                size: '320x180'
+                folder: THUMBNAIL_DIR
             })
                 .on('end', () => resolve(publicPath))
                 .on('error', (err) => {

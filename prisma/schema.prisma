@@ -68,6 +68,7 @@ model StudioItem {
   
   // Media Relation
   media       Media[]  @relation("StudioMedia")
+  modelInputSlots ModelInputSlot[]
 }
 
 // The "Media" Table (Normalized storage)
@@ -102,6 +103,9 @@ model Media {
   // Direct episode ownership (independent of clip attachment)
   episodeId          String?
   episode            Episode? @relation("EpisodeMedia", fields: [episodeId], references: [id], onDelete: SetNull)
+
+  // Join Table Relational Architecture
+  modelInputSlotReferences ModelInputSlot[]
 }
 
 // The "Clips" Table
@@ -142,6 +146,7 @@ model Clip {
   // Media Relations (Source of Truth)
   mediaReferences Media[]  @relation("ClipReferences")
   mediaResults    Media[]  @relation("ClipResults")
+  modelInputSlots ModelInputSlot[]
 
   // Locking (Concurrency)
   lockedBy        String?  // Client ID (UUID)
@@ -161,4 +166,22 @@ model Vibe {
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// The "ModelInputSlot" Join Table (Relational Architecture)
+model ModelInputSlot {
+  id           String      @id @default(uuid())
+  clipId       Int      
+  mediaId      String?     
+  studioItemId Int?        
+  sortOrder    Int         // Determines placement in the UI 
+  clip         Clip        @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  media        Media?      @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  studioItem   StudioItem? @relation(fields: [studioItemId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+
+  // Note: We remove the strict unique constraint here because 
+  // users might technically want the same reference twice, 
+  // or it complicates the optional fields. If needed, a custom Check is better.
+  @@index([clipId])
 }

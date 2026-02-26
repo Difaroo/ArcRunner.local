@@ -13,6 +13,7 @@ export interface Clip {
     locationImageUrls?: string[];
     status: string;
     resultUrl?: string;
+    remoteResultUrl?: string; // Phase 4 Migration
     taskId?: string;
     isPersisted?: boolean; // Optimistic flag
     episodeId?: string; // Relation ID
@@ -26,6 +27,20 @@ export interface Clip {
     negativePrompt?: string | null;
     mediaReferences?: Media[]; // Phase 4: Normalized Relations
     mediaResults?: Media[]; // Phase 4: Normalized Results
+    modelInputSlots?: {
+        id: string;
+        mediaId: string;
+        studioItemId?: number | null;
+        sortOrder: number;
+        media: Media | null;
+        studioItem?: {
+            id: number;
+            name: string;
+            refImageUrl?: string;
+            thumbnailPath?: string;
+            type?: string;
+        } | null;
+    }[];
     // Locking
     lockedBy?: string | null;
     lockedAt?: string | Date | null;

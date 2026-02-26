@@ -2,6 +2,7 @@
 
 import { db } from '@/lib/db';
 import { Media } from '@prisma/client';
+import { deleteFileFromUrl } from '@/lib/storage';
 
 export type MediaFilter = {
     type?: 'IMAGE' | 'VIDEO';
@@ -110,6 +111,14 @@ export async function fetchMedia(filter: MediaFilter, page = 1, limit = 50) {
 }
 
 export async function deleteMedia(mediaId: string) {
+    const media = await db.media.findUnique({ where: { id: mediaId } });
+    if (!media) return { success: false, error: 'Media not found' };
+
+    // Delete the physical files first
+    if (media.localPath) await deleteFileFromUrl(media.localPath);
+    if (!media.localPath && media.url) await deleteFileFromUrl(media.url);
+    if (media.thumbnailPath) await deleteFileFromUrl(media.thumbnailPath);
+
     await db.media.delete({ where: { id: mediaId } });
     return { success: true };
 }

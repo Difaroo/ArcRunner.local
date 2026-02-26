@@ -84,6 +84,41 @@ export async function getFileContent(filePath: string): Promise<Buffer> {
     return await readFile(filePath);
 }
 
+export async function deleteFileFromUrl(url: string | null | undefined): Promise<boolean> {
+    if (!url) return false;
+    try {
+        const urlObj = new URL(url, 'http://localhost');
+        const pathname = urlObj.pathname;
+        if (!pathname.startsWith('/api/media/') && !pathname.startsWith('/api/proxy-image')) {
+            if (pathname.startsWith('/thumbnails/')) {
+                const segments = pathname.replace('/thumbnails/', '').split('/').filter(Boolean);
+                const thumbPath = await getFilePath(['thumbnails', ...segments]);
+                if (thumbPath && fs.existsSync(thumbPath)) {
+                    await unlink(thumbPath);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        const pathSegments = pathname.startsWith('/api/media/')
+            ? pathname.replace('/api/media/', '').split('/').filter(Boolean)
+            : ['proxy-image']; // Fallback for proxy-image if handled elsewhere, though usually these are external
+
+        if (pathSegments.length === 0) return false;
+
+        const filePath = await getFilePath(pathSegments);
+        if (filePath && fs.existsSync(filePath)) {
+            await unlink(filePath);
+            console.log(`[Storage] Deleted file: ${filePath}`);
+            return true;
+        }
+    } catch (error) {
+        console.error(`[Storage] Failed to delete file for URL ${url}:`, error);
+    }
+    return false;
+}
+
 import mime from 'mime';
 
 export async function downloadAndSave(url: string, taskId: string, type: 'generated' | 'upload' = 'generated', overwrite = true): Promise<string | null> {

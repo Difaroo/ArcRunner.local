@@ -507,11 +507,15 @@ export default function Home() {
       // Update local state
       // Prefer server-returned clip which has authoritative image resolution
       if (data.success && data.clip) {
+        // Destructure relational fields that should use the server's authoritative version
+        const { modelInputSlots: _misFromUpdates, ...safeUpdates } = updates as any;
+
         setClips(prev => prev.map(c => c.id === clipId ? {
           ...c,
           ...data.clip,
-          ...updates, // FORCE USER UPDATES (Prevent Stale Revert)
-          mediaReferences: data.clip.mediaReferences || c.mediaReferences || []
+          ...safeUpdates, // FORCE USER UPDATES (Prevent Stale Revert) — excludes relational fields
+          mediaReferences: data.clip.mediaReferences || c.mediaReferences || [],
+          modelInputSlots: data.clip.modelInputSlots || c.modelInputSlots || []
         } : c).map(c => {
           // Post-Update Re-Resolution (Success Path)
           // Ensure derived fields are updated immediately using the fresh data
@@ -861,9 +865,41 @@ export default function Home() {
     setShowClipConfirm(true);
   };
 
+  // --- Single Clip Generate (Row button + BEM button) ---
+  const handleGenerateSingle = (clip: Clip) => {
+    // Model validation (same as batch)
+    const config = getModelConfig(selectedModel);
+    if (config?.validation?.explicitReference) {
+      const hasMediaRefs = clip.mediaReferences && clip.mediaReferences.length > 0;
+      if (!hasMediaRefs) {
+        alert(`Validation Error: Model '${config.label}' requires a Reference Image.\n\nPlease add one before generating.`);
+        return;
+      }
+    }
+    setPendingGenerateClip(clip);
+    setShowClipConfirm(true);
+  };
+
   const executeClipGeneration = async () => {
     setShowClipConfirm(false); // Close Dialog
 
+    // === SINGLE CLIP MODE ===
+    if (pendingGenerateClip) {
+      const clip = pendingGenerateClip;
+      setPendingGenerateClip(null);
+      const index = clips.findIndex(c => c.id === clip.id);
+      if (index < 0) return;
+
+      setCopyMessage(`Generating clip ${clip.scene || clip.title}...`);
+      setTimeout(() => setCopyMessage(null), 3000);
+
+      handleSave(clip.id, { status: 'Generating', isPersisted: false }).catch(console.error);
+      await handleGenerate(clip, index, pendingGenerateExtras);
+      setPendingGenerateExtras(null);
+      return;
+    }
+
+    // === BATCH MODE (existing logic) ===
     // Re-filter just in case (though selectedIds matches)
     const rawToGen = activeClips.filter(c => selectedIds.has(c.id));
     // Apply Traffic Light Filter
@@ -882,7 +918,7 @@ export default function Home() {
       // Update Traffic Light to Green (Generating)
       // "On generate: change to Green"
       // We do this optimistically and persist so Batch Modal sees it
-      handleSave(clip.id, { status: 'Generating' }).catch(console.error);
+      handleSave(clip.id, { status: 'Generating', isPersisted: false }).catch(console.error);
 
       await handleGenerate(clip, index, extras);
     }
@@ -1051,7 +1087,7 @@ export default function Home() {
   const [showStudioConfirm, setShowStudioConfirm] = useState(false);
   // --- Clip Generation Confirmation (Restored) ---
   const [showClipConfirm, setShowClipConfirm] = useState(false);
-  // showClipConfirm removed (handled by ActionToolbar)
+  const [pendingGenerateClip, setPendingGenerateClip] = useState<Clip | null>(null);
 
   const handleOpenStudioConfirm = () => {
     if (selectedLibraryIds.size === 0) return;
@@ -1654,7 +1690,7 @@ export default function Home() {
       // Optimistic update
       const newClips = [...clips];
       // CRITICAL: Clear Result/TaskId to prevents Poller from seeing old 'Done' task
-      newClips[index] = { ...newClips[index], status: 'Generating', resultUrl: '', taskId: '' };
+      newClips[index] = { ...newClips[index], status: 'Generating', resultUrl: '', taskId: '', isPersisted: false };
       setClips(newClips);
 
       // Use Episode Style if available, otherwise fallback to clip style (which might be empty now)
@@ -1884,6 +1920,12 @@ export default function Home() {
 
 
           // Construct UniversalMediaItem
+          // Resolve localPath from media records for file operations (delete, Finder reveal)
+          const matchingMedia = clip ? [
+            ...(clip.mediaResults || []),
+            ...(clip.mediaReferences || [])
+          ].find((m: any) => m.url === url || m.localPath === url) : undefined;
+
           const baseItem = {
             id: uniqueId,
             url: url,
@@ -1899,7 +1941,8 @@ export default function Home() {
             // New Context Fields (Pass through)
             ownerClipId: clip ? clip.id.toString() : undefined,
             episodeId: clip ? (clip.episodeId || (clip.episode as any)?.id) : undefined, // Fix: Cast for TS
-            isPersisted: clip ? clip.isPersisted : false // Added for UI Feedback
+            isPersisted: clip ? clip.isPersisted : false, // Added for UI Feedback
+            localPath: (matchingMedia as any)?.localPath || undefined // For file operations
           };
 
           if (precalculatedItem) {
@@ -2244,6 +2287,7 @@ export default function Home() {
                 onSeedChange={(val) => updateEpisodeSetting({ seed: val })}
                 onSaveClip={handleSave}
                 onDataRefresh={refreshData}
+                onGenerateSingle={handleGenerateSingle}
               />
             )}
             {currentView === 'library' && (
@@ -2437,7 +2481,7 @@ export default function Home() {
                 onEdit={startEditing}
                 onSave={handleSave}
                 onCancelEdit={handleCancelEdit}
-                onGenerate={(clip) => handleGenerate(clip, clips.findIndex(c => c.id === clip.id))}
+                onGenerate={(clip) => handleGenerateSingle(clip)}
                 onPlay={(url, contextPlaylist) => {
                   if (!url) {
                     console.log('Play clicked but no URL');
@@ -2495,7 +2539,7 @@ export default function Home() {
       <ClipConfirmDialog
         open={showClipConfirm}
         onOpenChange={setShowClipConfirm}
-        count={activeClips.filter(c => selectedIds.has(c.id)).length}
+        count={pendingGenerateClip ? 1 : activeClips.filter(c => selectedIds.has(c.id)).length}
         onConfirm={executeClipGeneration}
         model={selectedModel}
         style={currentStyle}

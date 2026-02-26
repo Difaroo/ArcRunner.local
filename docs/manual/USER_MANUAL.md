@@ -64,6 +64,12 @@ When generating multiple items (Clips or Library Assets), a **Confirmation Dialo
 - **Style**: Applied style preset (e.g., `Cinematic`, `Clay`).
 - **Ratio**: Aspect ratio/Viewport.
 
+### Single Clip Generation (v0.33.0)
+Generating a single clip — whether from the **Row Generate button** in the Episode Clips List or the **BEM Generate button** in the Batch Edit Modal — now shows the same Confirmation Dialog as batch generation, with `count=1`. This ensures you always verify the Model, Style, and Aspect Ratio before generating.
+
+- **Row Button**: The generate icon dynamically shows `movie_creation` (video models) or `image` (image models) to match the selected model.
+- **BEM Button**: Located to the left of the Save button in the BEM header bar. Same solid orange style as the batch generate button.
+
 ### Episode Creation
 - **Optimistic Updates**: New episodes appear instantly in the list.
 - **Error Handling**: Network errors during creation will be displayed visually in the dialog.
@@ -156,7 +162,7 @@ The behaviour of the "Unlink" action depends contextually on the asset type bein
 - **MIS Loaded Assets**: Unlinking an asset actively sitting inside an MIS slot simply returns it to the Pool.
 - *Note: **Delete** is exclusively reserved for the Media Screen and permanently trashes the record. It is intentionally omitted from the UVM to prevent accidental destructive actions.*
 
-### 3. Persist & Download Architecture (v0.32.3)
+### 3. Persist & Download Architecture (v0.33.0)
 Media results are handled differently based on output type to optimize bandwidth and local storage:
 - **Image Results**: Generated as static assets or downloaded locally by default. Users can save them to their own local file using the Download button.
 - **Video Results**: Video generation results are hosted temporarily at Kie.ai (the API aggregator). 
@@ -164,7 +170,12 @@ Media results are handled differently based on output type to optimize bandwidth
   - On the first interaction, it presents an OS-level save dialogue to define a destination folder for video editing.
   - The system then saves this directory path to the current Episode record. 
   - Thereafter, it operates silently in the background, downloading results directly to the established local folder and inserting an alias back into the ArcRunner UI for seamless playback.
+  - **Open Edit Folder (v0.33.0)**: Once a video is persisted (green filmstrip icon), clicking that icon again will open the Episode's local edit folder in macOS Finder via the `/api/media/open-folder` server endpoint. This works identically in the BEM "Latest Result" header and the Universal Media Viewer.
+  - **BEM Download Button (v0.33.0)**: The Batch Edit Modal now includes a download/open-folder button in the "Latest Result" header bar, right-aligned. Shows an orange download icon when not persisted, and a green filmstrip when persisted.
   - **Batch Downloads**: Behave exactly identical to single-row downloads. Highlighting multiple completed clips and clicking download will silently route all files to the assigned episode alias path simultaneously, automatically clearing the Red/Orange traffic light status in the UI to signify completion.
+- **Server-Side File Operations (v0.33.0)**:
+  - **Delete Local**: `DELETE /api/media/delete-local` removes the server cache copy and any symlink/alias pointing to it, with security validation.
+  - **Open Folder**: `POST /api/media/open-folder` opens the episode's `localMediaPath` in macOS Finder.
 - **Offline Persistence & Sync (v0.32.3)**:
   - If remote generation assets expire (404) before in-app persistence, ArcRunner provides a "Reverse Persistence" script (`scripts/offline-persist.ts`).
   - By pointing the script at a master local folder of raw `.mp4` renders, the script structurally parses the filenames (requiring exact matches on Scene Number and Title logic) and forcefully binds them back into the Prisma database.

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PlayCircle, Eye, Maximize2 } from "lucide-react"
 import { UniversalMediaViewer } from "./UniversalMediaViewer"
 
@@ -9,6 +9,7 @@ interface MediaDisplayProps {
     title?: string // Override title for preview modal (filename)
     onPlay?: (url: string) => void // Legacy/Override
     isThumbnail?: boolean // If true, force image rendering for the preview
+    posterUrl?: string // Optional crisp poster image for video tags
     contentType?: 'video' | 'image' | 'auto' // Explicit type override
     className?: string
     description?: string // For UVM editing
@@ -31,6 +32,7 @@ export function MediaDisplay({
     title, // Destructure title
     onPlay,
     isThumbnail,
+    posterUrl,
     contentType = 'auto',
     className,
     description,
@@ -49,9 +51,19 @@ export function MediaDisplay({
     const [imgError, setImgError] = useState(false); // Track if proxy failed
     const [videoError, setVideoError] = useState(false); // Track if video failed
 
+    // Reset error state if the URL changes (vital for reused components in BEM filmstrips/carousels)
+    useEffect(() => {
+        setImgError(false);
+        setVideoError(false);
+    }, [url, originalUrl]);
+
     // Handle comma-separated lists (take first)
-    const effectiveUrl = url ? url.split(',')[0].trim() : '';
-    const effectiveOriginalUrl = originalUrl ? originalUrl.split(',')[0].trim() : effectiveUrl;
+    // PATCH v0.32+: Catch legacy /api/storage/ URLs from Database and rewrite them to modern /api/media/clips/
+    const sanitizeUrl = (u: string | undefined) => (u ? u.split(',')[0].trim().replace('/api/storage/', '/api/media/clips/') : '');
+
+    const effectiveUrl = sanitizeUrl(url);
+    const effectiveOriginalUrl = sanitizeUrl(originalUrl) || effectiveUrl;
+    const effectivePosterUrl = sanitizeUrl(posterUrl || '');
 
     // 1. Determine Content Type (What it IS)
     // If explicit type provided, use it. Else detect.
@@ -88,9 +100,9 @@ export function MediaDisplay({
 
         if (u.startsWith('/api/') || u.startsWith('/thumbnails/') || u.startsWith('/uploads/') || u.startsWith('/media/')) return u;
         if (t === 'image') return `/api/proxy-image?url=${encodeURIComponent(u)}`;
-        // Fix: Append filename so native browser "Save As" uses it instead of "download.mp4"
-        const filenameParam = title ? `&filename=${encodeURIComponent(title)}` : '';
-        return `/api/proxy-download?url=${encodeURIComponent(u)}${filenameParam}`;
+        // For video previews, use the URL natively just like the Universal Viewer.
+        // Using proxy-download forces a Content-Disposition: attachment which breaks inline playback.
+        return u;
     }
 
     const handleClick = (e: React.MouseEvent) => {
@@ -103,8 +115,8 @@ export function MediaDisplay({
         }
     }
 
-    // Parse all available URLs for slideshow
-    const allUrls = (originalUrl || url || '').split(',').map(u => u.trim()).filter(Boolean);
+    // Parse all available URLs for slideshow (Sanitized to fix UVM playback)
+    const allUrls = (originalUrl || url || '').split(',').map(u => sanitizeUrl(u.trim())).filter(Boolean);
 
     return (
         <>
@@ -136,17 +148,14 @@ export function MediaDisplay({
                         alt="Preview"
                         loading="lazy"
                         onError={(e) => {
-                            // First try: Failed.
-                            // If we haven't tried fallback (or if we don't have one), show error.
-                            // Note: getSrc might be using proxy. If proxy fails, we could try direct.
-                            // But usually if proxy fails (404), direct will also fail or be CORS blocked.
-                            // Let's simplified: just show error.
+                            console.error(`[MediaDisplay] Native IMG load FATAL onError triggered in browser for URL: ${getSrc(effectiveUrl, 'image')}`);
                             setImgError(true);
                         }}
                     />
                 ) : (
                     <video
                         src={getSrc(effectiveUrl, 'video')}
+                        poster={effectivePosterUrl ? getSrc(effectivePosterUrl, 'image') : undefined}
                         className="w-full h-full object-cover rounded border border-stone-800 shadow-sm"
                         preload="metadata"
                         muted
@@ -156,7 +165,10 @@ export function MediaDisplay({
                             e.currentTarget.pause();
                             e.currentTarget.currentTime = 0;
                         }}
-                        onError={() => setVideoError(true)}
+                        onError={(e) => {
+                            console.error(`[MediaDisplay] Native VIDEO decoding FATAL onError triggered in browser for URL: ${getSrc(effectiveUrl, 'video')} ! Native Event Target Error:`, (e.target as HTMLVideoElement).error);
+                            setVideoError(true);
+                        }}
                     />
                 )}
 
@@ -184,7 +196,7 @@ export function MediaDisplay({
                 playlist={allUrls.map(u => ({
                     id: effectiveOriginalUrl || u,
                     url: u,
-                    type: u.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image',
+                    type: (u && u.match(/\.(mp4|mov|webm)$/i)) ? 'video' : 'image',
                     title: title || model || 'Media Preview',
                     description: description, // Pass to UVM
                     action: action, // Pass to UVM

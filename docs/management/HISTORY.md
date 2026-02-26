@@ -2,6 +2,55 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-26: v0.33.0 - Kestrel Update (BEM Overhaul & Generate Alignment)
+
+### Context
+A feature-rich release overhauling the Batch Edit Modal (BEM) asset management experience, unifying the Generate button flow across all surfaces, and hardening the media persistence state machine. This release also introduces server-side file operations for local media management and a comprehensive UI polish sprint across the Episode Clips List.
+
+### Features
+- **BEM Asset Pool Enhancements**:
+  - **Type Icon Size**: Adjusted Model Input Slot type icons (image/video) to proportional sizing (`!text-lg`).
+  - **Persistent Unlink Button**: Added a permanent "Unlink" button to MIS (orange outline style) that appears on every slot, replacing the hover-only interaction.
+  - **Overflow Slot Styling**: Overflow slot labels (beyond model max) now use an outline style (orange border, transparent background) to visually distinguish them from legitimate model slots.
+  - **Download/Open Folder Button**: Added a context-aware button to the "Latest Result" header bar. When not persisted, it downloads the result to the episode folder. When persisted, it opens the local edit folder in Finder via `/api/media/open-folder`.
+
+- **Server-Side File Operations**:
+  - **DELETE `/api/media/delete-local`**: Deletes persisted local media files (server cache + symlink alias) with security validation and flexible `episodeId` handling.
+  - **POST `/api/media/open-folder`**: Opens the episode's `localMediaPath` folder in macOS Finder using `child_process.exec('open ...')`. Falls back gracefully when no local path is configured.
+
+- **UVM Filmstrip Integration**:
+  - The green filmstrip (clapperboard) icon in the Universal Media Viewer now opens the episode edit folder in Finder when clicked on a persisted video, matching the BEM behavior.
+  - Non-persisted videos continue to trigger the download/persist flow.
+
+- **Generate Button Alignment**:
+  - **Row Generate**: The per-row generate button now goes through `handleGenerateSingle`, which performs model validation (e.g., checks for required reference images on Kling) and shows the same `ClipConfirmDialog` confirmation dialog as the batch button, with `count=1`.
+  - **BEM Generate**: Added a generate button to the BEM header bar (left of Save), same solid orange style as the batch generate button. Uses `movie_creation`/`image` icon based on selected model. Calls the same `handleGenerateSingle` flow.
+  - **Icon Consistency**: Row generate buttons now use `movie_creation` (video models) / `image` (image models), matching the batch button in ActionToolbar.
+
+- **UI Polish Sprint**:
+  - **Header Traffic Light Alignment**: Removed `mt-1.5` from the traffic light cycle button, vertically centered with `align-middle` to match the checkbox column.
+  - **Grab Pad Centering & Coloring**: Grab pad icon vertically centered (`align-middle`) and dynamically colored to match the row's traffic light status (red/orange/green).
+
+### Fixes
+- **isPersisted Data Integrity**:
+  - **Root Cause**: The `isPersisted` flag was never reset to `false` when a clip was regenerated, causing stale green filmstrips on clips whose results had been replaced.
+  - **Fix**: Both `handleGenerate` and `handleGenerateSelected` now reset `isPersisted: false` alongside `resultUrl`/`taskId` when starting a new generation.
+  - **Data Cleanup**: Ran a one-shot script (`scripts/cleanup_persisted.ts`) that reset 130 stale `isPersisted` flags, keeping only 5 with verified local files.
+
+- **BEM Filmstrip 500 Error**: Fixed the BEM download button calling `persistMedia` on already-persisted clips, which returned a 500. Now correctly branches to `/api/media/open-folder` when persisted.
+
+- **Kling 422 Debugging**: Investigated and resolved image size validation errors for Kling model payloads.
+
+### Architecture
+- **`handleGenerateSingle`**: New unified handler in `page.tsx` for single-clip generation. Performs model validation + confirmation dialog, used by both Row and BEM generate buttons.
+- **`executeClipGeneration`**: Refactored to dual-mode: detects `pendingGenerateClip` state for single-clip mode, falls through to existing batch logic otherwise.
+- **Prop Threading**: `onGenerateSingle` threaded from `page.tsx` → `ActionToolbar` → `BatchEditModalV3` to enable the BEM generate button.
+
+### Version Bump
+- **Minor**: 0.32.4 -> 0.33.0.
+
+---
+
 ## 2026-02-24: v0.32.4 - Kestrel Update (Traffic Light Hotfix)
 
 ### Context

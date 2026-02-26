@@ -12,10 +12,9 @@ interface ModelInputSlotsProps {
 }
 
 export function ModelInputSlots({ modelConfig, mediaItems, onRemove, className, orientation = 'vertical' }: ModelInputSlotsProps) {
-    // 1. Get Active Media (Sort > 0), Ordered Descending
-    const activeMedia = mediaItems
-        .filter(m => m.refImageSort && m.refImageSort > 0)
-        .sort((a, b) => b.refImageSort - a.refImageSort);
+    // The items passed in are explicitly ModelInputSlot join records.
+    // They are pre-sorted by `sortOrder` in the parent.
+    const activeSlots = mediaItems;
 
     // 2. Determine Slots from Config
     let slots: { label: string, required?: boolean }[] = [];
@@ -31,6 +30,13 @@ export function ModelInputSlots({ modelConfig, mediaItems, onRemove, className, 
         slots = [{ label: 'Reference' }, { label: 'Reference' }, { label: 'Reference' }];
     }
 
+    // 3. Dynamic Overflow Protection
+    // Ensure the UI renders extra container slots if the actual number of DB records 
+    // exceeds what the model natively asked for.
+    while (slots.length < activeSlots.length) {
+        slots.push({ label: 'Overflow' });
+    }
+
     const isHorizontal = orientation === 'horizontal';
 
     return (
@@ -38,13 +44,14 @@ export function ModelInputSlots({ modelConfig, mediaItems, onRemove, className, 
             {!isHorizontal && (
                 <h3 className="text-xs text-amber-500 font-semibold mb-2 uppercase tracking-wider flex items-center gap-2">
                     Generation Inputs
-                    <span className="text-secondary-foreground/50 text-[10px]">({activeMedia.length}/{slots.length})</span>
+                    <span className="text-secondary-foreground/50 text-[10px]">({activeSlots.length}/{slots.length})</span>
                 </h3>
             )}
 
             <div className={`flex-1 ${isHorizontal ? 'flex flex-row gap-3 overflow-x-auto pb-2' : 'flex flex-col space-y-3 overflow-y-auto pr-2'}`}>
                 {slots.map((slot, index) => {
-                    const media = activeMedia[index];
+                    const slotRecord = activeSlots[index];
+                    const media = slotRecord?.media;
 
                     return (
                         <div key={index} className={`flex gap-3 p-2 bg-stone-900/40 border border-stone-800 rounded-lg items-start ${isHorizontal ? 'aspect-[9/16] h-full flex-col' : 'min-h-[100px]'}`}>
@@ -77,7 +84,7 @@ export function ModelInputSlots({ modelConfig, mediaItems, onRemove, className, 
                                             className="absolute top-1 right-1 p-1 bg-red-900/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                onRemove(media);
+                                                onRemove(slotRecord);
                                             }}
                                         >
                                             <X className="w-3 h-3" />

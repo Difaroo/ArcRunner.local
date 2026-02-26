@@ -42,6 +42,7 @@ export interface UniversalMediaItem {
     ownerClipId?: string;  // Context ID for routing unlink (lib-XX for Studio, clipId for Clips)
     episodeId?: string; // Required for Persistence
     isPersisted?: boolean; // Required for UI Feedback (Clapperboard state)
+    localPath?: string; // For local file operations (delete, open-in-Finder)
 }
 
 interface UniversalMediaViewerProps {
@@ -255,6 +256,19 @@ export function UniversalMediaViewer({
     const confirmDelete = async () => {
         if (currentItem && onDelete) {
             await onDelete(currentItem.id);
+            // Also delete local file if path is known
+            if (currentItem.localPath) {
+                try {
+                    await fetch('/api/media/delete-local', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ localPath: currentItem.localPath })
+                    });
+                    console.log('[UVM] Deleted local file:', currentItem.localPath);
+                } catch (err) {
+                    console.warn('[UVM] Failed to delete local file:', err);
+                }
+            }
             setShowDeleteDialog(false);
             onClose(); // Close viewer after deletion
         }
@@ -396,6 +410,23 @@ export function UniversalMediaViewer({
                                         disabled={isPersisting}
                                         onClick={async (e) => {
                                             e.stopPropagation();
+                                            // PERSISTED: Open episode edit folder in Finder
+                                            if (isVideo && currentItem.isPersisted && currentItem.episodeId) {
+                                                try {
+                                                    const res = await fetch('/api/media/open-folder', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ episodeId: currentItem.episodeId })
+                                                    });
+                                                    if (!res.ok) {
+                                                        console.error('[UVM] open-folder failed:', res.status, await res.text());
+                                                    }
+                                                } catch (err) {
+                                                    console.error('[UVM] Failed to open folder:', err);
+                                                }
+                                                return;
+                                            }
+                                            // NOT PERSISTED: Persist (download to episode folder)
                                             if (isVideo && currentItem.episodeId && currentItem.ownerClipId) {
                                                 try {
                                                     const result = await persistMedia({
@@ -434,7 +465,9 @@ export function UniversalMediaViewer({
                                 </TooltipTrigger>
                                 <TooltipContent>
                                     <p>{isVideo && currentItem.episodeId
-                                        ? (currentItem.isPersisted ? 'Saved to Episode Folder' : 'Save to Episode Folder')
+                                        ? (currentItem.isPersisted
+                                            ? 'Open Edit Folder'
+                                            : 'Save to Episode Folder')
                                         : 'Download File'}
                                     </p>
                                 </TooltipContent>

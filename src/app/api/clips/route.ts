@@ -29,13 +29,29 @@ export async function GET() {
             db.clip.findMany({
                 include: {
                     episode: { include: { series: true } },
-                    mediaResults: true,
+                    mediaResults: {
+                        orderBy: { createdAt: 'asc' } // Ensure youngest is [length - 1]
+                    },
                     mediaReferences: {
                         include: { studioItem: true }, // Include Studio Item for Titles/URLs
                         orderBy: [
                             { refImageSort: 'desc' }, // Phase 2: Prioritize flagged items
                             { id: 'desc' }            // Then LIFO
                         ]
+                    },
+                    modelInputSlots: {
+                        include: {
+                            media: { include: { studioItem: true } },
+                            studioItem: {
+                                include: {
+                                    media: {
+                                        where: { category: 'STUDIO_UPLOAD' },
+                                        orderBy: { id: 'desc' }
+                                    }
+                                }
+                            }
+                        },
+                        orderBy: { sortOrder: 'asc' }
                     }
                 },
                 orderBy: [
@@ -137,10 +153,21 @@ export async function GET() {
 
             // A. Resolve Results (Video/Image)
             // Use logical last item (most recent) from Media table.
-            // STRICT MODE: Do not fall back to clip.resultUrl. If unknown in Media, it's unknown.
-            const mediaResult = clip.mediaResults && clip.mediaResults.length > 0
-                ? clip.mediaResults[clip.mediaResults.length - 1].url
-                : ''; // PREVIOUSLY: clip.resultUrl (Legacy Fallback Removed)
+            // LEGACY FALLBACK: If not migrated to Media, fallback to raw clip.resultUrl.
+            // SMART FILTER: Do NOT select a dead remote tempfile.aiquickdraw.com URL if a local alternative exists.
+            let mediaResult = '';
+            if (clip.mediaResults && clip.mediaResults.length > 0) {
+                // Find highest priority: Local / persistent URL (Search from newest to oldest)
+                const goodResult = [...clip.mediaResults].reverse().find((m: any) => !m.url.includes('tempfile.aiquickdraw.com'));
+                if (goodResult) {
+                    mediaResult = goodResult.url;
+                } else {
+                    // All media results are dead tempfiles. We must fallback to legacy resultUrl if valid.
+                    mediaResult = clip.resultUrl || clip.mediaResults[clip.mediaResults.length - 1].url;
+                }
+            } else {
+                mediaResult = clip.resultUrl || '';
+            }
 
             // B. Resolve References (Images)
             // C. Enrich Studio References (Fresh URL from Library)
@@ -176,11 +203,28 @@ export async function GET() {
                 dialog: clip.dialog || '',
                 // Resolved Images (Source of Truth = Media Table)
                 mediaReferences: enrichedMediaReferences,
+                // Enrich modelInputSlots: resolve studioItem image URLs from Media table
+                modelInputSlots: (clip.modelInputSlots || []).map((slot: any) => {
+                    if (slot.studioItem) {
+                        const studioMedia = slot.studioItem.media;
+                        const resolvedUrl = (studioMedia && studioMedia.length > 0) ? studioMedia[0].url : slot.studioItem.refImageUrl;
+                        return {
+                            ...slot,
+                            studioItem: {
+                                ...slot.studioItem,
+                                refImageUrl: resolvedUrl || slot.studioItem.refImageUrl || '',
+                                media: undefined // Don't leak nested media array to frontend
+                            }
+                        };
+                    }
+                    return slot;
+                }),
                 mediaResults: clip.mediaResults,
                 characterImageUrls,
                 locationImageUrls,
                 // Result (Source of Truth = Media Table)
                 resultUrl: mediaResult || '',
+                remoteResultUrl: clip.resultUrl || '', // Exposed to allow frontend to exclude legacy remote URLs from pool
                 taskId: clip.taskId || '',
                 seed: clip.seed || '',
                 negativePrompt: clip.negativePrompt || '',
@@ -386,7 +430,15 @@ export async function PUT(req: Request) {
                 negativePrompt: clip.negativePrompt,
                 // resultUrl: clip.resultUrl, // LEGACY: Removed
                 isHiddenInStoryboard: clip.isHiddenInStoryboard,
-                isSelected: clip.isSelected // Added per user request for persistence
+                isSelected: clip.isSelected, // Added per user request for persistence
+                modelInputSlots: clip.modelInputSlots ? {
+                    deleteMany: {},
+                    create: clip.modelInputSlots.map((slot: any, index: number) => ({
+                        mediaId: slot.studioItemId ? null : (slot.mediaId || slot.id), // Fallback safely
+                        studioItemId: slot.studioItemId || null,
+                        sortOrder: typeof slot.sortOrder === 'number' ? slot.sortOrder : index
+                    }))
+                } : undefined
             }
         });
 

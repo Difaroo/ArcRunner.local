@@ -88,20 +88,25 @@ export async function POST(req: NextRequest) {
                 }
             });
 
-
+            // BRIDGE: Also create ModelInputSlot (Relational Architecture v0.28+)
+            const maxSlot = await db.modelInputSlot.aggregate({
+                where: { clipId },
+                _max: { sortOrder: true }
+            });
+            await db.modelInputSlot.create({
+                data: {
+                    clipId,
+                    mediaId: newMedia.id,
+                    sortOrder: (maxSlot._max.sortOrder ?? -1) + 1
+                }
+            });
+            console.log(`[AddRef] Created ModelInputSlot for Media ${newMedia.id} → Clip ${clipId}`);
 
             if (sourceClipId) {
                 const srcClipId = parseInt(sourceClipId, 10);
                 if (!isNaN(srcClipId)) {
                     const srcClip = await db.clip.findUnique({ where: { id: srcClipId } });
-                    // Normalize check for resultURL match
-                    // We import normalizeUrl helper inline or duplicate safely?
-                    // We'll trust exact match for now as resultUrl usually comes from same system.
                     if (srcClip && srcClip.resultUrl === url) {
-                        // LEGACY Cleanup: kept for now to avoid ghost results on old clips, 
-                        // but strictly we should move to Media-only.
-                        // Actually, if we clear resultUrl, we assume the frontend reads Media.
-                        // Let's keep this cleanup to keep DB clean, but NOT write new CSV refs.
                         await db.clip.update({
                             where: { id: srcClipId },
                             data: { resultUrl: null, thumbnailPath: null }
@@ -114,7 +119,7 @@ export async function POST(req: NextRequest) {
             console.log(`[AddRef] Created Media ${newMedia.id} for ${url} → Clip ${clipId}`);
             return NextResponse.json({
                 success: true,
-                action: 'moved', // Report as move since we cleared source
+                action: 'moved',
                 mediaId: newMedia.id,
                 clipId: clipId
             });
@@ -143,6 +148,21 @@ export async function POST(req: NextRequest) {
                     episodeId: targetClip.episodeId
                 }
             });
+
+            // BRIDGE: Also create ModelInputSlot
+            const maxSlotCopy = await db.modelInputSlot.aggregate({
+                where: { clipId },
+                _max: { sortOrder: true }
+            });
+            await db.modelInputSlot.create({
+                data: {
+                    clipId,
+                    mediaId: newMedia.id,
+                    sortOrder: (maxSlotCopy._max.sortOrder ?? -1) + 1
+                }
+            });
+            console.log(`[AddRef] Created ModelInputSlot for copied Media ${newMedia.id} → Clip ${clipId}`);
+
             return NextResponse.json({ success: true, action: 'copied', mediaId: newMedia.id, clipId: clipId });
         }
 
@@ -156,6 +176,20 @@ export async function POST(req: NextRequest) {
                 episodeId: targetClip.episodeId
             }
         });
+
+        // BRIDGE: Also create ModelInputSlot for the moved media
+        const maxSlotMove = await db.modelInputSlot.aggregate({
+            where: { clipId },
+            _max: { sortOrder: true }
+        });
+        await db.modelInputSlot.create({
+            data: {
+                clipId,
+                mediaId: updatedMedia.id,
+                sortOrder: (maxSlotMove._max.sortOrder ?? -1) + 1
+            }
+        });
+        console.log(`[AddRef] Created ModelInputSlot for moved Media ${updatedMedia.id} → Clip ${clipId}`);
 
         // Clear legacy result fields on old owner
         if (existingMedia.resultForClipId) {

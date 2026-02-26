@@ -31,8 +31,8 @@ interface ModelInputSlotsProps {
 }
 
 export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate, onReorder, className, orientation = 'vertical' }: ModelInputSlotsProps) {
-    // 1. Structure the Active Media
-    const activeMedia = mediaItems || [];
+    // 1. Structure the Active Media (Expected to be an array of ModelInputSlot join records)
+    const activeSlots = mediaItems || [];
 
     // 2. Determine Slots from Config
     let slots: { label: string, required?: boolean }[] = [];
@@ -46,6 +46,16 @@ export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate,
         });
     } else {
         slots = [{ label: 'Reference' }, { label: 'Reference' }, { label: 'Reference' }];
+    }
+
+    // 3. Dynamic Overflow Protection (Relational Architecture)
+    // If the DB has more explicit Join Records than the UI model supports,
+    // we MUST draw extra slots to render them so the user is aware of the data mismatch.
+    if (activeSlots.length > slots.length) {
+        const diff = activeSlots.length - slots.length;
+        for (let i = 0; i < diff; i++) {
+            slots.push({ label: 'Overflow' });
+        }
     }
 
     const isHorizontal = orientation === 'horizontal';
@@ -72,19 +82,36 @@ export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate,
             {!isHorizontal && (
                 <h3 className="text-xs text-amber-500 font-semibold mb-2 uppercase tracking-wider flex items-center gap-2">
                     Generation Inputs
-                    <span className="text-secondary-foreground/50 text-[10px]">({activeMedia.length}/{slots.length})</span>
+                    <span className="text-secondary-foreground/50 text-[10px]">({activeSlots.length}/{slots.length})</span>
                 </h3>
             )}
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={slots.map((_, i) => `slot-${i}`)} strategy={isHorizontal ? horizontalListSortingStrategy : verticalListSortingStrategy}>
                     {slots.map((slot, index) => {
-                        const media = activeMedia[index];
+                        const slotRecord = activeSlots[index];
+                        const media = slotRecord?.media || (slotRecord?.studioItem ? {
+                            id: `studio-${slotRecord.studioItem.id}`,
+                            originalId: slotRecord.studioItem.id.toString(),
+                            url: slotRecord.studioItem.refImageUrl ? slotRecord.studioItem.refImageUrl.split(',')[0] : '',
+                            thumbnailPath: slotRecord.studioItem.thumbnailPath ? slotRecord.studioItem.thumbnailPath.split(',')[0] : '',
+                            category: slotRecord.studioItem.type,
+                            name: slotRecord.studioItem.name,
+                            isStudioItem: true,
+                            type: 'IMAGE'
+                        } : null);
+
+                        // Debug log for inserted Studio Items
+                        if (slotRecord?.studioItem) {
+                            console.log('[DEBUG SLOT] Synthetic Media Object:', media);
+                        }
+
                         return (
                             <SortableSlotItem
                                 key={`slot-${index}`}
                                 id={`slot-${index}`}
                                 slot={slot}
+                                slotRecord={slotRecord}
                                 media={media}
                                 isHorizontal={isHorizontal}
                                 onRemove={onRemove}
@@ -98,7 +125,7 @@ export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate,
     );
 }
 
-function SortableSlotItem({ id, slot, media, isHorizontal, onRemove, onUpdate }: any) {
+function SortableSlotItem({ id, slot, slotRecord, media, isHorizontal, onRemove, onUpdate }: any) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
 
     const style = {
@@ -117,16 +144,27 @@ function SortableSlotItem({ id, slot, media, isHorizontal, onRemove, onUpdate }:
                     <>
                         {/* Slot Content - Full Bleed */}
                         <div className="absolute inset-0 w-full h-full">
-                            <MediaDisplay
-                                url={media.thumbnailPath || media.url}
-                                title={media.category}
-                                description={media.description}
-                                action={media.action}
-                                contentType={media.type === 'VIDEO' ? 'video' : 'image'}
-                                isThumbnail={!!media.thumbnailPath}
-                                className="w-full h-full object-cover"
-                                onUpdate={onUpdate && media.originalId && media.isStudioItem ? async (_, updates) => await onUpdate(media.originalId, updates) : undefined}
-                            />
+                            {(media.thumbnailPath || media.url) ? (
+                                <MediaDisplay
+                                    url={media.thumbnailPath || media.url}
+                                    title={media.category}
+                                    description={media.description}
+                                    action={media.action}
+                                    contentType={media.type === 'VIDEO' ? 'video' : 'image'}
+                                    isThumbnail={!!media.thumbnailPath}
+                                    className="w-full h-full object-cover"
+                                    onUpdate={onUpdate && media.originalId && media.isStudioItem ? async (_, updates) => await onUpdate(media.originalId, updates) : undefined}
+                                />
+                            ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-stone-900 border border-stone-800 p-2 text-center">
+                                    <span className="text-[10px] text-stone-500 font-medium uppercase tracking-wider mb-1 line-clamp-1 break-all">
+                                        {media.name || 'Missing Image'}
+                                    </span>
+                                    <span className="text-[8px] text-stone-600 uppercase">
+                                        Pending Upload
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Type Icon (Top Right) */}
@@ -148,7 +186,7 @@ function SortableSlotItem({ id, slot, media, isHorizontal, onRemove, onUpdate }:
                                 className="absolute bottom-1 right-1 h-5 w-5 bg-orange-500 hover:bg-orange-400 text-black flex items-center justify-center rounded shadow-sm z-20 transition-colors pointer-events-auto"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    onRemove(media);
+                                    onRemove(slotRecord);
                                 }}
                                 title="Remove reference"
                                 onPointerDown={(e) => e.stopPropagation()}
@@ -157,8 +195,8 @@ function SortableSlotItem({ id, slot, media, isHorizontal, onRemove, onUpdate }:
                             </button>
                         )}
 
-                        {/* Info Badge (Orange with Black text) - Strictly structurally mapped to the slot label */}
-                        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-orange-500 text-black font-normal text-[9px] uppercase rounded shadow overflow-hidden z-10 max-w-[calc(100%-36px)] truncate pointer-events-none">
+                        {/* Info Badge - Solid orange for legit slots, outline for overflow */}
+                        <div className={`absolute bottom-1 left-1 px-1.5 py-0.5 font-normal text-[9px] uppercase rounded shadow overflow-hidden z-10 max-w-[calc(100%-36px)] truncate pointer-events-none ${slot.label === 'Overflow' ? 'border border-orange-500 text-orange-500 bg-transparent' : 'bg-orange-500 text-black'}`}>
                             {slot.label}
                         </div>
                     </>

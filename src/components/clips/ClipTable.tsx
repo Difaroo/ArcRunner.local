@@ -198,7 +198,7 @@ export function ClipTable({
                             <TableHead className="w-[20px] p-0 text-center align-middle py-3">
                                 <button
                                     onClick={handleTrafficCycle}
-                                    className={`w-3 h-3 mt-1.5 mx-auto block rounded-full ring-1 ring-white/10 transition-all duration-200 cursor-pointer ${getTrafficColorClass()}`}
+                                    className={`w-3 h-3 mx-auto block rounded-full ring-1 ring-white/10 transition-all duration-200 cursor-pointer ${getTrafficColorClass()}`}
                                     title={`Filter Status: ${trafficFilter === 'none' ? 'Off' : trafficFilter}`}
                                 />
                             </TableHead>

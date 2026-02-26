@@ -162,40 +162,64 @@ export class GenerateManager {
         }
         console.log(`[GenerateManager] StartTask: Model='${model}' -> ApiStrategy='${apiType}' -> ConfigID='${config.id}'`);
 
-        // --- DB SOURCE OF TRUTH ---
-        // Fetch the Clip + MediaReferences directly from DB to ensure we have the correct files.
+        // Fetch the Clip + ModelInputSlots with full relational data.
+        // Architecture: Clip → ModelInputSlot → Media (direct ref image)
+        //                                     → StudioItem → Media[] (library character/location image)
         const dbClip = await db.clip.findUnique({
             where: { id: parseInt(String(input.clipId)) },
-            include: { mediaReferences: true }
+            include: {
+                modelInputSlots: {
+                    include: {
+                        media: true,
+                        studioItem: {
+                            include: {
+                                media: {
+                                    orderBy: { createdAt: 'desc' as const },
+                                    take: 1
+                                }
+                            }
+                        }
+                    },
+                    orderBy: { sortOrder: 'asc' }
+                }
+            }
         });
 
         if (!dbClip) throw new Error(`Clip ID ${input.clipId} not found in DB`);
 
         // --- RESOLVER PHASE ---
-        // 2. Resolve Explicit References from Media Relations (Source of Truth)
+        // Resolve image URLs from MIS slots in a single pass.
+        // Each slot has EITHER a direct `media` record OR a `studioItem` (with its own `media[]` relation).
+        const sortedSlots = dbClip.modelInputSlots || [];
+
         let explicitRefPaths: string[] = [];
+        explicitRefPaths = sortedSlots.map((slot: any) => {
+            const m = slot.media;
+            const s = slot.studioItem;
 
-        // Sort by refImageSort DESC (flagged refs first), then createdAt ASC (FIFO for equal sort)
-        const sortedRefs = (dbClip.mediaReferences || []).sort((a, b) => {
-            const sortDiff = (b.refImageSort || 0) - (a.refImageSort || 0);
-            if (sortDiff !== 0) return sortDiff;
-            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        });
-
-        // Extract valid paths
-        explicitRefPaths = sortedRefs.map(m => {
-            // FAST PATH: If we have a valid Remote URL, use it to avoid expensive re-upload (Timeout Fix)
-            if (m.url && m.url.startsWith('http')) {
+            if (m) {
+                // Direct media reference (explicit ref image uploaded/linked by user)
+                if (m.url && m.url.startsWith('http')) return m.url;
+                if (m.localPath && fs.existsSync(m.localPath)) return m.localPath;
                 return m.url;
             }
-            // PREFER localPath if it exists (Absolute connection to disk)
-            if (m.localPath && fs.existsSync(m.localPath)) {
-                return m.localPath;
+
+            if (s) {
+                // StudioItem slot (character/location from library)
+                // Primary: Use the studioItem's associated Media record (authoritative)
+                const studioMedia = s.media && s.media.length > 0 ? s.media[0] : null;
+                if (studioMedia) {
+                    if (studioMedia.url && studioMedia.url.startsWith('http')) return studioMedia.url;
+                    if (studioMedia.localPath && fs.existsSync(studioMedia.localPath)) return studioMedia.localPath;
+                    return studioMedia.url;
+                }
+                // Fallback: Legacy CSV fields (refImageUrl/thumbnailPath)
+                return s.refImageUrl || s.thumbnailPath;
             }
-            // Fallback to URL (Local /api/ path)
-            return m.url;
-        });
-        console.log(`[GenerateManager] Resolved ${explicitRefPaths.length} Media References (sorted by refImageSort).`);
+
+            return null;
+        }).filter(Boolean);
+        console.log(`[GenerateManager] Resolved ${explicitRefPaths.length} MIS slots: ${explicitRefPaths.map((p: string) => p.substring(0, 50)).join(', ')}`);
 
         // ... ensureList logic will handle both Absolute Paths and URLs ...
         const libraryItems = await db.studioItem.findMany({
@@ -249,14 +273,20 @@ export class GenerateManager {
             characterImages
         };
 
-        // 2. Format Explicit Refs
-        // We know explicitly-linked refs are sorted and valid from the `explicitRefPaths` query above.
-        // We need to map them to the `Media` type expected by `resolveManifest`.
-        const formattedExplicitRefs = sortedRefs.map(m => ({
-            id: m.id,
-            url: explicitRefPaths[sortedRefs.indexOf(m)] || m.url,
-            refImageSort: m.refImageSort
-        })) as any;
+        // 2. Format Explicit Refs for manifest resolution
+        const formattedExplicitRefs = sortedSlots
+            .map((slot: any, index: number) => {
+                const url = explicitRefPaths[index];
+                if (!url || url.length < 5) return null;
+                const m = slot.media;
+                const s = slot.studioItem;
+                return {
+                    id: m?.id || s?.id?.toString() || `slot-${index}`,
+                    url,
+                    refImageSort: slot.sortOrder
+                };
+            })
+            .filter(Boolean) as any;
 
         // 3. Resolve Manifest!
         const manifest = resolveManifest(dbClip as any, effectiveModelId || 'veo-fast', libraryContext, formattedExplicitRefs);
@@ -400,7 +430,7 @@ export class GenerateManager {
 
             // --- FLUX T2I PATCH ---
             // 'flux-2/flex-image-to-image' requires input_urls to be non-empty.
-            if (!isVideo && publicImageUrls.length === 0 && publicExplicitImages.length === 0 && publicCharImages.length === 0 && publicLocImages.length === 0 && !publicStyleImage) {
+            if (!isVideo && apiType !== 'kling' && publicImageUrls.length === 0 && publicExplicitImages.length === 0 && publicCharImages.length === 0 && publicLocImages.length === 0 && !publicStyleImage) {
                 console.log('[GenerateManager] No input images found for Flux. Injecting dummy placeholder.');
                 try {
                     const filePath = path.join(process.cwd(), 'storage/media/defaults/empty.png');

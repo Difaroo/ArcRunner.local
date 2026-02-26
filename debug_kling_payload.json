@@ -1,18 +1,18 @@
 {
   "model": "kling-2.6/image-to-video",
   "input": {
-    "prompt": "ACTION: [Modern social media UFO event. Multi-shot montange. Contemporary US school.  Filmed on mobiles of kids, handheld. Cuts between views: \n1. Kids running. Cuts between Individual kids running, filiming on cell phones.\n2. Kids stop to see ufo descending in the scrub land beyond school fence. \n3. Kid have got out of the school fence and are approaching landed UFO - which has grey beings with black 'cats eye's, dark skin-tight suits. \n4. Kids using cells to film alients, and post on social media, groups running, groups watching saucer land in the mid distance, 5. kids showing art drawing picture of ufo + alien.]. [ Character says: \"V/O:  Interviews with Extra terrestrials \n\nInfluencer: They're over military bases. They're shutting down airports.\"]\n\nCAMERA: [Rapid intercut edits with visual rhythm and quick zooms.]",
-    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/AA1uVPSb.jpeg",
+    "prompt": "ACTION: [WIDE Camera tracking slowly straight ahead into the UFO cockpit. looking down the length of the console. turning to screen right and looking down at the alien hand imprints in the control panel - they gently lights up with tiny beads of blue light.]. []\n\nCAMERA: [Wide frame establishing geography and atmosphere.]",
+    "image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/The_Pilot_becomes_the_craft_.png",
     "image_urls": [
-      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/AA1uVPSb.jpeg"
+      "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/The_Pilot_becomes_the_craft_.png"
     ],
-    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/AA1uVPSb.jpeg",
-    "aspect_ratio": "9:16",
+    "start_image": "https://tempfile.redpandaai.co/kieai/127378/temp_uploads/The_Pilot_becomes_the_craft_.png",
+    "aspect_ratio": "16:9",
     "resolution": "1080p",
     "mode": "std",
     "cfg_scale": 0.5,
     "sound": false,
-    "duration": "5",
+    "duration": "10",
     "negative_prompt": ""
   }
 }
