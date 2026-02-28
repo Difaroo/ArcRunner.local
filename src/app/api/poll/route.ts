@@ -307,10 +307,8 @@ export async function POST(req: Request) {
                             } catch (thErr) { console.error('Thumbnail fallback failed', thErr); }
                         }
                     } else if (status === 'Error' || status === 'Generating') {
-                        // For non-Done states, we just update status/error message
-                        // Legacy: Error message usually goes into resultUrl?
+                        // For non-Done states, we just update status
                         const data: any = { status: finalStatus };
-                        if (status === 'Error') data.resultUrl = finalResult; // Keep error msg in URL field for now
 
                         await db.clip.update({
                             where: { id: idInt },
@@ -363,8 +361,7 @@ export async function POST(req: Request) {
                         await db.clip.update({
                             where: { id: idInt },
                             data: {
-                                status: 'Error',
-                                resultUrl: failureMsg
+                                status: 'Error'
                             }
                         });
                     }

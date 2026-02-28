@@ -2,6 +2,43 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-02-28: v0.33.1 - Kestrel Update (Data Integrity & BEM Polish)
+
+### Context
+A patch release addressing thumbnail/result URL desynchronization, restoring clip-specific Asset Pool scope in the BEM, and delivering a comprehensive UI polish sprint for the Model Input Slots (MIS) and Latest Result containers.
+
+### Fixes
+- **Clip Result Desync (13 clips)**:
+  - **Root Cause**: The legacy `clip.resultUrl` column retained stale comma-separated CSV data from older pipeline versions, while the current pipeline correctly writes to the `Media` table only. The BEM preview showed a thumbnail generated from a CDN URL that didn't match the locally persisted video.
+  - **Fix**: Cleaned 13 clips with multi-result CSV `resultUrl` → set to latest Media table URL. Fixed 4 additional clips where `resultUrl` pointed to expired CDN URLs but local copies existed in the Media table.
+  - **Pipeline Audit**: Confirmed `MediaService.addResult` only writes to Media table (correct). Poll route correctly generates thumbnails from the same URL written to Media on completion. No code fix needed — purely stale data.
+  - **Clip 273**: Regenerated thumbnail from correct local video file `/media/clips/273_1771897920166.mp4`.
+
+- **BEM Asset Pool Scope**:
+  - **Root Cause**: The pool fetched from `/api/media?episodeId=...` which returned ALL episode media — every reference, upload, and studio item across all clips.
+  - **Fix**: Switched pool data source to `clip.mediaReferences` (clip-specific array already delivered by the clips API). Pool now shows only the current clip's references.
+
+- **MIS Container Width**:
+  - **Root Cause**: `calculatedSlotWidth` (set by ResizeObserver) persisted stale pixel values from previous clips, and the `min-w-[180px]` applied unconditionally even when cards were present.
+  - **Fix**: Reset `calculatedSlotWidth` to `null` when no flex row exists (empty state). Inline width style only applies when `uiSlots.length > 0`. Min-width (`180px`) only applies when empty.
+
+### Features
+- **MIS Max Count Badge**: MIS header now displays the model's max input count in orange (e.g., "VEO QUALITY `3`", "FLUX `8`", "KLING `1`").
+- **MIS Empty State**: Centered "ADD REFERENCE" graphic with 50% opacity circle border and Material Symbols `add` icon matching header button weight.
+- **Sideload Button**: Tooltip changed to "Make reference image" (was "Sideload result to MIS"). Style changed to `ghost` variant (no border) matching download/folder icons.
+
+### UI Polish
+- **Icon Replacement**: `theaters` (film strip) → `folder` across BEM, UVM, and RowActions for the persist/open-folder action.
+- **Header Alignment**: Latest Result header aligned with Pool and MIS headers using consistent `px-3 py-1 h-[34px]` and `text-stone-400` styling.
+
+### Cleanup
+- Deleted deprecated `BatchEditModalV2.tsx` (948 lines), `MediaPreviewModal.deprecated.tsx` (165 lines), `PromptConstructor_DRAFT.ts` (68 lines).
+
+### Version Bump
+- **Patch**: 0.33.0 -> 0.33.1.
+
+---
+
 ## 2026-02-26: v0.33.0 - Kestrel Update (BEM Overhaul & Generate Alignment)
 
 ### Context

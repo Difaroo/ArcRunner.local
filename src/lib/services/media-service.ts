@@ -12,38 +12,21 @@ export class MediaService {
 
     /**
      * Records a new Generation Result (Video/Image) for a Clip.
-     * Creates a Media record in the Media table.
+     * Creates a Media record in the Media table (sole source of truth).
      */
     static async addResult(clipId: number, url: string, type: 'VIDEO' | 'IMAGE' = 'VIDEO', localPath?: string) {
-        const clip = await db.clip.findUnique({ where: { id: clipId }, select: { episodeId: true, resultUrl: true } });
+        const clip = await db.clip.findUnique({ where: { id: clipId }, select: { episodeId: true } });
         if (!clip) throw new Error(`Clip ${clipId} not found`);
 
-        // Legacy: still update resultUrl for UI components that read it directly
-        let newCsv = url;
-        if (clip.resultUrl) {
-            newCsv = `${url},${clip.resultUrl}`;
-        }
-
-        return await db.$transaction(async (tx) => {
-            // Update resultUrl (still used by UI for latest result display)
-            await tx.clip.update({
-                where: { id: clipId },
-                data: { resultUrl: newCsv }
-            });
-
-            // Create Media record
-            const media = await tx.media.create({
-                data: {
-                    url: url,
-                    type: type,
-                    category: 'RESULT',
-                    localPath: localPath,
-                    resultForClipId: clipId,
-                    episodeId: clip.episodeId
-                }
-            });
-
-            return media;
+        return await db.media.create({
+            data: {
+                url: url,
+                type: type,
+                category: 'RESULT',
+                localPath: localPath,
+                resultForClipId: clipId,
+                episodeId: clip.episodeId
+            }
         });
     }
 

@@ -26,37 +26,19 @@ interface ModelInputSlotsProps {
     onRemove: (item: any) => void;
     onUpdate?: (id: string, updates: any) => Promise<void> | void;
     onReorder?: (sourceIndex: number, destIndex: number) => void;
+    onAddSlot?: () => void;
     className?: string;
     orientation?: 'vertical' | 'horizontal';
 }
 
-export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate, onReorder, className, orientation = 'vertical' }: ModelInputSlotsProps) {
+export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate, onReorder, onAddSlot, className, orientation = 'vertical' }: ModelInputSlotsProps) {
     // 1. Structure the Active Media (Expected to be an array of ModelInputSlot join records)
     const activeSlots = mediaItems || [];
 
-    // 2. Determine Slots from Config
-    let slots: { label: string, required?: boolean }[] = [];
-
-    if (modelConfig.refImageSlots) {
-        modelConfig.refImageSlots.forEach(slotDef => {
-            const count = slotDef.maxCount || 1;
-            for (let i = 0; i < count; i++) {
-                slots.push({ label: slotDef.label });
-            }
-        });
-    } else {
-        slots = [{ label: 'Reference' }, { label: 'Reference' }, { label: 'Reference' }];
-    }
-
-    // 3. Dynamic Overflow Protection (Relational Architecture)
-    // If the DB has more explicit Join Records than the UI model supports,
-    // we MUST draw extra slots to render them so the user is aware of the data mismatch.
-    if (activeSlots.length > slots.length) {
-        const diff = activeSlots.length - slots.length;
-        for (let i = 0; i < diff; i++) {
-            slots.push({ label: 'Overflow' });
-        }
-    }
+    // 2. Slots are 1:1 with active data — no pre-spawning from model config.
+    // Each filled slot gets a label from the model config for display purposes.
+    const defaultLabel = modelConfig.refImageSlots?.[0]?.label || 'Reference';
+    const slots: { label: string }[] = activeSlots.map(() => ({ label: defaultLabel }));
 
     const isHorizontal = orientation === 'horizontal';
 
@@ -82,8 +64,22 @@ export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate,
             {!isHorizontal && (
                 <h3 className="text-xs text-amber-500 font-semibold mb-2 uppercase tracking-wider flex items-center gap-2">
                     Generation Inputs
-                    <span className="text-secondary-foreground/50 text-[10px]">({activeSlots.length}/{slots.length})</span>
+                    <span className="text-secondary-foreground/50 text-[10px]">({activeSlots.length})</span>
                 </h3>
+            )}
+
+            {/* Empty state: no slots filled */}
+            {activeSlots.length === 0 && (
+                <div
+                    className={`flex flex-col items-center justify-center gap-1.5 ${isHorizontal ? 'h-full w-full flex-1' : 'min-h-[100px]'} cursor-pointer`}
+                    onClick={onAddSlot}
+                    title="Upload reference image"
+                >
+                    <div className="w-10 h-10 rounded-full border border-orange-500/50 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-orange-500 !text-[16px]">add</span>
+                    </div>
+                    <span className="text-[9px] text-orange-500 uppercase tracking-wider font-medium">Add Reference</span>
+                </div>
             )}
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -200,14 +196,7 @@ function SortableSlotItem({ id, slot, slotRecord, media, isHorizontal, onRemove,
                             {slot.label}
                         </div>
                     </>
-                ) : (
-                    <div className="flex flex-col items-center justify-center text-stone-700 gap-1 h-full w-full pointer-events-none">
-                        <div className="w-8 h-8 rounded-full border border-stone-800/50 flex items-center justify-center text-stone-600 group-hover:border-stone-600 group-hover:text-stone-400 transition-colors">
-                            <span className="text-xs">+</span>
-                        </div>
-                        <span className="text-[9px] uppercase tracking-wide text-stone-600">{slot.label}</span>
-                    </div>
-                )}
+                ) : null}
             </div>
         </div>
     );

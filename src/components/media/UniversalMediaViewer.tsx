@@ -453,7 +453,7 @@ export function UniversalMediaViewer({
                                         ) : (
                                             isVideo && currentItem.episodeId ? (
                                                 currentItem.isPersisted ? (
-                                                    <span className="material-symbols-outlined !text-[20px]">theaters</span>
+                                                    <span className="material-symbols-outlined !text-[20px]">folder</span>
                                                 ) : (
                                                     <span className="material-symbols-outlined !text-[20px]">download</span>
                                                 )

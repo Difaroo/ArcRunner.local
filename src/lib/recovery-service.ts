@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { checkKieTaskStatus } from '@/lib/kie';
+import { MediaService } from '@/lib/services/media-service';
 
 export class RecoveryService {
     /**
@@ -28,21 +29,11 @@ export class RecoveryService {
                 const taskId = clip.taskId;
 
                 if (!taskId) {
-                    // Legacy Fallback: Check resultUrl for TASK: prefix
-                    if (clip.resultUrl && clip.resultUrl.startsWith('TASK:')) {
-                        const legacyId = clip.resultUrl.replace('TASK:', '');
-                        await this.checkAndRecover(clip, legacyId);
-                        continue;
-                    }
-
                     // Zombie: Generating but no Task ID
                     console.log(`[RecoveryService] Clip ${clip.id} is Generating but has no Task ID. Marking Error.`);
                     await db.clip.update({
                         where: { id: clip.id },
-                        data: { status: 'Error', resultUrl: clip.resultUrl || 'ERR_ZOMBIE' } // Keep old URL if present? No, status Error implies failure.
-                        // Actually, if we mark Error, maybe we should NOT touch resultUrl if it was a regen?
-                        // But usually 'ERR_ZOMBIE' is useful debugging.
-                        // Let's assume if it is a zombie, we just set status Error.
+                        data: { status: 'Error' }
                     });
                     continue;
                 }
@@ -64,17 +55,17 @@ export class RecoveryService {
 
             if (status.status === 'COMPLETED' || status.status === 'SUCCEEDED') {
                 console.log(`[RecoveryService] Task ${taskId} completed. Updating...`);
+                // Create Media record (SSoT) and update status
+                if (status.resultUrl) {
+                    const isImage = status.resultUrl.match(/\.(png|jpg|jpeg|webp)($|\?)/i);
+                    await MediaService.addResult(clip.id, status.resultUrl, isImage ? 'IMAGE' : 'VIDEO');
+                }
                 await db.clip.update({
                     where: { id: clip.id },
-                    data: {
-                        status: 'Done',
-                        resultUrl: status.resultUrl
-                    }
+                    data: { status: 'Done' }
                 });
             } else if (status.status === 'FAILED') {
                 console.log(`[RecoveryService] Task ${taskId} failed.`);
-                // On failure, we set status to Error.
-                // We do NOT wipe resultUrl, so user keeps old video if this was a regen.
                 await db.clip.update({
                     where: { id: clip.id },
                     data: { status: 'Error' }

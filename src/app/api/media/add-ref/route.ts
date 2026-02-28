@@ -105,14 +105,12 @@ export async function POST(req: NextRequest) {
             if (sourceClipId) {
                 const srcClipId = parseInt(sourceClipId, 10);
                 if (!isNaN(srcClipId)) {
-                    const srcClip = await db.clip.findUnique({ where: { id: srcClipId } });
-                    if (srcClip && srcClip.resultUrl === url) {
-                        await db.clip.update({
-                            where: { id: srcClipId },
-                            data: { resultUrl: null, thumbnailPath: null }
-                        });
-                        console.log(`[AddRef] Cleared resultUrl from Clip ${srcClipId}`);
-                    }
+                    // Result moved to reference — clear thumbnailPath on source
+                    await db.clip.update({
+                        where: { id: srcClipId },
+                        data: { thumbnailPath: null }
+                    });
+                    console.log(`[AddRef] Cleared thumbnailPath from Clip ${srcClipId}`);
                 }
             }
 
@@ -191,11 +189,11 @@ export async function POST(req: NextRequest) {
         });
         console.log(`[AddRef] Created ModelInputSlot for moved Media ${updatedMedia.id} → Clip ${clipId}`);
 
-        // Clear legacy result fields on old owner
+        // Clear status fields on old owner (result has been re-categorized)
         if (existingMedia.resultForClipId) {
             await db.clip.update({
                 where: { id: existingMedia.resultForClipId },
-                data: { resultUrl: '', thumbnailPath: '', taskId: '', status: 'Ready' }
+                data: { thumbnailPath: '', taskId: '', status: 'Ready' }
             });
         }
 

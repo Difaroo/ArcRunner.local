@@ -477,6 +477,32 @@ export function ActionToolbar({
                         {selectedCount} <span className="ml-1">SELECTED</span>
                     </span>
 
+                    {/* Clip Edit Workflow (BEM) Button */}
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline-primary"
+                                    size="icon"
+                                    onClick={() => {
+                                        // Find first selected clip index, or 0
+                                        const firstSelectedIdx = clips.findIndex(c => c.isSelected);
+                                        setBatchEditInitialIndex(firstSelectedIdx >= 0 ? firstSelectedIdx : 0);
+                                        setShowBatchEditModal(true);
+                                    }}
+                                    disabled={clips.length === 0}
+                                    className="h-8 w-8"
+                                    data-testid="modal-edit-button"
+                                >
+                                    <span className="material-symbols-outlined !text-lg">edit_note</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Clip edit workflow</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+
                     {/* Generate Button opens Dialog */}
                     <TooltipProvider>
                         <Tooltip>
@@ -498,32 +524,6 @@ export function ActionToolbar({
                             </TooltipTrigger>
                             <TooltipContent>
                                 <p>{isImageModel ? "Generate images for selected clips" : "Generate video for selected clips"}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-
-                    {/* Modal Edit Button */}
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="outline-primary"
-                                    size="icon"
-                                    onClick={() => {
-                                        // Find first selected clip index, or 0
-                                        const firstSelectedIdx = clips.findIndex(c => c.isSelected);
-                                        setBatchEditInitialIndex(firstSelectedIdx >= 0 ? firstSelectedIdx : 0);
-                                        setShowBatchEditModal(true);
-                                    }}
-                                    disabled={clips.length === 0}
-                                    className="h-8 w-8"
-                                    data-testid="modal-edit-button"
-                                >
-                                    <span className="material-symbols-outlined !text-lg">edit_note</span>
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Modal Edit {selectedCount > 0 ? `(${selectedCount} selected)` : '(all clips)'}</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>

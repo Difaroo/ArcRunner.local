@@ -10,6 +10,17 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.33.1 (Data Integrity & BEM Polish)
+- [x] **Clip Result Desync**: Cleaned 13 clips with stale multi-result CSV in `resultUrl` and 4 clips with expired CDN URLs → synced to latest Media table URL.
+- [x] **BEM Pool Scope Fix**: Switched Asset Pool from episode-wide `/api/media` to clip-specific `clip.mediaReferences`.
+- [x] **MIS Container Width**: Fixed `calculatedSlotWidth` persistence and conditional min-width — hugs cards when populated, holds 180px when empty.
+- [x] **MIS Max Count Badge**: Header shows orange max input count from model config (e.g., "VEO QUALITY 3").
+- [x] **MIS Empty State**: Centered graphic, 50% opacity circle, Material Symbols icon weight.
+- [x] **Icon: theaters → folder**: Replaced film strip icon with folder across BEM, UVM, RowActions.
+- [x] **Sideload UX**: Tooltip "Make reference image", ghost button style (no border).
+- [x] **Header Alignment**: Consistent `px-3 py-1 h-[34px]` across Pool, MIS, and Latest Result headers.
+- [x] **Deprecated Code Cleanup**: Removed BatchEditModalV2 (948 lines), MediaPreviewModal.deprecated (165 lines), PromptConstructor_DRAFT (68 lines).
+
 ## 🚀 Released v0.33.0 (BEM Overhaul & Generate Alignment)
 - [x] **BEM Persistent Unlink**: MIS slots now show a permanent orange-outline "Unlink" button (replaces hover-only).
 - [x] **BEM Download/Open Folder**: Context-aware button in "Latest Result" header — downloads when not persisted, opens Finder when persisted.

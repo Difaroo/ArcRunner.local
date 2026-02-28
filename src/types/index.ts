@@ -12,8 +12,7 @@ export interface Clip {
     characterImageUrls?: string[];
     locationImageUrls?: string[];
     status: string;
-    resultUrl?: string;
-    remoteResultUrl?: string; // Phase 4 Migration
+    resultUrl?: string; // Computed from mediaResults by API (not a DB column read)
     taskId?: string;
     isPersisted?: boolean; // Optimistic flag
     episodeId?: string; // Relation ID

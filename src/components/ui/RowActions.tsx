@@ -129,18 +129,18 @@ export function RowActions({
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
-                                    variant={isPersisted ? "ghost" : "outline"} // Ghost if peristed (subtle), Outline if not
+                                    variant="ghost"
                                     size="icon"
                                     onClick={handleDownloadClick}
                                     disabled={isSaving || isDownloading}
-                                    className={`h-8 w-8 ${isPersisted ? '!text-green-500 hover:!text-green-400 hover:bg-green-500/10' : '!text-orange-500 hover:!text-orange-400 border-orange-500/50 hover:bg-orange-500/10'}`}
+                                    className={`h-8 w-8 ${isPersisted ? '!text-green-500 hover:!text-green-400 hover:bg-green-500/10' : '!text-orange-500 hover:!text-orange-400 hover:bg-orange-500/10'}`}
                                 >
                                     {isDownloading ? (
                                         <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
                                     ) : isPersisted ? (
-                                        <span className="material-symbols-outlined !text-lg">theaters</span>
+                                        <span className="material-symbols-outlined !text-lg" style={{ fontVariationSettings: "'wght' 200" }}>folder</span>
                                     ) : (
-                                        <span className="material-symbols-outlined !text-lg">download</span>
+                                        <span className="material-symbols-outlined !text-lg" style={{ fontVariationSettings: "'wght' 200" }}>download</span>
                                     )}
                                 </Button>
                             </TooltipTrigger>
@@ -155,12 +155,12 @@ export function RowActions({
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
-                                    variant="outline-primary"
+                                    variant="ghost"
                                     size="icon"
                                     onClick={(e) => { e.stopPropagation(); onGenerate(); }}
-                                    className="h-8 w-8 hover:!bg-red-500 transition-all duration-300"
+                                    className="h-8 w-8 !text-primary hover:!bg-red-500 transition-all duration-300"
                                 >
-                                    <span className="material-symbols-outlined !text-lg">{isImageModel ? 'image' : 'movie_creation'}</span>
+                                    <span className="material-symbols-outlined !text-lg" style={{ fontVariationSettings: "'wght' 200" }}>{isImageModel ? 'image' : 'movie_creation'}</span>
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent><p>Generate Asset</p></TooltipContent>

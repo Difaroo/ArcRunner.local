@@ -45,6 +45,7 @@ interface ClipTableProps {
     onStudioAssetClick?: (name: string, type: 'CHARACTER' | 'LOCATION') => void
     onAddReference?: (clipId: string, url: string, type: 'IMAGE' | 'VIDEO') => Promise<void>
     seriesTitle: string
+    activeModel?: string // Episode-level model for live icon updates
 }
 
 export function ClipTable({
@@ -66,7 +67,8 @@ export function ClipTable({
     onResolveImage,
     onStudioAssetClick,
     onAddReference,
-    seriesTitle
+    seriesTitle,
+    activeModel
 }: ClipTableProps) {
     const allSelected = clips.length > 0 && selectedIds.size === clips.length
 
@@ -245,6 +247,7 @@ export function ClipTable({
                                     onStudioAssetClick={onStudioAssetClick}
                                     onAddReference={onAddReference}
                                     seriesTitle={seriesTitle}
+                                    activeModel={activeModel}
                                 />
                             ))}
                         </SortableContext>

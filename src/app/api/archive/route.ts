@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { downloadAndSave } from '@/lib/storage';
+import { MediaService } from '@/lib/services/media-service';
 
 export async function POST(req: Request) {
     try {
@@ -70,11 +71,9 @@ export async function POST(req: Request) {
             const localUrl = await downloadAndSave(url, filename, 'generated');
             if (!localUrl) return NextResponse.json({ error: 'Failed to download file' }, { status: 500 });
 
-            // Update DB
-            await db.clip.update({
-                where: { id: numericId },
-                data: { resultUrl: localUrl }
-            });
+            // Update Media table (SSoT) with local archived URL
+            const isImage = localUrl.match(/\.(png|jpg|jpeg|webp)($|\?)/i);
+            await MediaService.addResult(numericId, localUrl, isImage ? 'IMAGE' : 'VIDEO', localUrl);
 
             return NextResponse.json({ success: true, url: localUrl });
         }
@@ -84,4 +83,3 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-

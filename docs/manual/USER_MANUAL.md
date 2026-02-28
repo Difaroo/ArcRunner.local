@@ -162,7 +162,7 @@ The behaviour of the "Unlink" action depends contextually on the asset type bein
 - **MIS Loaded Assets**: Unlinking an asset actively sitting inside an MIS slot simply returns it to the Pool.
 - *Note: **Delete** is exclusively reserved for the Media Screen and permanently trashes the record. It is intentionally omitted from the UVM to prevent accidental destructive actions.*
 
-### 3. Persist & Download Architecture (v0.33.0)
+- **Persist & Download Architecture (v0.33.1)**:
 Media results are handled differently based on output type to optimize bandwidth and local storage:
 - **Image Results**: Generated as static assets or downloaded locally by default. Users can save them to their own local file using the Download button.
 - **Video Results**: Video generation results are hosted temporarily at Kie.ai (the API aggregator). 
@@ -170,8 +170,9 @@ Media results are handled differently based on output type to optimize bandwidth
   - On the first interaction, it presents an OS-level save dialogue to define a destination folder for video editing.
   - The system then saves this directory path to the current Episode record. 
   - Thereafter, it operates silently in the background, downloading results directly to the established local folder and inserting an alias back into the ArcRunner UI for seamless playback.
-  - **Open Edit Folder (v0.33.0)**: Once a video is persisted (green filmstrip icon), clicking that icon again will open the Episode's local edit folder in macOS Finder via the `/api/media/open-folder` server endpoint. This works identically in the BEM "Latest Result" header and the Universal Media Viewer.
-  - **BEM Download Button (v0.33.0)**: The Batch Edit Modal now includes a download/open-folder button in the "Latest Result" header bar, right-aligned. Shows an orange download icon when not persisted, and a green filmstrip when persisted.
+  - **Open Edit Folder (v0.33.1)**: Once a video is persisted (green **folder** icon), clicking that icon again will open the Episode's local edit folder in macOS Finder via the `/api/media/open-folder` server endpoint. This works identically in the BEM "Latest Result" header and the Universal Media Viewer.
+  - **Make Reference Image (v0.33.1)**: The "Latest Result" header includes a left-arrow button to instantly add the generated result as a reference image in the Model Input Slots. Tooltip: "Make reference image".
+  - **BEM Download Button**: The Batch Edit Modal includes a download/open-folder button in the "Latest Result" header bar, right-aligned. Shows an orange download icon when not persisted, and a green folder icon when persisted.
   - **Batch Downloads**: Behave exactly identical to single-row downloads. Highlighting multiple completed clips and clicking download will silently route all files to the assigned episode alias path simultaneously, automatically clearing the Red/Orange traffic light status in the UI to signify completion.
 - **Server-Side File Operations (v0.33.0)**:
   - **Delete Local**: `DELETE /api/media/delete-local` removes the server cache copy and any symlink/alias pointing to it, with security validation.

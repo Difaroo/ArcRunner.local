@@ -2511,6 +2511,7 @@ export default function Home() {
                 onResolveImage={resolveImage}
                 onAddReference={handleAddReference}
                 seriesTitle={seriesList.find(s => s.id === currentSeriesId)?.title || 'Series'}
+                activeModel={selectedModel}
               />
             )}
           </div>

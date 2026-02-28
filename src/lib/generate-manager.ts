@@ -627,10 +627,10 @@ export class GenerateManager {
     private async updateResult(clipId: string, result: string, status: string) {
         const id = parseInt(clipId);
 
-        // 1. Update Clip (Legacy + Status)
+        // 1. Update Clip Status (resultUrl removed — Media table is SSoT)
         const updatedClip = await db.clip.update({
             where: { id },
-            data: { resultUrl: result, status }
+            data: { status }
         });
 
         // 2. Create Media Record (Source of Truth)

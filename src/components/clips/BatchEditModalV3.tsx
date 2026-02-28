@@ -230,7 +230,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     const [activeField, setActiveField] = useState<'character' | 'location' | 'camera' | 'movement' | 'action' | 'dialog' | 'media'>('character');
     const [lastVibeId, setLastVibeId] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [mediaItems, setMediaItems] = useState<any[]>([]);
+    const [mediaItems, setMediaItems] = useState<any[]>(clip.mediaReferences || []);
     const [studioLibrary, setStudioLibrary] = useState<any[]>([]);
     const [vibeRefreshTrigger, setVibeRefreshTrigger] = useState(0);
     const { persistMedia, isPersisting } = useMediaPersistence();
@@ -304,6 +304,8 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             if (row) {
                 const totalNeeded = row.getBoundingClientRect().width + 12 + 2;
                 setCalculatedSlotWidth(totalNeeded);
+            } else {
+                setCalculatedSlotWidth(null);
             }
         };
 
@@ -321,20 +323,19 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
         return () => observer.disconnect();
     }, [model, clip?.id, mediaItems]); // Re-evaluate when model, clip, or media changes
 
+    // Sync mediaItems when clip changes (clip-specific pool)
     useEffect(() => {
-        if (!episodeId) return;
-        fetch(`/api/media?episodeId=${episodeId}&seriesId=${seriesId}`)
-            .then(res => res.ok ? res.json() : [])
-            .then(data => setMediaItems(Array.isArray(data) ? data : []))
-            .catch(console.error);
+        setMediaItems(clip.mediaReferences || []);
+    }, [clip.id, clip.mediaReferences]);
 
+    useEffect(() => {
+        if (!seriesId) return;
         // Fetch Studio Library for Auto-Sync
         fetch(`/api/library?seriesId=${seriesId}`)
             .then(res => res.ok ? res.json() : [])
             .then(data => setStudioLibrary(Array.isArray(data) ? data : []))
             .catch(console.error);
-
-    }, [episodeId, seriesId]);
+    }, [seriesId]);
 
     const [localSlots, setLocalSlots] = useState<any[]>(clip.modelInputSlots || []);
 
@@ -571,23 +572,21 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     }
 
     const activeResultUrl = clip.resultUrl ? clip.resultUrl.split(',')[0].trim() : '';
-    const activeRemoteUrl = clip.remoteResultUrl ? clip.remoteResultUrl.split(',')[0].trim() : '';
 
     const poolItems = mediaItems.filter(m => {
         // Exclude active UI Slots from Pool (Relational Architecture)
         const isCurrentlySlotted = uiSlots.some(slot => slot.mediaId === m.id || (slot.media && slot.media.id === m.id));
         if (isCurrentlySlotted) return false;
 
-        // 1. Include Explicit Uploads/References immediately
-        if (m.referenceForClipId === parseInt(clip.id)) return true;
-
-        // 2. Include Historical Results (but explicitly EXCLUDE the currently playing Active Result AND its remote twin)
-        if (m.resultForClipId === parseInt(clip.id)) {
-            if (m.url === activeResultUrl || m.url === activeRemoteUrl) return false;
-            return true;
-        }
-
-        return false;
+        // Exclude active result from pool
+        // Skip if the media URL matches the latest result
+        const isActiveResult = m.url === activeResultUrl;
+        // Skip Result-type media from pool entirely (user won't want stale results cluttering Pool)
+        const isResultCategory = m.category === 'RESULT';
+        // Pool = Media Items that are editable references, NOT results
+        // --- Exclude results from CLP's result history ---
+        if (isActiveResult || isResultCategory) return false;
+        return true;
     });
 
     return (
@@ -721,11 +720,14 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                     {/* Top Row: Slots */}
                     <div
                         ref={slotContainerRef}
-                        style={{ width: calculatedSlotWidth ? `${calculatedSlotWidth}px` : undefined }}
-                        className={`flex-none ${calculatedSlotWidth ? '' : 'w-fit'} bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800 relative transition-[width] duration-75`}
+                        style={{ width: (calculatedSlotWidth && uiSlots.length > 0) ? `${calculatedSlotWidth}px` : undefined }}
+                        className={`flex-none ${uiSlots.length === 0 ? 'min-w-[180px]' : ''} ${calculatedSlotWidth ? '' : 'w-fit'} bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800 relative transition-[width] duration-75`}
                     >
                         <div className="px-3 py-1 flex justify-between items-center group/slotsheader h-[34px]">
-                            <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider">{getModelConfig(model).label}</h3>
+                            <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider flex items-center gap-1.5">
+                                {getModelConfig(model).label}
+                                <span className="text-orange-500 font-mono">{getModelConfig(model).refImageSlots?.[0]?.maxCount ?? '—'}</span>
+                            </h3>
                             <div className="flex items-center">
                                 <div className="relative w-6 h-6">
                                     <input
@@ -784,11 +786,12 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                 </div>
                             </div>
                         </div>
-                        <div className="px-1.5 pb-2 pt-0 h-full w-fit">
+                        <div className="px-1.5 pb-2 pt-0 h-full w-full">
                             <ModelInputSlotsV2
                                 modelConfig={getModelConfig(model)}
                                 mediaItems={uiSlots as any}
                                 onRemove={handleRemoveFromSlot}
+                                onAddSlot={() => document.getElementById('bem-slots-upload')?.click()}
                                 onReorder={async (sourceIndex, destIndex) => {
                                     const reordered = arrayMove(uiSlots, sourceIndex, destIndex);
 
@@ -810,54 +813,86 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
 
                     {/* Top Row: Result */}
                     <div className="h-full aspect-video flex-shrink-0 bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800">
-                        <div className="px-3 pt-3 pb-1 flex justify-between items-center bg-stone-950/20 backdrop-blur-sm z-10">
-                            <h3 className="text-xs text-orange-500 uppercase tracking-wider font-medium drop-shadow-md">Latest Result</h3>
-                            {clip.resultUrl && (
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant={clip.isPersisted ? 'ghost' : 'outline'}
-                                                size="icon"
-                                                className={`h-6 w-6 ${clip.isPersisted ? '!text-green-500 hover:!text-green-400 hover:bg-green-500/10' : '!text-orange-500 hover:!text-orange-400 border-orange-500/50 hover:bg-orange-500/10'}`}
-                                                disabled={isPersisting}
-                                                onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    if (clip.isPersisted) {
-                                                        // PERSISTED: Open episode edit folder in Finder
-                                                        try {
-                                                            await fetch('/api/media/open-folder', {
-                                                                method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({ episodeId })
-                                                            });
-                                                        } catch (err) {
-                                                            console.error('[BEM] Failed to open folder:', err);
+                        <div className="px-3 py-1 flex justify-between items-center h-[34px]">
+                            <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider">Latest Result</h3>
+                            <div className="flex items-center gap-1">
+                                {/* Sideload: Add result to MIS as reference */}
+                                {clip.resultUrl && (
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 !text-orange-500 hover:!text-orange-400 hover:bg-orange-500/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const resultUrl = clip.resultUrl!.split(',')[0].trim();
+                                                        handleAddToSlot({
+                                                            id: `sideload-${Date.now()}`,
+                                                            url: resultUrl,
+                                                            thumbnailPath: clip.thumbnailPath || '',
+                                                            type: resultUrl.match(/\.(mp4|webm|mov)/i) ? 'VIDEO' : 'IMAGE',
+                                                            category: 'REFERENCE',
+                                                            name: `Result → Ref`
+                                                        });
+                                                    }}
+                                                >
+                                                    <span className="material-symbols-outlined !text-[14px]">arrow_back</span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Make reference image</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )}
+                                {/* Persist / Download */}
+                                {clip.resultUrl && (
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant={clip.isPersisted ? 'ghost' : 'outline'}
+                                                    size="icon"
+                                                    className={`h-6 w-6 ${clip.isPersisted ? '!text-green-500 hover:!text-green-400 hover:bg-green-500/10' : '!text-orange-500 hover:!text-orange-400 border-orange-500/50 hover:bg-orange-500/10'}`}
+                                                    disabled={isPersisting}
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        if (clip.isPersisted) {
+                                                            try {
+                                                                await fetch('/api/media/open-folder', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({ episodeId })
+                                                                });
+                                                            } catch (err) {
+                                                                console.error('[BEM] Failed to open folder:', err);
+                                                            }
+                                                        } else {
+                                                            const result = await persistMedia({ clipId: String(clip.id), episodeId });
+                                                            if (result.success) {
+                                                                onDataRefresh?.();
+                                                            }
                                                         }
-                                                    } else {
-                                                        // NOT PERSISTED: Download to episode folder
-                                                        const result = await persistMedia({ clipId: String(clip.id), episodeId });
-                                                        if (result.success) {
-                                                            onDataRefresh?.();
-                                                        }
-                                                    }
-                                                }}
-                                            >
-                                                {isPersisting ? (
-                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                ) : clip.isPersisted ? (
-                                                    <span className="material-symbols-outlined !text-[14px]">theaters</span>
-                                                ) : (
-                                                    <Download className="h-3 w-3" />
-                                                )}
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{clip.isPersisted ? 'Open Edit Folder' : 'Download to Episode Folder'}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            )}
+                                                    }}
+                                                >
+                                                    {isPersisting ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                    ) : clip.isPersisted ? (
+                                                        <span className="material-symbols-outlined !text-[14px]">folder</span>
+                                                    ) : (
+                                                        <Download className="h-3 w-3" />
+                                                    )}
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>{clip.isPersisted ? 'Open Edit Folder' : 'Download to Episode Folder'}</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )}
+                            </div>
                         </div>
                         <div className="flex-1 relative bg-black flex items-center justify-center min-h-0 w-full">
                             {derivedStatus.state === 'Generating' ? (

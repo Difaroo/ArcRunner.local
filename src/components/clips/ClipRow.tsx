@@ -65,6 +65,7 @@ interface ClipRowProps {
     onStudioAssetClick?: (name: string, type: 'CHARACTER' | 'LOCATION') => void
     onAddReference?: (clipId: string, url: string, type: 'IMAGE' | 'VIDEO') => Promise<void>
     seriesTitle: string
+    activeModel?: string // Episode-level model for live icon updates
 }
 
 export function ClipRow({
@@ -84,7 +85,8 @@ export function ClipRow({
     onResolveImage,
     onStudioAssetClick,
     onAddReference,
-    seriesTitle
+    seriesTitle,
+    activeModel
 }: ClipRowProps) {
     const [editValues, setEditValues] = useState<Partial<Clip>>({})
     const [downloadCount, setDownloadCount] = useState(0)
@@ -1067,7 +1069,7 @@ export function ClipRow({
                     className="items-center"
                     data-testid="row-actions"
                     isPersisted={isPersisted}
-                    isImageModel={getModelConfig(clip.model || '').isImage}
+                    isImageModel={getModelConfig(activeModel || clip.model || '').isImage}
                 />
             </TableCell>
 

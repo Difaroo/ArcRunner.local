@@ -152,9 +152,7 @@ export async function GET() {
             // ---------------------------------------------------------------
 
             // A. Resolve Results (Video/Image)
-            // Use logical last item (most recent) from Media table.
-            // LEGACY FALLBACK: If not migrated to Media, fallback to raw clip.resultUrl.
-            // SMART FILTER: Do NOT select a dead remote tempfile.aiquickdraw.com URL if a local alternative exists.
+            // Source of Truth: Media table (mediaResults relation)
             let mediaResult = '';
             if (clip.mediaResults && clip.mediaResults.length > 0) {
                 // Find highest priority: Local / persistent URL (Search from newest to oldest)
@@ -162,11 +160,9 @@ export async function GET() {
                 if (goodResult) {
                     mediaResult = goodResult.url;
                 } else {
-                    // All media results are dead tempfiles. We must fallback to legacy resultUrl if valid.
-                    mediaResult = clip.resultUrl || clip.mediaResults[clip.mediaResults.length - 1].url;
+                    // All media results are dead tempfiles. Use the latest anyway.
+                    mediaResult = clip.mediaResults[clip.mediaResults.length - 1].url;
                 }
-            } else {
-                mediaResult = clip.resultUrl || '';
             }
 
             // B. Resolve References (Images)
@@ -222,9 +218,8 @@ export async function GET() {
                 mediaResults: clip.mediaResults,
                 characterImageUrls,
                 locationImageUrls,
-                // Result (Source of Truth = Media Table)
+                // Result URL (resolved from Media table, latest non-dead URL)
                 resultUrl: mediaResult || '',
-                remoteResultUrl: clip.resultUrl || '', // Exposed to allow frontend to exclude legacy remote URLs from pool
                 taskId: clip.taskId || '',
                 seed: clip.seed || '',
                 negativePrompt: clip.negativePrompt || '',
@@ -320,9 +315,13 @@ export async function POST(req: Request) {
         });
 
         // Async Thumbnail Generation
-        if (newClip.resultUrl) {
+        const newClipMediaResults = await db.media.findMany({
+            where: { resultForClipId: newClip.id, category: 'RESULT' }
+        });
+        if (newClipMediaResults.length > 0) {
+            const latestUrl = newClipMediaResults[newClipMediaResults.length - 1].url;
             // 1. Generate Thumbnail (Async)
-            generateThumbnail(newClip.resultUrl, newClip.id.toString())
+            generateThumbnail(latestUrl, newClip.id.toString())
                 .then(async (thumbnailPath) => {
                     if (thumbnailPath) {
                         await db.clip.update({
@@ -332,19 +331,6 @@ export async function POST(req: Request) {
                         console.log(`Thumbnail generated for NEW clip ${newClip.id}: ${thumbnailPath}`);
                     }
                 });
-
-            // 2. Create Media Record (CRITICAL for GET to see it)
-            // We trust the URL provided (Cloning/Sideloading scenario)
-            await db.media.create({
-                data: {
-                    url: newClip.resultUrl,
-                    type: 'VIDEO', // Default to Video for Results upon cloning, or check ext? 
-                    // Actually, let's assume video if usually generated. Or regex.
-                    category: 'RESULT',
-                    resultForClipId: newClip.id,
-                    episodeId: dbEpisode.id
-                }
-            });
         }
 
         // 3. Duplicate Reference Media from source clip (NEW)
@@ -442,27 +428,9 @@ export async function PUT(req: Request) {
             }
         });
 
-        // Helper to check if we need to generate a thumbnail
-        // 1. We have a resultUrl
-        // 2. AND (We don't have a thumbnail OR The resultUrl changed OR we are forced)
-        // For now, simpler: If resultUrl touches, try generating if missing? 
-        // Or just always try if resultUrl is present? 
-        // Better: If resultUrl exists, run generation. It's fast enough.
-        // Even better: Check if we already have one?
-        // Let's just generate if resultUrl is present and we are updating it.
+        // Thumbnail generation: trigger if clip has mediaResults
+        // (Thumbnails are typically generated during poll completion, this is a safety net)
 
-        if (clip.resultUrl && clip.resultUrl !== '') {
-            generateThumbnail(clip.resultUrl, intId.toString())
-                .then(async (thumbnailPath) => {
-                    if (thumbnailPath) {
-                        await db.clip.update({
-                            where: { id: intId },
-                            data: { thumbnailPath }
-                        });
-                        console.log(`Thumbnail updated for clip ${intId}`);
-                    }
-                });
-        }
 
         // Fix: Return enriched clip with image URLs so UI updates immediately
         // We need the Episode/Series context to resolve library images
