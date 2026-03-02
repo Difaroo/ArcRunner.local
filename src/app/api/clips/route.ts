@@ -155,14 +155,8 @@ export async function GET() {
             // Source of Truth: Media table (mediaResults relation)
             let mediaResult = '';
             if (clip.mediaResults && clip.mediaResults.length > 0) {
-                // Find highest priority: Local / persistent URL (Search from newest to oldest)
-                const goodResult = [...clip.mediaResults].reverse().find((m: any) => !m.url.includes('tempfile.aiquickdraw.com'));
-                if (goodResult) {
-                    mediaResult = goodResult.url;
-                } else {
-                    // All media results are dead tempfiles. Use the latest anyway.
-                    mediaResult = clip.mediaResults[clip.mediaResults.length - 1].url;
-                }
+                // Return the freshest/latest generated result directly.
+                mediaResult = clip.mediaResults[clip.mediaResults.length - 1].url;
             }
 
             // B. Resolve References (Images)
@@ -444,6 +438,23 @@ export async function PUT(req: Request) {
                         { refImageSort: 'desc' },
                         { id: 'desc' }
                     ]
+                },
+                mediaResults: {
+                    orderBy: { createdAt: 'asc' }
+                },
+                modelInputSlots: {
+                    include: {
+                        media: { include: { studioItem: true } },
+                        studioItem: {
+                            include: {
+                                media: {
+                                    where: { category: 'STUDIO_UPLOAD' },
+                                    orderBy: { id: 'desc' }
+                                }
+                            }
+                        }
+                    },
+                    orderBy: { sortOrder: 'asc' }
                 }
             }
         });
@@ -475,6 +486,20 @@ export async function PUT(req: Request) {
 
             const { characterImageUrls, locationImageUrls } = resolveClipImages(resolverInput, findLib);
 
+            // A. Resolve Results (Video/Image) just like GET
+            let mediaResult = '';
+            // @ts-ignore
+            if (clipWithContext.mediaResults && clipWithContext.mediaResults.length > 0) {
+                // @ts-ignore
+                const goodResult = [...clipWithContext.mediaResults].reverse().find((m: any) => !m.url.includes('tempfile.aiquickdraw.com'));
+                if (goodResult) {
+                    mediaResult = goodResult.url;
+                } else {
+                    // @ts-ignore
+                    mediaResult = clipWithContext.mediaResults[clipWithContext.mediaResults.length - 1].url;
+                }
+            }
+
             const finalClip = {
                 ...updatedClip,
                 id: updatedClip.id.toString(),
@@ -482,10 +507,9 @@ export async function PUT(req: Request) {
                 episodeId: updatedClip.episodeId,
                 characterImageUrls,
                 locationImageUrls,
-                mediaReferences: clipWithContext.mediaReferences // We should technically enrich here too, but PUT usually follows an update where DB is fresh-ish.
-                // Actually, let's keep it simple for now. The main GET does the heavy lifting.
-                // The PUT returns the *just updated* item, which theoretically has the right URL if we just synced it?
-                // No, sync creates it with current URL. So it's fine.
+                mediaReferences: clipWithContext.mediaReferences,
+                modelInputSlots: (clipWithContext as any).modelInputSlots || [],
+                resultUrl: mediaResult || ''
             };
 
             return NextResponse.json({ success: true, clip: finalClip });

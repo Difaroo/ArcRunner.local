@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveFile } from '@/lib/storage';
+import { PrismaClient } from '@prisma/client';
+
+const db = new PrismaClient();
 
 export async function POST(request: NextRequest) {
     try {
@@ -7,8 +10,7 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         console.log('[Upload API] FormData parsed');
         const file = formData.get('file') as File;
-        // Episode param not strictly needed for flat local structure, but could use for subfolders later
-        // const episode = formData.get('episode') as string;
+        const clipId = formData.get('clipId') as string | null;
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -23,7 +25,31 @@ export async function POST(request: NextRequest) {
         // Save to local storage (explicitly do not overwrite uploads)
         const url = await saveFile(buffer, finalName, 'upload', { overwrite: false });
 
-        return NextResponse.json({ url });
+        // If clipId is provided, create a Media record so it can be linked to MIS
+        let mediaId: string | undefined;
+        if (clipId) {
+            const clip = await db.clip.findUnique({
+                where: { id: parseInt(clipId) },
+                select: { episodeId: true }
+            });
+
+            if (clip) {
+                const media = await db.media.create({
+                    data: {
+                        url,
+                        localPath: url,
+                        type: 'IMAGE',
+                        category: 'REFERENCE',
+                        // Note: NOT setting referenceForClipId — MIS items are linked
+                        // via ModelInputSlot.mediaId, not the pool reference relation.
+                        episodeId: clip.episodeId
+                    }
+                });
+                mediaId = media.id;
+            }
+        }
+
+        return NextResponse.json({ url, mediaId });
 
     } catch (error: any) {
         console.error('Upload error:', error);

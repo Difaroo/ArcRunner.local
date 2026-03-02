@@ -15,6 +15,7 @@ interface RowActionsProps {
     onDownload: () => Promise<void>
     onDelete?: () => void
     onDuplicate?: () => void
+    onOpenBEM?: () => void // Open Batch Edit Modal for this clip
     className?: string
     alignStatus?: 'left' | 'right' | 'center'
     'data-testid'?: string
@@ -34,6 +35,7 @@ export function RowActions({
     onDownload,
     onDelete,
     onDuplicate,
+    onOpenBEM,
     className,
     alignStatus = 'left',
     'data-testid': dataTestId,
@@ -120,10 +122,29 @@ export function RowActions({
     const isError = status?.startsWith('Error') || status === 'Upload Err' || status === 'File 404' || status === 'Net Err';
 
     return (
-        <div className={`flex flex-col gap-1 relative z-50 pointer-events-auto ${className || 'items-start'}`} data-testid={dataTestId}>
-            <div className={`flex flex-col gap-2 ${className || 'items-start'}`}>
+        <div className={`flex flex-col gap-0.5 relative z-50 pointer-events-auto ${className || 'items-start'}`} data-testid={dataTestId}>
+            <div className={`flex flex-col gap-0.5 ${className || 'items-start'}`}>
 
-                {/* 1. DOWNLOAD / PERSIST BUTTON (If Done) */}
+                {/* 1. BEM BUTTON (Always first in view mode) */}
+                {onOpenBEM && (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => { e.stopPropagation(); onOpenBEM(); }}
+                                    className="h-8 w-8 !text-primary hover:!bg-primary/20 transition-all duration-300"
+                                >
+                                    <span className="material-symbols-outlined !text-lg" style={{ fontVariationSettings: "'wght' 200" }}>edit_note</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Open editor</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
+
+                {/* 2. DOWNLOAD / PERSIST BUTTON (If Done) */}
                 {isDone && (
                     <TooltipProvider>
                         <Tooltip>
@@ -149,7 +170,7 @@ export function RowActions({
                     </TooltipProvider>
                 )}
 
-                {/* 2. GENERATE BUTTON (If Not Done/Generating) */}
+                {/* 3. GENERATE BUTTON (If Not Done/Generating) */}
                 {(!isDone && !isGenerating) && (
                     <TooltipProvider>
                         <Tooltip>
@@ -188,7 +209,7 @@ export function RowActions({
             </div>
 
             {/* STATUS TEXT - Centered */}
-            <div className={`text-[10px] text-stone-500 font-medium w-full mt-1 text-center flex flex-col items-center`}>
+            <div className={`text-[10px] text-stone-500 font-light w-full text-center flex flex-col items-center`}>
                 {isDone ? (
                     <span className="text-stone-500 block">
                         {status?.startsWith('Saved') ? status : 'Ready'}
@@ -196,7 +217,7 @@ export function RowActions({
                 ) : null}
                 {isGenerating && <span className="text-primary/70 block">Gen...</span>}
                 {isError && (
-                    <span className="text-destructive font-bold block leading-tight">
+                    <span className="text-destructive font-medium block leading-tight">
                         Error
                         {/* Show Details/Code if available */}
                         {status.replace(/^(Error|Err)[:\s]*/i, '') && (

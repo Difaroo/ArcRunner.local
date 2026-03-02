@@ -26,9 +26,9 @@ async function kieFetch<T>(endpoint: string, options: { method: 'POST' | 'GET', 
         console.log('[KieFetch] Request Body:', JSON.stringify(logBody, null, 2));
     }
 
-    // Resilience: 15s Timeout
+    // Resilience: 120s Timeout to account for large Base64 image payloads
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     try {
         const res = await fetch(url, {
@@ -203,6 +203,7 @@ export class VeoStrategy implements KieStrategy {
     getType(): 'flux' | 'veo' | 'nano' { return 'veo'; }
 
     async createTask(payload: VeoPayload): Promise<{ taskId: string, rawData: any }> {
+        console.log(`[VeoStrategy] Creating Task with Model: ${payload.model}, Images: ${payload.imageUrls?.length || 0}, Base64s: ${payload.imageBase64s?.length || 0}`);
         const res = await kieFetch<any>('/veo/generate', { method: 'POST', body: payload });
         const taskId = res.data?.taskId || res.taskId || res.jobId || res.task_id || '';
         return { taskId, rawData: res };
@@ -234,6 +235,7 @@ export class VeoStrategy implements KieStrategy {
             }
         } else if (normalized.isError) {
             errorMsg = data.errorMessage || data.errorCode || 'Generation Failed';
+            console.error(`[VeoStrategy] Generation Failed for Task ${taskId}: ${errorMsg}`, JSON.stringify(data));
         }
 
         return { status: normalized.status, resultUrl, errorMsg, debugRaw: data };

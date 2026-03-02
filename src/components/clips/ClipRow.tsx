@@ -66,6 +66,7 @@ interface ClipRowProps {
     onAddReference?: (clipId: string, url: string, type: 'IMAGE' | 'VIDEO') => Promise<void>
     seriesTitle: string
     activeModel?: string // Episode-level model for live icon updates
+    onOpenBEM?: (clipId: string) => void // Open BEM for this specific clip
 }
 
 export function ClipRow({
@@ -86,7 +87,8 @@ export function ClipRow({
     onStudioAssetClick,
     onAddReference,
     seriesTitle,
-    activeModel
+    activeModel,
+    onOpenBEM
 }: ClipRowProps) {
     const [editValues, setEditValues] = useState<Partial<Clip>>({})
     const [downloadCount, setDownloadCount] = useState(0)
@@ -279,6 +281,35 @@ export function ClipRow({
 
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isEditing, clientId, clip.id]);
+
+    // 2b. SAFETY: Release lock when editing ends externally (e.g. episode change, parent cancel)
+    // or when this ClipRow unmounts while editing (e.g. navigating away).
+    const wasEditingRef = useRef(false);
+    useEffect(() => {
+        if (isEditing) {
+            wasEditingRef.current = true;
+        } else if (wasEditingRef.current && clientId) {
+            // isEditing just went false — release lock
+            wasEditingRef.current = false;
+            fetch('/api/lock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'unlock', clipId: clip.id, clientId })
+            }).catch(e => console.error('Auto-unlock on edit end failed:', e));
+        }
+
+        // Unmount cleanup: if still editing when component is destroyed, release lock
+        return () => {
+            if (wasEditingRef.current && clientId) {
+                wasEditingRef.current = false;
+                const blob = new Blob(
+                    [JSON.stringify({ action: 'unlock', clipId: clip.id, clientId })],
+                    { type: 'application/json' }
+                );
+                navigator.sendBeacon('/api/lock', blob);
+            }
+        };
     }, [isEditing, clientId, clip.id]);
 
     // 2. Check Lock Status
@@ -1008,6 +1039,8 @@ export function ClipRow({
                                 originalUrl={parseStringList(clip.resultUrl)[0]}
                                 model={clip.model}
                                 title={getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, "")}
+                                action={clip.action || undefined}
+                                description={clip.dialog || undefined}
                                 isThumbnail={!!clip.thumbnailPath}
                                 contentType={
                                     (() => {
@@ -1021,11 +1054,34 @@ export function ClipRow({
                                     })()
                                 }
                                 onPlay={(url) => {
-                                    // RESTORED: Include Characters and Locations in Playlist
+                                    // RESTORED: Include Characters and Locations in Playlist as rich objects
                                     const explicitRefs = getCleanExplicitRefs();
                                     const charImages = clip.characterImageUrls || [];
                                     const locImages = clip.locationImageUrls || [];
-                                    const fullPlaylist = [url, ...explicitRefs, ...charImages, ...locImages].filter(Boolean);
+                                    const stringRefs = [...explicitRefs, ...charImages, ...locImages].filter(Boolean);
+
+                                    const refItems = stringRefs.map((u: string, idx: number) => ({
+                                        id: u,
+                                        url: u,
+                                        type: (u.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'video' : 'image') as 'video' | 'image',
+                                        title: charImages.includes(u) ? 'Character Reference' : locImages.includes(u) ? 'Location Reference' : 'Reference',
+                                        isReference: true,
+                                        ownerClipId: clip.id.toString()
+                                    }));
+
+                                    const isVideoModel = (clip.model?.toLowerCase().includes('veo') || clip.model?.toLowerCase().includes('kling') || clip.model?.toLowerCase().includes('minimax') || clip.model?.toLowerCase().includes('luma'));
+                                    const resultIsVideo = isVideoModel || !!url.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
+
+                                    const resultItems = [{
+                                        id: `result-${clip.id}-primary`,
+                                        url: url,
+                                        type: (resultIsVideo ? 'video' : 'image') as 'video' | 'image',
+                                        title: getClipFilename(clip, seriesTitle).replace(/\.[^/.]+$/, ""),
+                                        isReference: false,
+                                        ownerClipId: clip.id.toString()
+                                    }];
+
+                                    const fullPlaylist = [...resultItems, ...refItems];
                                     onPlay(url, fullPlaylist);
                                 }}
                                 className="w-[70px] max-h-[70px] aspect-square object-cover rounded-md overflow-hidden border border-stone-800 shadow-sm"
@@ -1041,9 +1097,15 @@ export function ClipRow({
                                     if (updates && updates.isPersisted !== undefined) {
                                         setIsPersisted(updates.isPersisted);
                                     }
-                                    if (updates && updates.status !== undefined) {
-                                        // Push up to Episode Screen so the row data actually formally clears the traffic light!
-                                        onSave(clip.id, { status: updates.status });
+                                    if (updates) {
+                                        const dbUpdates: any = {};
+                                        if (updates.status !== undefined) dbUpdates.status = updates.status;
+                                        if (updates.action !== undefined) dbUpdates.action = updates.action;
+                                        if (updates.description !== undefined) dbUpdates.dialog = updates.description; // UVM uses 'description' for 'dialog'
+
+                                        if (Object.keys(dbUpdates).length > 0) {
+                                            onSave(clip.id, dbUpdates);
+                                        }
                                     }
                                 }}
                             />
@@ -1070,6 +1132,7 @@ export function ClipRow({
                     data-testid="row-actions"
                     isPersisted={isPersisted}
                     isImageModel={getModelConfig(activeModel || clip.model || '').isImage}
+                    onOpenBEM={onOpenBEM ? () => onOpenBEM(clip.id) : undefined}
                 />
             </TableCell>
 

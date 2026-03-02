@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
         const mediaRaw = await mediaPromise;
 
         const media = mediaRaw
-            .filter((m: any) => !(m.url && m.url.includes('tempfile.aiquickdraw.com')))
             .map((m: any) => ({
                 ...m,
                 name: m.studioItem?.name || '', // Expose name for Contextual Matching

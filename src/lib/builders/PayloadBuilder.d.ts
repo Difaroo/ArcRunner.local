@@ -9,6 +9,9 @@ export interface GenerationContext {
     explicitImages: string[];
     styleImage: string | null;
 
+    // Base64 Alternatives for Veo
+    base64Images?: string[];
+
     // Rich Asset Data (For Prompt Constructor)
     locationAsset?: { name: string; description: string; negatives?: string };
     characterAssets: { name: string; description: string; negatives?: string; refImageUrl?: string }[];

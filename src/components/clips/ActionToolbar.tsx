@@ -9,7 +9,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 // import { BatchGenerationDialog } from "./BatchGenerationDialog" // Commented out in original
-import { useState, Fragment } from "react"
+import { useState, useEffect, Fragment } from "react"
 import { ListOrdered, Download, Clapperboard, Image as ImageIcon, Loader2, FolderInput } from "lucide-react"
 import { Clip } from "@/types"
 import { MODEL_LIST, getModelConfig } from "@/lib/models"
@@ -49,6 +49,7 @@ interface ActionToolbarProps {
     onSaveClip?: (clipId: string, updates: Partial<Clip>) => Promise<void> // For BatchEditModal
     onDataRefresh?: () => void // For refreshing after modal save
     onGenerateSingle?: (clip: Clip) => void // For single-clip generate (row + BEM)
+    onRegisterBEMOpener?: (opener: (clipId: string) => void) => void // Expose BEM opener to parent
 }
 
 export function ActionToolbar({
@@ -78,7 +79,8 @@ export function ActionToolbar({
     episodeUuid, // NEW
     onSaveClip,
     onDataRefresh,
-    onGenerateSingle
+    onGenerateSingle,
+    onRegisterBEMOpener
 }: ActionToolbarProps) {
     const [showBatchDialog, setShowBatchDialog] = useState(false)
     const [showMoveDialog, setShowMoveDialog] = useState(false) // NEW
@@ -87,6 +89,17 @@ export function ActionToolbar({
     const [isRenumbering, setIsRenumbering] = useState(false)
     // New: Start Frame State (Default True)
     const [startFrame, setStartFrame] = useState(true)
+
+    // Register BEM opener callback so parent (page.tsx) can open BEM for a specific clip
+    useEffect(() => {
+        if (onRegisterBEMOpener) {
+            onRegisterBEMOpener((clipId: string) => {
+                const idx = clips.findIndex(c => c.id === clipId);
+                setBatchEditInitialIndex(idx >= 0 ? idx : 0);
+                setShowBatchEditModal(true);
+            });
+        }
+    }, [onRegisterBEMOpener, clips]);
 
     // Determine config
     const modelConfig = getModelConfig(selectedModel)

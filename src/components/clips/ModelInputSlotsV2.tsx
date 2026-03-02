@@ -36,9 +36,11 @@ export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate,
     const activeSlots = mediaItems || [];
 
     // 2. Slots are 1:1 with active data — no pre-spawning from model config.
-    // Each filled slot gets a label from the model config for display purposes.
-    const defaultLabel = modelConfig.refImageSlots?.[0]?.label || 'Reference';
-    const slots: { label: string }[] = activeSlots.map(() => ({ label: defaultLabel }));
+    // Each filled slot gets its corresponding label from the model config by index.
+    const slots: { label: string }[] = activeSlots.map((_, index) => {
+        const configSlot = modelConfig.refImageSlots?.[index];
+        return { label: configSlot?.label || 'Reference' };
+    });
 
     const isHorizontal = orientation === 'horizontal';
 
@@ -71,14 +73,14 @@ export function ModelInputSlotsV2({ modelConfig, mediaItems, onRemove, onUpdate,
             {/* Empty state: no slots filled */}
             {activeSlots.length === 0 && (
                 <div
-                    className={`flex flex-col items-center justify-center gap-1.5 ${isHorizontal ? 'h-full w-full flex-1' : 'min-h-[100px]'} cursor-pointer`}
+                    className={`flex flex-col items-center justify-center gap-1.5 ${isHorizontal ? 'h-full aspect-[9/16]' : 'min-h-[100px] w-full'} cursor-pointer bg-stone-900/40 border border-stone-700/50 border-dashed rounded-lg flex-shrink-0 transition-colors hover:bg-stone-900/60`}
                     onClick={onAddSlot}
                     title="Upload reference image"
                 >
                     <div className="w-10 h-10 rounded-full border border-orange-500/50 flex items-center justify-center">
                         <span className="material-symbols-outlined text-orange-500 !text-[16px]">add</span>
                     </div>
-                    <span className="text-[9px] text-orange-500 uppercase tracking-wider font-medium">Add Reference</span>
+                    <span className="text-[9px] text-orange-500 uppercase tracking-wider font-medium px-2 text-center">Add Reference</span>
                 </div>
             )}
 

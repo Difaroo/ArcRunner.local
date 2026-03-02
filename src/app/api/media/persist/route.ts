@@ -30,7 +30,7 @@ if (!fs.existsSync(SERVER_STORAGE_ROOT)) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { clipId, episodeId, customPath } = body;
+        const { clipId, episodeId, customPath, url } = body;
 
         logPersist(`[Persistence] Request received. Body: ${JSON.stringify(body)}`);
 
@@ -53,7 +53,9 @@ export async function POST(request: NextRequest) {
             include: { episode: true }
         });
 
-        if (!clip || !clip.resultUrl) {
+        const targetUrl = url || clip?.resultUrl;
+
+        if (!clip || !targetUrl) {
             return NextResponse.json({ error: 'Clip or Result URL not found' }, { status: 404 });
         }
 
@@ -89,11 +91,11 @@ export async function POST(request: NextRequest) {
         const serverFilePath = path.join(SERVER_STORAGE_ROOT, filename);
 
         // Extract clean URL (handle comma separated errors or multiple urls)
-        const cleanUrl = clip.resultUrl.split(',')[0].trim();
+        const cleanUrl = targetUrl.split(',')[0].trim();
 
         // LOGGING: Debug Write Failure
         logPersist(`[Persistence] Starting download...`);
-        logPersist(`[Persistence] Source URL: ${cleanUrl} (from original: ${clip.resultUrl})`);
+        logPersist(`[Persistence] Source URL: ${cleanUrl} (from original: ${targetUrl})`);
         logPersist(`[Persistence] Target Server Path: ${serverFilePath}`);
 
         const response = await fetch(cleanUrl);
@@ -103,7 +105,7 @@ export async function POST(request: NextRequest) {
             throw new Error(err);
         }
         if (!response.body) {
-            const err = `No response body for media: ${clip.resultUrl}`;
+            const err = `No response body for media: ${targetUrl}`;
             logPersist(err);
             throw new Error(err);
         }

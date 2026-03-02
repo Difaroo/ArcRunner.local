@@ -19,6 +19,12 @@ export class PayloadBuilderVeo implements PayloadBuilder {
         const constructed = PromptConstructor.construct(context);
         const { prompt, negativePrompt, imageUrls, warnings } = constructed;
 
+        // If Veo was run through GenerateManager (which resolves to base64 for 'veo'), 
+        // those are stored in context.base64Images. Otherwise fallback to constructed imageUrls
+        const finalImages = context.base64Images && context.base64Images.length > 0
+            ? context.base64Images
+            : imageUrls;
+
         // Re-inject Negatives inline for Veo (not supported in payload)
         let finalPrompt = prompt;
         if (negativePrompt) {
@@ -35,23 +41,19 @@ export class PayloadBuilderVeo implements PayloadBuilder {
 
         if (input.model === 'veo-s2e') {
             // S2E Requested
-            if (imageUrls.length >= 2) {
-                generationType = 'IMAGE_TO_VIDEO'; // Strict S2E
-            } else if (imageUrls.length === 1) {
-                // Fallback handled by PromptConstructor selection (returns 1 image)
-                generationType = 'REFERENCE_2_VIDEO';
-                console.warn('[PayloadBuilderVeo] S2E requested but <2 images. Fallback to Ref-2-Video.');
+            if (finalImages.length >= 2) {
+                generationType = 'FIRST_AND_LAST_FRAMES_2_VIDEO'; // Strict S2E (image-to-video mode)
+            } else if (finalImages.length === 1) {
+                generationType = 'FIRST_AND_LAST_FRAMES_2_VIDEO'; // 1 image is supported by this mode
+                console.warn('[PayloadBuilderVeo] S2E requested but <2 images. Using First and Last mode for 1 image.');
             } else {
                 generationType = 'TEXT_2_VIDEO';
                 console.warn('[PayloadBuilderVeo] S2E requested but 0 images. Fallback to T2V.');
             }
         } else {
             // Standard Veo logic
-            if (imageUrls.length > 0) {
-                generationType = 'REFERENCE_2_VIDEO'; // Standard I2V
-                // Note: Veo API might treat >1 image as "Start/End" if mode is I2V?
-                // Verify API docs: usually I2V takes array. 
-                // If standard Veo, we probably want I2V prompt logic which PromptConstructor provided.
+            if (finalImages.length > 0) {
+                generationType = 'REFERENCE_2_VIDEO'; // Standard Reference to Video
             } else {
                 generationType = 'TEXT_2_VIDEO';
             }
@@ -59,7 +61,7 @@ export class PayloadBuilderVeo implements PayloadBuilder {
 
         // Map UI model selection to API Model ID
         let apiModelId = 'veo3_fast';
-        const isTextOnly = imageUrls.length === 0;
+        const isTextOnly = finalImages.length === 0;
 
         if (input.model === 'veo-quality') {
             if (isTextOnly) {
@@ -75,16 +77,19 @@ export class PayloadBuilderVeo implements PayloadBuilder {
         }
 
         // 3. Payload Assembly
-        return {
+        const payload: VeoPayload = {
             taskType: generationType,
             generationType: generationType, // Add matching interface key
             model: apiModelId,
             prompt: finalPrompt, // Use the constructed prompt with re-injected negatives
-            imageUrls: imageUrls, // Use the selected images
             aspectRatio: input.aspectRatio || "16:9",
             durationType: (input.clip.duration && input.clip.duration === '10s') ? '10' : '5',
-            enableTranslation: true,
-            enableFallback: true
+            enableTranslation: true
         };
+
+        // Veo 3.1 strictly expects HTTP URLs mapping to `imageUrls`. Base64s are completely unsupported.
+        payload.imageUrls = finalImages;
+
+        return payload;
     }
 }

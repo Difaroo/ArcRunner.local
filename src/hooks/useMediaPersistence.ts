@@ -25,7 +25,7 @@ export function useMediaPersistence() {
             let res = await fetch('/api/media/persist', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clipId: params.clipId, episodeId: params.episodeId })
+                body: JSON.stringify({ clipId: params.clipId, episodeId: params.episodeId, url: params.url })
             });
 
             // 2. Handle Missing Path (400) -> Open Finder

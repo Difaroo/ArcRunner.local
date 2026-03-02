@@ -275,13 +275,25 @@ export class GenerateManager {
 
         // 2. Format Explicit Refs for manifest resolution
         const formattedExplicitRefs = sortedSlots
-            .map((slot: any, index: number) => {
-                const url = explicitRefPaths[index];
-                if (!url || url.length < 5) return null;
+            .map((slot: any) => {
                 const m = slot.media;
                 const s = slot.studioItem;
+
+                let url = null;
+                if (m) {
+                    url = (m.url && m.url.startsWith('http')) ? m.url : m.localPath || m.url;
+                } else if (s) {
+                    const sm = s.media && s.media.length > 0 ? s.media[0] : null;
+                    if (sm) {
+                        url = (sm.url && sm.url.startsWith('http')) ? sm.url : sm.localPath || sm.url;
+                    } else {
+                        url = s.refImageUrl || s.thumbnailPath;
+                    }
+                }
+
+                if (!url || url.length < 5) return null;
                 return {
-                    id: m?.id || s?.id?.toString() || `slot-${index}`,
+                    id: m?.id || s?.id?.toString() || `slot-${slot.sortOrder}`,
                     url,
                     refImageSort: slot.sortOrder
                 };
@@ -399,6 +411,8 @@ export class GenerateManager {
 
             // 1. Resolve Granular Images to Public URLs
             const ensureList = async (urls: string[]) => {
+                // Standard upload for all APIs (Veo, Kling, Flux, Nano)
+                // Uploads local files to Kie Temp Storage and returns explicit HTTP `tempfile` URLs
                 const results = await Promise.allSettled(urls.map(u => this.ensurePublicUrl(u)));
                 return results.map(r => {
                     if (r.status === 'fulfilled') return (r as PromiseFulfilledResult<string>).value;
@@ -411,19 +425,20 @@ export class GenerateManager {
             // The builders expect these specific segmented arrays.
             // We map the resolved manifest slots back into these buckets.
 
-            const manifestPublicUrls = await ensureList(manifest.selectedUrls);
+            // If Veo, this holds raw Base64 data strings. Otherwise, Public URLs.
+            const manifestEnsuredData = await ensureList(manifest.selectedUrls);
 
-            // Map the ensured URLs back to their slots
+            // Map the ensured data back to their slots
             const ensuredSlots = manifest.slots.map((slot: InputSlot, index: number) => ({
                 ...slot,
-                ensuredUrl: manifestPublicUrls[index]
+                ensuredData: manifestEnsuredData[index]
             }));
 
             // Filter ensured slots by type for the legacy BuilderContext inputs
-            let publicStyleImage: string | null = ensuredSlots.find((s: any) => s.type === 'style')?.ensuredUrl || null;
-            const publicCharImages = ensuredSlots.filter((s: any) => s.type === 'character').map((s: any) => s.ensuredUrl);
-            const publicLocImages = ensuredSlots.filter((s: any) => s.type === 'location').map((s: any) => s.ensuredUrl);
-            const publicExplicitImages = ensuredSlots.filter((s: any) => ['reference', 'start-frame', 'end-frame'].includes(s.type)).map((s: any) => s.ensuredUrl);
+            let publicStyleImage: string | null = ensuredSlots.find((s: any) => s.type === 'style')?.ensuredData || null;
+            const publicCharImages = ensuredSlots.filter((s: any) => s.type === 'character').map((s: any) => s.ensuredData);
+            const publicLocImages = ensuredSlots.filter((s: any) => s.type === 'location').map((s: any) => s.ensuredData);
+            const publicExplicitImages = ensuredSlots.filter((s: any) => ['reference', 'start-frame', 'end-frame'].includes(s.type)).map((s: any) => s.ensuredData);
 
             // Legacy generic publicImageUrls (for models that just take a flat list of refs)
             const publicImageUrls = publicExplicitImages;
@@ -457,11 +472,15 @@ export class GenerateManager {
                         ...input,
                         model: effectiveModelId // CRITICAL: Ensure resolved model is passed so PromptConstructor selects correct schema (Nano vs Standard)
                     },
+                    // Legacy properties preserved for backward compatible builders
+                    base64Images: apiType === 'veo' ? publicExplicitImages : undefined,
                     publicImageUrls,
+
+                    // NEW ARCHITECTURE PROPERTIES: PromptConstructor heavily relies on these
                     characterImages: publicCharImages,
                     locationImages: publicLocImages,
-                    explicitImages: publicExplicitImages,
-                    styleImage: publicStyleImage,
+                    explicitImages: publicExplicitImages, // Fix: Explicitly map the resolved Slots -> Prompt Context
+                    styleImage: publicStyleImage || null,
 
                     // Rich Asset Data
                     locationAsset: locItem ? { name: locName, description: locItem.description || "", negatives: locItem.negatives || "" } : undefined,
@@ -655,6 +674,76 @@ export class GenerateManager {
                 console.error(`[GenerateManager] Failed to create Media record:`, e);
             }
         }
+    }
+
+    /**
+     * Resolves local URLs (starting with /api/) to raw Base64 data strings for Veo.
+     */
+    private async getBase64Data(rawUrl: string): Promise<string> {
+        const url = rawUrl.trim();
+        let filePath = '';
+
+        if (path.isAbsolute(url) && fs.existsSync(url)) {
+            filePath = url;
+        } else if (url.startsWith('/api/media/uploads/')) {
+            const filename = decodeURIComponent(url.replace('/api/media/uploads/', ''));
+            filePath = path.join(process.cwd(), 'public/media/uploads', filename);
+        } else if (url.startsWith('/api/images/')) {
+            const filename = decodeURIComponent(url.replace('/api/images/', ''));
+            filePath = path.join(process.cwd(), 'public/media/uploads', filename);
+        } else if (url.startsWith('/media/library/')) {
+            const filename = decodeURIComponent(url.replace('/media/library/', ''));
+            filePath = path.join(process.cwd(), 'public/media/library', filename);
+        } else if (url.startsWith('/media/clips/')) {
+            const filename = decodeURIComponent(url.replace('/media/clips/', ''));
+            filePath = path.join(process.cwd(), 'public/media/clips', filename);
+        } else if (url.startsWith('/api/media/clips/')) {
+            const filename = decodeURIComponent(url.replace('/api/media/clips/', ''));
+            filePath = path.join(process.cwd(), 'public/media/clips', filename);
+        } else if (url.startsWith('/media/uploads/')) {
+            const filename = decodeURIComponent(url.replace('/media/uploads/', ''));
+            filePath = path.join(process.cwd(), 'public/media/uploads', filename);
+        }
+
+        if (!filePath || !fs.existsSync(filePath)) {
+            const basename = decodeURIComponent(path.basename(url));
+            const candidateDirs = [
+                path.join(process.cwd(), 'public/media/uploads'),
+                path.join(process.cwd(), 'public/media/clips'),
+                path.join(process.cwd(), 'public/media/library'),
+                path.join(process.cwd(), 'storage/media/uploads'),
+                path.join(process.cwd(), 'storage/media/generated')
+            ];
+            for (const dir of candidateDirs) {
+                const candidate = path.join(dir, basename);
+                if (fs.existsSync(candidate)) {
+                    filePath = candidate;
+                    break;
+                }
+            }
+        }
+
+        if (filePath && fs.existsSync(filePath)) {
+            try {
+                const fileBuffer = await fs.promises.readFile(filePath);
+                return fileBuffer.toString('base64');
+            } catch (err) {
+                console.error(`[GenerateManager] Failed to read local file to base64 ${filePath}:`, err);
+                throw new Error(`Base64 Conversion Failed: ${path.basename(filePath)}`);
+            }
+        } else if (url.startsWith('http')) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+                const arrayBuffer = await response.arrayBuffer();
+                return Buffer.from(arrayBuffer).toString('base64');
+            } catch (err) {
+                console.error(`[GenerateManager] Failed to fetch and encode external URL ${url}:`, err);
+                throw new Error(`Base64 Conversion Failed: External URL Fetch Error`);
+            }
+        }
+
+        throw new Error(`File Not Found for Base64 Conversion: ${path.basename(url)}`);
     }
 
     /**

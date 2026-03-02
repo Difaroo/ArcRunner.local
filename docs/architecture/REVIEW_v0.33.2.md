@@ -1,4 +1,4 @@
-# ArcRunner v0.33.0 — Architectural Review
+# ArcRunner v0.33.2 — Architectural Review
 
 ## Codebase At a Glance
 

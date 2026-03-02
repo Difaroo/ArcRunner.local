@@ -167,7 +167,15 @@ export function BatchEditModalV3({
                                         <Button
                                             size="icon"
                                             variant="default"
-                                            onClick={() => {
+                                            onClick={async () => {
+                                                const saveBtn = document.querySelector('[data-save-trigger]') as HTMLButtonElement;
+                                                if (saveBtn) {
+                                                    saveBtn.click();
+                                                    // Give the async handleSave HTTP request time to fire and complete 
+                                                    // before the generate manager fetches the DB state.
+                                                    setIsSaving(true);
+                                                    await new Promise(r => setTimeout(r, 600));
+                                                }
                                                 onGenerate(currentClip);
                                             }}
                                             className="h-7 w-7 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] transition-shadow"
@@ -237,7 +245,6 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
 
     // Explicit sizing for Safari flex aspect-ratio bug
     const slotContainerRef = useRef<HTMLDivElement>(null);
-    const [calculatedSlotWidth, setCalculatedSlotWidth] = useState<number | null>(null);
 
     // Manual Panel Persistence (autoSaveId buggy on remount)
     // We initialize lazily to avoid hydration mismatch, then let the effect take over.
@@ -293,35 +300,6 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
         };
     }, [initialLayout]);
 
-    // Track width changes of the model input slots using ResizeObserver
-    useEffect(() => {
-        if (!slotContainerRef.current) return;
-
-        const findFlexRow = () => slotContainerRef.current?.querySelector('.debug-port-verified') as HTMLElement | null;
-
-        const updateWidth = () => {
-            const row = findFlexRow();
-            if (row) {
-                const totalNeeded = row.getBoundingClientRect().width + 12 + 2;
-                setCalculatedSlotWidth(totalNeeded);
-            } else {
-                setCalculatedSlotWidth(null);
-            }
-        };
-
-        const flexRow = findFlexRow();
-        if (!flexRow) {
-            const timer = setTimeout(updateWidth, 50);
-            return () => clearTimeout(timer);
-        }
-
-        const observer = new ResizeObserver(() => updateWidth());
-        observer.observe(flexRow);
-
-        updateWidth();
-
-        return () => observer.disconnect();
-    }, [model, clip?.id, mediaItems]); // Re-evaluate when model, clip, or media changes
 
     // Sync mediaItems when clip changes (clip-specific pool)
     useEffect(() => {
@@ -348,14 +326,16 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
         const maxSort = localSlots.length > 0 ? Math.max(...localSlots.map(s => s.sortOrder)) : -1;
         const newSort = maxSort + 1;
 
-        // Transient UI Update (Only saved strictly when clicking Save BEM)
-        const physicalMediaId = item.id || item.media?.id;
+        const isStudioItem = !!item.type && !item.category;
+        const isStudioMedia = item.category === 'STUDIO_UPLOAD' || item.category === 'STUDIO_GENERATED';
+        const isReferenceMedia = item.category === 'REFERENCE' || item.category === 'RESULT';
 
         const tempId = `temp-${Date.now()}`;
         const newSlot = {
             id: tempId,
-            mediaId: physicalMediaId,
-            media: item.media || item,
+            mediaId: isReferenceMedia ? item.id : null,
+            studioItemId: isStudioItem ? item.id : (isStudioMedia ? item.id : null),
+            media: item.media || item, // Keep attached for UI rendering
             sortOrder: newSort
         };
 
@@ -365,6 +345,33 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     };
 
     const handleRemoveFromSlot = async (slotRecord: any) => {
+        // 1. If it's a StudioItem, strip its name from the relevant text field
+        //    so Phase 3 text-to-slot sync doesn't immediately re-add it.
+        const studioItem = slotRecord.studioItem || slotRecord.media?.studioItem;
+        if (studioItem?.name) {
+            const nameToRemove = studioItem.name.toLowerCase();
+            if (studioItem.type === 'LIB_CHARACTER') {
+                setEditValues(prev => ({
+                    ...prev,
+                    character: prev.character
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(s => s.toLowerCase() !== nameToRemove)
+                        .join(', ')
+                }));
+            } else if (studioItem.type === 'LIB_LOCATION') {
+                setEditValues(prev => ({
+                    ...prev,
+                    location: prev.location
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(s => s.toLowerCase() !== nameToRemove)
+                        .join(', ')
+                }));
+            }
+        }
+
+        // 2. Remove from local slots (reference images just leave, studio items already stripped above)
         setLocalSlots(prev => prev.filter(s => s.id !== slotRecord.id));
         if (status === 'Pending' || !status) setStatus('Ready');
         onDirtyChange?.(true);
@@ -571,23 +578,33 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
         return <div className="h-full w-full flex items-center justify-center text-stone-500">Loading layout...</div>;
     }
 
-    const activeResultUrl = clip.resultUrl ? clip.resultUrl.split(',')[0].trim() : '';
+    // If generating, the main slot conceptually holds a spinner, so the previous result 
+    // is freed up to join the pool immediately (acting as history).
+    const isGenerating = clip.status === 'Generating' || clip.status === 'Pending';
+    const activeResultUrl = (!isGenerating && clip.resultUrl) ? clip.resultUrl.split(',')[0].trim() : '';
 
-    const poolItems = mediaItems.filter(m => {
+    const getBasename = (u: string) => u.split('?')[0].split('/').pop() || u;
+    const activeBase = getBasename(activeResultUrl);
+
+    const basePoolItems = mediaItems.filter(m => {
         // Exclude active UI Slots from Pool (Relational Architecture)
         const isCurrentlySlotted = uiSlots.some(slot => slot.mediaId === m.id || (slot.media && slot.media.id === m.id));
         if (isCurrentlySlotted) return false;
 
         // Exclude active result from pool
-        // Skip if the media URL matches the latest result
-        const isActiveResult = m.url === activeResultUrl;
-        // Skip Result-type media from pool entirely (user won't want stale results cluttering Pool)
-        const isResultCategory = m.category === 'RESULT';
-        // Pool = Media Items that are editable references, NOT results
-        // --- Exclude results from CLP's result history ---
-        if (isActiveResult || isResultCategory) return false;
+        const isActiveResult = !!activeResultUrl && getBasename(m.url) === activeBase;
+
+        // Pool = Media Items that are editable references + PREVIOUS results for re-use
+        if (isActiveResult) return false;
         return true;
     });
+
+    // Automatically include previous results in the pool
+    const previousResultsPool = (clip.mediaResults || [])
+        .filter(r => (!activeResultUrl || getBasename(r.url) !== activeBase) && !basePoolItems.some(p => getBasename(p.url) === getBasename(r.url)))
+        .map(r => ({ ...r, category: 'REFERENCE' as any }));
+
+    const poolItems = [...basePoolItems, ...previousResultsPool];
 
     return (
         <ResizablePanelGroup direction="vertical" className="h-full w-full">
@@ -608,7 +625,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                 </span>
                             </div>
                             <div className="flex items-center">
-                                <div className="relative w-6 h-6">
+                                <div className="relative w-5 h-5">
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -655,10 +672,10 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                                 <Button
                                                     variant="outline-primary"
                                                     size="icon"
-                                                    className="w-7 h-7"
+                                                    className="w-5 h-5"
                                                     onClick={() => document.getElementById('bem-pool-upload')?.click()}
                                                 >
-                                                    <span className="material-symbols-outlined !text-[16px]">add</span>
+                                                    <span className="material-symbols-outlined !text-[14px]">add</span>
                                                 </Button>
                                             </TooltipTrigger>
                                             <TooltipContent>
@@ -720,16 +737,15 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                     {/* Top Row: Slots */}
                     <div
                         ref={slotContainerRef}
-                        style={{ width: (calculatedSlotWidth && uiSlots.length > 0) ? `${calculatedSlotWidth}px` : undefined }}
-                        className={`flex-none ${uiSlots.length === 0 ? 'min-w-[180px]' : ''} ${calculatedSlotWidth ? '' : 'w-fit'} bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800 relative transition-[width] duration-75`}
+                        className={`flex-none w-fit max-w-[50%] bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800 relative`}
                     >
                         <div className="px-3 py-1 flex justify-between items-center group/slotsheader h-[34px]">
-                            <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider flex items-center gap-1.5">
-                                {getModelConfig(model).label}
-                                <span className="text-orange-500 font-mono">{getModelConfig(model).refImageSlots?.[0]?.maxCount ?? '—'}</span>
+                            <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider flex items-center">
+                                <span>{getModelConfig(model).label}</span>
+                                <span className="text-orange-500 font-mono font-medium ml-2 tracking-tight">{uiSlots.length}/{getModelConfig(model).refImageSlots?.reduce((acc, slot) => acc + (slot.maxCount ?? 1), 0) || '—'}</span>
                             </h3>
                             <div className="flex items-center">
-                                <div className="relative w-6 h-6">
+                                <div className="relative w-5 h-5">
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -743,6 +759,7 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                                 const formData = new FormData();
                                                 formData.append('file', file);
                                                 if (episodeId) formData.append('episode', episodeId);
+                                                formData.append('clipId', clip.id.toString());
 
                                                 const res = await fetch('/api/upload', {
                                                     method: 'POST',
@@ -754,11 +771,14 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
 
                                                 // Link directly to clip instead of just pool
                                                 await handleAddToSlot({
+                                                    id: data.mediaId, // Real Media record ID from upload API
                                                     url: data.url,
                                                     type: 'IMAGE'
                                                 });
 
-                                                if (onDataRefresh) onDataRefresh();
+                                                // Slot added locally — will persist to DB on BEM Save.
+                                                // Do NOT call onDataRefresh here: it reloads clip from server
+                                                // (which hasn't been saved yet) and wipes the local slot state.
                                             } catch (err) {
                                                 console.error('Upload error:', err);
                                             } finally {
@@ -772,10 +792,10 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                                 <Button
                                                     variant="outline-primary"
                                                     size="icon"
-                                                    className="w-7 h-7"
+                                                    className="w-5 h-5"
                                                     onClick={() => document.getElementById('bem-slots-upload')?.click()}
                                                 >
-                                                    <span className="material-symbols-outlined !text-[16px]">add</span>
+                                                    <span className="material-symbols-outlined !text-[14px]">add</span>
                                                 </Button>
                                             </TooltipTrigger>
                                             <TooltipContent>
@@ -791,18 +811,13 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                 modelConfig={getModelConfig(model)}
                                 mediaItems={uiSlots as any}
                                 onRemove={handleRemoveFromSlot}
-                                onAddSlot={() => document.getElementById('bem-slots-upload')?.click()}
+                                onAddSlot={() => { }}
                                 onReorder={async (sourceIndex, destIndex) => {
-                                    const reordered = arrayMove(uiSlots, sourceIndex, destIndex);
-
-                                    // Update transient localSlots sortOrders purely based on visual array order
-                                    const updatedSlots = reordered.map((slot, index) => ({
-                                        ...slot,
-                                        sortOrder: index
-                                    }));
-
-                                    setLocalSlots(updatedSlots);
-                                    if (status === 'Pending' || !status) setStatus('Ready');
+                                    const items = Array.from(uiSlots);
+                                    const [reorderedItem] = items.splice(sourceIndex, 1);
+                                    items.splice(destIndex, 0, reorderedItem);
+                                    const reordered = items.map((item, index) => ({ ...item, sortOrder: index }));
+                                    setLocalSlots(reordered);
                                     onDirtyChange?.(true);
                                 }}
                                 orientation="horizontal"
@@ -870,7 +885,11 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                                                 console.error('[BEM] Failed to open folder:', err);
                                                             }
                                                         } else {
-                                                            const result = await persistMedia({ clipId: String(clip.id), episodeId });
+                                                            const result = await persistMedia({
+                                                                clipId: String(clip.id),
+                                                                episodeId,
+                                                                url: clip.resultUrl
+                                                            });
                                                             if (result.success) {
                                                                 onDataRefresh?.();
                                                             }
@@ -907,6 +926,19 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                                     originalUrl={clip.resultUrl}
                                     posterUrl={clip.thumbnailPath}
                                     ownerClipId={clip.id}
+                                    action={clip.action || undefined}
+                                    description={clip.dialog || undefined}
+                                    onUpdate={async (id, updates) => {
+                                        if (updates) {
+                                            // Sync updates to BEM local state so it can be saved normally
+                                            if (updates.action !== undefined) {
+                                                handleFieldChange('action', updates.action);
+                                            }
+                                            if (updates.description !== undefined) {
+                                                handleFieldChange('dialog', updates.description);
+                                            }
+                                        }
+                                    }}
                                 />
                             ) : (
                                 <span className="text-stone-600 text-xs uppercase tracking-widest">No Generation</span>

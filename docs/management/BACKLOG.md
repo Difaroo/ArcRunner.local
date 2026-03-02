@@ -10,6 +10,11 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.33.2 (Veo S2E Payload & BEM Fixes)
+- [x] **Veo Start-to-End Generation**: Fixed silent timeout and infinite spinner by removing the legacy `base64` payload override and coercing the `first_and_last_frames_2_video` API type for compliance.
+- [x] **Universal Viewer Playlist**: Fixed bug where S2E videos loaded as broken image plates due to extension-less Google Cloud URLs. Enforced model-flag deterministic typing.
+- [x] **BEM Download Button**: Fixed silent database 404 aborts on the "Latest Result" download button by piping the reactive preview URL directly to the backend.
+
 ## 🚀 Released v0.33.1 (Data Integrity & BEM Polish)
 - [x] **Clip Result Desync**: Cleaned 13 clips with stale multi-result CSV in `resultUrl` and 4 clips with expired CDN URLs → synced to latest Media table URL.
 - [x] **BEM Pool Scope Fix**: Switched Asset Pool from episode-wide `/api/media` to clip-specific `clip.mediaReferences`.

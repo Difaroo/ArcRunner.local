@@ -46,6 +46,7 @@ interface ClipTableProps {
     onAddReference?: (clipId: string, url: string, type: 'IMAGE' | 'VIDEO') => Promise<void>
     seriesTitle: string
     activeModel?: string // Episode-level model for live icon updates
+    onOpenBEM?: (clipId: string) => void // Open BEM for a specific clip
 }
 
 export function ClipTable({
@@ -68,7 +69,8 @@ export function ClipTable({
     onStudioAssetClick,
     onAddReference,
     seriesTitle,
-    activeModel
+    activeModel,
+    onOpenBEM
 }: ClipTableProps) {
     const allSelected = clips.length > 0 && selectedIds.size === clips.length
 
@@ -248,6 +250,7 @@ export function ClipTable({
                                     onAddReference={onAddReference}
                                     seriesTitle={seriesTitle}
                                     activeModel={activeModel}
+                                    onOpenBEM={onOpenBEM}
                                 />
                             ))}
                         </SortableContext>

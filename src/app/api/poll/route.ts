@@ -288,12 +288,12 @@ export async function POST(req: Request) {
 
                             await MediaService.addResult(idInt, localPath, fileType as 'IMAGE' | 'VIDEO', localPath);
 
-                            // Update Status & Thumbnail (Service doesn't handle Status)
                             await db.clip.update({
                                 where: { id: idInt },
                                 data: {
                                     status: 'Done',
-                                    thumbnailPath: thumbnailPath || ''
+                                    thumbnailPath: thumbnailPath || '',
+                                    taskId: null // Explicitly clear taskId to stop polling
                                 }
                             });
 

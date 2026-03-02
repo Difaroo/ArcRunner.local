@@ -99,9 +99,14 @@ export function MediaDisplay({
         if (lower === 'waiting' || lower === 'generating' || lower.startsWith('task:') || lower.includes('error')) return '';
 
         if (u.startsWith('/api/') || u.startsWith('/thumbnails/') || u.startsWith('/uploads/') || u.startsWith('/media/')) return u;
+
+        // Proxy Kie Google Storage videos to bypass CORS
+        if (t === 'video' && u.includes('googleapis.com')) {
+            return `/api/proxy-image?url=${encodeURIComponent(u)}`;
+        }
+
         if (t === 'image') return `/api/proxy-image?url=${encodeURIComponent(u)}`;
-        // For video previews, use the URL natively just like the Universal Viewer.
-        // Using proxy-download forces a Content-Disposition: attachment which breaks inline playback.
+        // For standard video previews, use the URL natively.
         return u;
     }
 

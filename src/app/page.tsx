@@ -79,6 +79,7 @@ export default function Home() {
   // --- Persistence Logic: Load Series/Episode on Mount ---
   // Ref to track if we have attempted logic to restore or are past hydration
   const isInitialized = useRef(false);
+  const bemOpenerRef = useRef<((clipId: string) => void) | null>(null);
 
   useEffect(() => {
     // Only run this ONCE when seriesList is populated
@@ -1710,7 +1711,7 @@ export default function Home() {
         body: JSON.stringify({
           clip: { ...clip, style: styleToUse, duration: clipDuration }, // Override style & duration
           library: allSeriesAssets, // Use filtered library
-          model: selectedModel || 'flux', // Provide fallback string
+          model: clip.model || selectedModel || 'flux', // Use clip's specific model (from BEM) or fallback to Toolbar
           aspectRatio: currentAspectRatio, // Use Episode's Aspect Ratio (not stale local state)
           sound: audioEnabled, // Pass Audio Toggle
           seed: currentSeed ?? undefined, // Pass Persistent Seed
@@ -2288,6 +2289,7 @@ export default function Home() {
                 onSaveClip={handleSave}
                 onDataRefresh={refreshData}
                 onGenerateSingle={handleGenerateSingle}
+                onRegisterBEMOpener={(opener) => { bemOpenerRef.current = opener; }}
               />
             )}
             {currentView === 'library' && (
@@ -2512,6 +2514,7 @@ export default function Home() {
                 onAddReference={handleAddReference}
                 seriesTitle={seriesList.find(s => s.id === currentSeriesId)?.title || 'Series'}
                 activeModel={selectedModel}
+                onOpenBEM={(clipId) => bemOpenerRef.current?.(clipId)}
               />
             )}
           </div>
