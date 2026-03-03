@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Clip } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,6 +11,9 @@ import { VibeItem } from './VibeItem';
 import { MediaDisplay } from '@/components/media/MediaDisplay';
 import { useMediaPersistence } from '@/hooks/useMediaPersistence';
 import { Loader2, Download, AlertCircle } from 'lucide-react';
+import { AssetPool } from './AssetPool';
+import { GenerationSlots } from './GenerationSlots';
+import { LatestResultViewer } from './LatestResultViewer';
 import { ClipAssetScroller } from './ClipAssetScroller';
 import { ModelInputSlotsV2 } from './ModelInputSlotsV2';
 import { getModelConfig } from '@/lib/models';
@@ -18,23 +22,7 @@ import { getComputedClipStatus } from '@/lib/clip-status';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 // VibesMenu Imports
-import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    DragEndEvent,
-} from '@dnd-kit/core';
-import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
-    useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { VibesMenu } from './VibesMenu';
 
 interface BatchEditModalProps {
     clips: Clip[];
@@ -129,10 +117,11 @@ export function BatchEditModalV3({
     }, [canGoUp, canGoDown]);
 
     if (!isOpen || clips.length === 0 || !currentClip) return null;
+    if (typeof document === 'undefined') return null;
 
     const structuralStatus = getComputedClipStatus(currentClip);
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-8">
             <div className="w-full h-full max-w-[95vw] max-h-[95vh] bg-stone-950 border border-stone-800 rounded-lg flex flex-col overflow-hidden">
                 {/* Top Bar */}
@@ -176,7 +165,18 @@ export function BatchEditModalV3({
                                                     setIsSaving(true);
                                                     await new Promise(r => setTimeout(r, 600));
                                                 }
-                                                onGenerate(currentClip);
+                                                // Dispatch generation with a merged copy of the UI state, 
+                                                // mitigating the React state-update race condition
+                                                const liveSlotsStr = document.querySelector('[data-local-slots]')?.getAttribute('data-value') || '[]';
+                                                const liveValuesStr = document.querySelector('[data-edit-values]')?.getAttribute('data-value') || '{}';
+                                                const liveSlots = JSON.parse(liveSlotsStr);
+                                                const liveValues = JSON.parse(liveValuesStr);
+
+                                                onGenerate({
+                                                    ...currentClip,
+                                                    ...liveValues,
+                                                    modelInputSlots: liveSlots.length > 0 ? liveSlots : currentClip.modelInputSlots
+                                                });
                                             }}
                                             className="h-7 w-7 shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] transition-shadow"
                                         >
@@ -215,7 +215,8 @@ export function BatchEditModalV3({
                     />
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -583,7 +584,17 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
     const isGenerating = clip.status === 'Generating' || clip.status === 'Pending';
     const activeResultUrl = (!isGenerating && clip.resultUrl) ? clip.resultUrl.split(',')[0].trim() : '';
 
-    const getBasename = (u: string) => u.split('?')[0].split('/').pop() || u;
+    // Advanced Basename to handle varying Google Cloud Storage proxy vs raw domain structures
+    const getBasename = (u: string) => {
+        if (!u) return '';
+        try {
+            const urlObj = new URL(u);
+            return urlObj.pathname.split('/').pop() || u;
+        } catch {
+            return u.split('?')[0].split('/').pop() || u;
+        }
+    };
+
     const activeBase = getBasename(activeResultUrl);
 
     const basePoolItems = mediaItems.filter(m => {
@@ -616,335 +627,46 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             >
                 <div className="h-full flex flex-row gap-4 min-h-0 w-full overflow-hidden">
                     {/* Top Row: Asset Pool */}
-                    <div className="flex-1 min-w-0 flex-shrink bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800 min-h-0">
-                        <div className="px-3 py-1 flex justify-between items-center group/poolheader h-[34px]">
-                            <div className="flex items-center gap-2">
-                                <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider">Asset Pool</h3>
-                                <span className="text-xs text-orange-500 font-mono font-medium">
-                                    {poolItems.length}
-                                </span>
-                            </div>
-                            <div className="flex items-center">
-                                <div className="relative w-5 h-5">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        id="bem-pool-upload"
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (!file) return;
-
-                                            try {
-                                                const formData = new FormData();
-                                                formData.append('file', file);
-                                                if (episodeId) formData.append('episode', episodeId);
-
-                                                const res = await fetch('/api/upload', {
-                                                    method: 'POST',
-                                                    body: formData,
-                                                });
-
-                                                if (!res.ok) throw new Error('Upload failed');
-                                                const data = await res.json();
-
-                                                await fetch('/api/media/add-ref', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({
-                                                        url: data.url,
-                                                        targetClipId: clip.id,
-                                                        action: 'copy'
-                                                    })
-                                                });
-
-                                                if (onDataRefresh) onDataRefresh();
-                                            } catch (err) {
-                                                console.error('Upload error:', err);
-                                            } finally {
-                                                if (e.target) e.target.value = '';
-                                            }
-                                        }}
-                                    />
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant="outline-primary"
-                                                    size="icon"
-                                                    className="w-5 h-5"
-                                                    onClick={() => document.getElementById('bem-pool-upload')?.click()}
-                                                >
-                                                    <span className="material-symbols-outlined !text-[14px]">add</span>
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Upload Image to Pool</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                </div>
-                            </div>
-                        </div>
-                        <ClipAssetScroller
-                            mediaItems={poolItems}
-                            onSelect={handleAddToSlot}
-                            onUnlink={async (item) => {
-                                try {
-                                    const isResult = item.resultForClipId === parseInt(clip.id);
-                                    await fetch('/api/media/unlink', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            url: item.url,
-                                            clipId: clip.id,
-                                            isResult
-                                        })
-                                    });
-                                    if (onDataRefresh) onDataRefresh();
-                                } catch (e) {
-                                    console.error('Failed to unlink pool item', e);
-                                }
-                            }}
-                            isLoading={false}
-                            orientation="horizontal"
-                            className="flex-1 w-full"
-                            onUpdate={async (id, updates) => {
-                                const item = mediaItems.find(m => m.id === id);
-                                if (!item) return;
-                                try {
-                                    if (item.isStudioItem) {
-                                        await fetch('/api/library', {
-                                            method: 'PATCH',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ id: item.studioItemId, description: updates.description })
-                                        });
-                                    } else {
-                                        await fetch('/api/media', {
-                                            method: 'PATCH',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ id, action: updates.action, description: updates.description })
-                                        });
-                                    }
-                                    if (onDataRefresh) onDataRefresh();
-                                } catch (e) {
-                                    console.error('Failed to update media item from pool', e);
-                                }
-                            }}
-                        />
-                    </div>
+                    <AssetPool
+                        clip={clip}
+                        episodeId={episodeId}
+                        poolItems={poolItems}
+                        mediaItems={mediaItems}
+                        onAddToSlot={handleAddToSlot}
+                        onDataRefresh={onDataRefresh}
+                    />
 
                     {/* Top Row: Slots */}
-                    <div
-                        ref={slotContainerRef}
-                        className={`flex-none w-fit max-w-[50%] bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800 relative`}
-                    >
-                        <div className="px-3 py-1 flex justify-between items-center group/slotsheader h-[34px]">
-                            <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider flex items-center">
-                                <span>{getModelConfig(model).label}</span>
-                                <span className="text-orange-500 font-mono font-medium ml-2 tracking-tight">{uiSlots.length}/{getModelConfig(model).refImageSlots?.reduce((acc, slot) => acc + (slot.maxCount ?? 1), 0) || '—'}</span>
-                            </h3>
-                            <div className="flex items-center">
-                                <div className="relative w-5 h-5">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        id="bem-slots-upload"
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (!file) return;
-
-                                            try {
-                                                const formData = new FormData();
-                                                formData.append('file', file);
-                                                if (episodeId) formData.append('episode', episodeId);
-                                                formData.append('clipId', clip.id.toString());
-
-                                                const res = await fetch('/api/upload', {
-                                                    method: 'POST',
-                                                    body: formData,
-                                                });
-
-                                                if (!res.ok) throw new Error('Upload failed');
-                                                const data = await res.json();
-
-                                                // Link directly to clip instead of just pool
-                                                await handleAddToSlot({
-                                                    id: data.mediaId, // Real Media record ID from upload API
-                                                    url: data.url,
-                                                    type: 'IMAGE'
-                                                });
-
-                                                // Slot added locally — will persist to DB on BEM Save.
-                                                // Do NOT call onDataRefresh here: it reloads clip from server
-                                                // (which hasn't been saved yet) and wipes the local slot state.
-                                            } catch (err) {
-                                                console.error('Upload error:', err);
-                                            } finally {
-                                                if (e.target) e.target.value = '';
-                                            }
-                                        }}
-                                    />
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant="outline-primary"
-                                                    size="icon"
-                                                    className="w-5 h-5"
-                                                    onClick={() => document.getElementById('bem-slots-upload')?.click()}
-                                                >
-                                                    <span className="material-symbols-outlined !text-[14px]">add</span>
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Upload Image to Slots</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-1.5 pb-2 pt-0 h-full w-full">
-                            <ModelInputSlotsV2
-                                modelConfig={getModelConfig(model)}
-                                mediaItems={uiSlots as any}
-                                onRemove={handleRemoveFromSlot}
-                                onAddSlot={() => { }}
-                                onReorder={async (sourceIndex, destIndex) => {
-                                    const items = Array.from(uiSlots);
-                                    const [reorderedItem] = items.splice(sourceIndex, 1);
-                                    items.splice(destIndex, 0, reorderedItem);
-                                    const reordered = items.map((item, index) => ({ ...item, sortOrder: index }));
-                                    setLocalSlots(reordered);
-                                    onDirtyChange?.(true);
-                                }}
-                                orientation="horizontal"
-                                className=""
-                            />
-                        </div>
-                    </div>
+                    <GenerationSlots
+                        clip={clip}
+                        episodeId={episodeId}
+                        model={model}
+                        uiSlots={uiSlots}
+                        onRemoveFromSlot={handleRemoveFromSlot}
+                        onReorderSlots={async (sourceIndex, destIndex) => {
+                            const items = Array.from(uiSlots);
+                            const [reorderedItem] = items.splice(sourceIndex, 1);
+                            items.splice(destIndex, 0, reorderedItem);
+                            const reordered = items.map((item, index) => ({ ...item, sortOrder: index }));
+                            setLocalSlots(reordered);
+                            onDirtyChange?.(true);
+                        }}
+                        onAddToSlot={async (item) => {
+                            await handleAddToSlot(item);
+                        }}
+                    />
 
                     {/* Top Row: Result */}
-                    <div className="h-full aspect-video flex-shrink-0 bg-stone-900/50 rounded-lg overflow-hidden flex flex-col border border-stone-800">
-                        <div className="px-3 py-1 flex justify-between items-center h-[34px]">
-                            <h3 className="text-xs text-stone-400 font-medium uppercase tracking-wider">Latest Result</h3>
-                            <div className="flex items-center gap-1">
-                                {/* Sideload: Add result to MIS as reference */}
-                                {clip.resultUrl && (
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 !text-orange-500 hover:!text-orange-400 hover:bg-orange-500/10"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const resultUrl = clip.resultUrl!.split(',')[0].trim();
-                                                        handleAddToSlot({
-                                                            id: `sideload-${Date.now()}`,
-                                                            url: resultUrl,
-                                                            thumbnailPath: clip.thumbnailPath || '',
-                                                            type: resultUrl.match(/\.(mp4|webm|mov)/i) ? 'VIDEO' : 'IMAGE',
-                                                            category: 'REFERENCE',
-                                                            name: `Result → Ref`
-                                                        });
-                                                    }}
-                                                >
-                                                    <span className="material-symbols-outlined !text-[14px]">arrow_back</span>
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Make reference image</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                )}
-                                {/* Persist / Download */}
-                                {clip.resultUrl && (
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant={clip.isPersisted ? 'ghost' : 'outline'}
-                                                    size="icon"
-                                                    className={`h-6 w-6 ${clip.isPersisted ? '!text-green-500 hover:!text-green-400 hover:bg-green-500/10' : '!text-orange-500 hover:!text-orange-400 border-orange-500/50 hover:bg-orange-500/10'}`}
-                                                    disabled={isPersisting}
-                                                    onClick={async (e) => {
-                                                        e.stopPropagation();
-                                                        if (clip.isPersisted) {
-                                                            try {
-                                                                await fetch('/api/media/open-folder', {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({ episodeId })
-                                                                });
-                                                            } catch (err) {
-                                                                console.error('[BEM] Failed to open folder:', err);
-                                                            }
-                                                        } else {
-                                                            const result = await persistMedia({
-                                                                clipId: String(clip.id),
-                                                                episodeId,
-                                                                url: clip.resultUrl
-                                                            });
-                                                            if (result.success) {
-                                                                onDataRefresh?.();
-                                                            }
-                                                        }
-                                                    }}
-                                                >
-                                                    {isPersisting ? (
-                                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                                    ) : clip.isPersisted ? (
-                                                        <span className="material-symbols-outlined !text-[14px]">folder</span>
-                                                    ) : (
-                                                        <Download className="h-3 w-3" />
-                                                    )}
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>{clip.isPersisted ? 'Open Edit Folder' : 'Download to Episode Folder'}</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                )}
-                            </div>
-                        </div>
-                        <div className="flex-1 relative bg-black flex items-center justify-center min-h-0 w-full">
-                            {derivedStatus.state === 'Generating' ? (
-                                <div className="flex flex-col items-center justify-center gap-3 text-primary">
-                                    <Loader2 className="h-8 w-8 animate-spin opacity-80" />
-                                    <span className="text-xs font-mono uppercase tracking-widest text-primary/80">Generating...</span>
-                                </div>
-                            ) : clip.resultUrl ? (
-                                <MediaDisplay
-                                    key={`preview-${clip.id}-${clip.resultUrl}`}
-                                    url={clip.resultUrl}
-                                    originalUrl={clip.resultUrl}
-                                    posterUrl={clip.thumbnailPath}
-                                    ownerClipId={clip.id}
-                                    action={clip.action || undefined}
-                                    description={clip.dialog || undefined}
-                                    onUpdate={async (id, updates) => {
-                                        if (updates) {
-                                            // Sync updates to BEM local state so it can be saved normally
-                                            if (updates.action !== undefined) {
-                                                handleFieldChange('action', updates.action);
-                                            }
-                                            if (updates.description !== undefined) {
-                                                handleFieldChange('dialog', updates.description);
-                                            }
-                                        }
-                                    }}
-                                />
-                            ) : (
-                                <span className="text-stone-600 text-xs uppercase tracking-widest">No Generation</span>
-                            )}
-                        </div>
-                    </div>
+                    <LatestResultViewer
+                        clip={clip}
+                        episodeId={episodeId}
+                        derivedStatus={derivedStatus}
+                        isPersisting={isPersisting}
+                        onPersistMedia={persistMedia}
+                        onDataRefresh={onDataRefresh}
+                        onAddToSlot={handleAddToSlot}
+                        onFieldChange={handleFieldChange}
+                    />
                 </div>
             </ResizablePanel>
 
@@ -1025,182 +747,11 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
             </ResizablePanel>
 
             <button data-save-trigger onClick={handleSave} className="hidden" aria-hidden="true" />
+            <input type="hidden" data-local-slots data-value={JSON.stringify(localSlots)} />
+            <input type="hidden" data-edit-values data-value={JSON.stringify(editValues)} />
             {saveError && <div className="text-destructive text-sm text-center">{saveError}</div>}
         </ResizablePanelGroup>
     );
 }
 
-// ========== VibesMenu Full Component ==========
-
-interface StudioAsset {
-    id: number;
-    name: string;
-    type: string;
-    thumbnailPath?: string;
-}
-
-interface Vibe {
-    id: string;
-    title: string;
-    prompt: string;
-    type: string;
-    sortOrder: number;
-    seriesId: string | null;
-}
-
-interface VibesMenuProps {
-    seriesId: string;
-    episodeId?: string;
-    activeField: 'character' | 'location' | 'camera' | 'movement' | 'action' | 'dialog' | 'media';
-    onSelectVibe: (vibeId: string | null, value: string) => void;
-    onStudioAssetClick: (name: string, type: string) => void;
-    refreshTrigger?: number; // Prop trigger for live updates
-    model: string;
-}
-
-function SortableVibeItem({ vibe, onSelect, onUpdate }: { vibe: Vibe, onSelect: () => void, onUpdate: (v: any) => Promise<void> }) {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: vibe.id });
-    const style = { transform: CSS.Transform.toString(transform), transition };
-    return (
-        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <VibeItem vibe={vibe} onSelect={onSelect} onUpdate={onUpdate} />
-        </div>
-    );
-}
-
-function VibesMenu({ seriesId, episodeId, activeField, onSelectVibe, onStudioAssetClick, refreshTrigger, model }: VibesMenuProps) {
-    const [studioAssets, setStudioAssets] = useState<StudioAsset[]>([]);
-    const [vibes, setVibes] = useState<Vibe[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
-    );
-
-    useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                if (activeField === 'action') {
-                    const res = await fetch(`/api/vibes?seriesId=${seriesId}&type=ACTION`);
-                    if (res.ok) {
-                        setVibes(await res.json());
-                        setStudioAssets([]);
-                    }
-                } else {
-                    const typeMap: Record<string, string> = {
-                        character: 'LIB_CHARACTER',
-                        location: 'LIB_LOCATION',
-                        camera: 'LIB_CAMERA',
-                        movement: 'LIB_MOVEMENT',
-                        dialog: 'LIB_CHARACTER'
-                    };
-                    if (activeField === 'movement' || activeField === 'camera') {
-                        const res = await fetch(`/api/vibes?seriesId=${seriesId}&type=${activeField.toUpperCase()}`);
-                        if (res.ok) {
-                            const data = await res.json();
-                            setVibes(Array.isArray(data) ? data : []);
-                            setStudioAssets([]);
-                        }
-                        return;
-                    }
-                    const assetType = typeMap[activeField];
-                    if (assetType) {
-                        const res = await fetch(`/api/library?seriesId=${seriesId}&type=${assetType}`);
-                        if (res.ok) {
-                            const data = await res.json();
-                            setStudioAssets(Array.isArray(data) ? data : []);
-                            setVibes([]);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error('VibesMenu fetch error:', err);
-                setError('Failed to load menu items');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchData();
-    }, [activeField, seriesId, episodeId, refreshTrigger]);
-
-    const getMenuTitle = () => {
-        const titles: Record<string, string> = {
-            character: 'CHARACTERS',
-            location: 'LOCATION',
-            camera: 'CAMERA',
-            movement: 'MOVEMENT',
-            action: 'ACTION VIBES',
-            dialog: 'CHARACTERS',
-            media: 'EPISODE MEDIA'
-        };
-        return titles[activeField] || 'MENU';
-    };
-
-    return (
-        <div className="h-full flex flex-col min-h-0">
-            <div className="h-7 mb-1 shrink-0 flex items-center pl-2">
-                <h3 className="text-xs text-primary uppercase tracking-wider font-normal">{getMenuTitle()}</h3>
-            </div>
-
-            <div className="flex-1 overflow-y-auto min-h-0 pr-1 pb-2">
-                {isLoading && <div className="text-stone-500 text-sm">Loading...</div>}
-                {error && <div className="text-destructive text-sm">{error}</div>}
-
-                {!isLoading && studioAssets.length > 0 && (
-                    <div className="space-y-1">
-                        {studioAssets.map((asset) => (
-                            <button key={asset.id} onClick={() => {
-                                if (activeField === 'dialog') onSelectVibe(null, `[${asset.name}]: ""`);
-                                else onStudioAssetClick(asset.name, asset.type.replace('LIB_', ''));
-                            }} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-stone-800 text-left transition-colors">
-                                {asset.thumbnailPath && (
-                                    <img src={asset.thumbnailPath.split(',')[0].trim()} alt={asset.name} className="w-8 h-8 rounded object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                )}
-                                <span className="text-xs text-stone-300 truncate font-normal">{asset.name}</span>
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                {!isLoading && vibes.length > 0 && (
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={async (event) => {
-                        const { active, over } = event;
-                        if (active.id !== over?.id) {
-                            setVibes((items) => {
-                                const oldIndex = items.findIndex((i) => i.id === active.id);
-                                const newIndex = items.findIndex((i) => i.id === over?.id);
-                                const newItems = arrayMove(items, oldIndex, newIndex);
-                                const updates = newItems.map((item, index) => ({ id: item.id, sortOrder: index }));
-                                fetch('/api/vibes/reorder', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: updates }) }).catch(console.error);
-                                return newItems;
-                            });
-                        }
-                    }}>
-                        <SortableContext items={vibes.map(v => v.id)} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-1">
-                                {vibes.map((vibe) => (
-                                    <SortableVibeItem key={vibe.id} vibe={vibe} onSelect={() => onSelectVibe(vibe.id, vibe.prompt)} onUpdate={async (updatedVibe) => {
-                                        await fetch('/api/vibes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedVibe) });
-                                        setVibes(prev => prev.map(v => v.id === updatedVibe.id ? { ...v, ...updatedVibe } : v));
-                                    }} />
-                                ))}
-                            </div>
-                        </SortableContext>
-                    </DndContext>
-                )}
-
-                {!isLoading && studioAssets.length === 0 && vibes.length === 0 && (
-                    <div className="text-stone-500 text-sm">No items found</div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-export { BatchEditContent, VibesMenu };
+export { BatchEditContent };

@@ -2,6 +2,28 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-03-03: v0.33.3 - Kestrel Update (Stability & BEM Hotfixes)
+
+### Context
+A targeted hotfix release addressing immediate UI regressions in the Batch Edit Modal (BEM) and resolving a persistent polling freeze during Veo Start-to-End generations.
+
+### Fixes
+- **Veo S2E Spinner Freeze**: 
+  - **Root Cause**: A race condition in `ClipsView.tsx` where background auto-saves executed before the Kie remote `taskId` returned, overwriting the 'Generating' status back to 'Pending' and aborting the polling loop.
+  - **Fix**: Implemented strict status reaffirmation when the `taskId` payload returns to protect the polling cycle.
+- **BEM Pool Unlinking Cascade**:
+  - **Root Cause**: Unlinking an image from the Asset Pool aggressively assumed `isResult=true` for former results, causing the backend `/api/media/unlink` to nuke the actively playing video.
+  - **Fix**: Hardcoded `isResult = false` for pool unlinking payloads in `AssetPool.tsx`.
+- **Action Toolbar Layout Restoration**: 
+  - Restored layout consistency spanning Episode, Sideload, and View modes after previous restructuring inadvertently broke inline flex alignments.
+- **BEM Viewport Context**:
+  - Fixed rendering visibility bugs for the Latest Result viewer by re-supplying the correct `viewportContext` conditionals.
+
+### Version Bump
+- **Patch**: 0.33.2 -> 0.33.3.
+
+---
+
 ## 2026-03-02: v0.33.2 - Kestrel Update (Veo S2E Payload & BEM Fixes)
 
 ### Context

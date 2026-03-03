@@ -25,16 +25,18 @@ import { ClipTable } from "@/components/clips/ClipTable"
 import { EpisodeTabs } from "@/components/clips/EpisodeTabs"
 import { ActionToolbar } from "@/components/clips/ActionToolbar"
 import { LibraryActionToolbar } from "@/components/library/LibraryActionToolbar"
-import { SeriesPage } from "@/components/series/SeriesPage"
+import { SeriesView } from "@/components/series/SeriesView"
 import { SettingsPage } from "@/components/settings/SettingsPage"
 import { NavBar, ViewType } from "@/components/NavBar" // IMPORT ADDED
-import { DEFAULT_VIDEO_PROMPT, DEFAULT_IMAGE_PROMPT } from "@/lib/defaults"
+
 
 import { PageHeader } from "@/components/PageHeader"
 
 import { ScriptView } from "@/components/ingest/ScriptView"
 import { LibraryTable } from "@/components/library/LibraryTable"
 import { StoryboardView } from "@/components/storyboard/StoryboardView"
+import { ClipsView } from "@/components/clips/ClipsView"
+import LibraryView from '@/components/library/LibraryView'
 
 // Modular Components
 import { UniversalMediaViewer } from "@/components/media/UniversalMediaViewer";
@@ -64,7 +66,9 @@ export default function Home() {
     loading, error,
     refreshData, notifyWrite,
     currentEpisode, setCurrentEpisode,
-    playingVideoUrl, setPlayingVideoUrl
+    playingVideoUrl, setPlayingVideoUrl,
+    playlist, setPlaylist, currentPlayIndex, setCurrentPlayIndex,
+    updateClip, addClip, duplicateClip, deleteClip
   } = useDataStore(s => s);
 
   // Initial Data Fetch (The Bridge Activation)
@@ -156,10 +160,6 @@ export default function Home() {
 
 
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Partial<Clip>>({});
-  const [saving, setSaving] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('veo-fast');
   // Persistent Studio Model (Default: Nano)
   const [studioSelectedModel, setStudioSelectedModel] = useState('nano-banana-pro');
 
@@ -167,8 +167,6 @@ export default function Home() {
     const saved = localStorage.getItem('studioSelectedModel');
     if (saved) setStudioSelectedModel(saved);
   }, []);
-  const [audioEnabled, setAudioEnabled] = useState(false);
-  const [clipDuration, setClipDuration] = useState("5");
 
   // Persistence Guard (Nav only)
   const [isRestored, setIsRestored] = useState(false);
@@ -341,8 +339,7 @@ export default function Home() {
     }
   };
 
-  const [videoPromptTemplate, setVideoPromptTemplate] = useState("");
-  const [imagePromptTemplate, setImagePromptTemplate] = useState("");
+
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const { theme, setTheme } = useTheme();
 
@@ -456,96 +453,21 @@ export default function Home() {
   }, [showAddSeriesDialog]);
 
   const handleViewChange = (view: 'series' | 'script' | 'library' | 'clips' | 'settings' | 'storyboard') => {
-    if (currentView === 'settings' && view !== 'settings') {
-      const savedVideo = localStorage.getItem("videoPromptTemplate")
-      const savedImage = localStorage.getItem("imagePromptTemplate")
-      setVideoPromptTemplate(savedVideo || DEFAULT_VIDEO_PROMPT)
-      setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
-    }
     setCurrentView(view)
   }
-
-  useEffect(() => {
-    const savedVideo = localStorage.getItem("videoPromptTemplate")
-    const savedImage = localStorage.getItem("imagePromptTemplate")
-    const savedModel = localStorage.getItem("selectedModel")
-    setVideoPromptTemplate(savedVideo || DEFAULT_VIDEO_PROMPT)
-    setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
-    if (savedModel) setSelectedModel(savedModel)
-  }, [])
 
 
 
 
 
   // --- Editing Logic ---
-  const startEditing = (clip: Clip) => {
-    if (editingId === clip.id) return; // Already editing this one
-    setEditingId(clip.id);
-    setEditValues({ ...clip });
-  };
-
   const handleSave = async (clipId: string, updates: Partial<Clip>) => {
-    setSaving(true);
     try {
-      const res = await fetch('/api/update_clip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rowIndex: clipId, // id is the index
-          updates: updates
-        }),
-      });
-
       console.log(`[handleSave] Saving ${clipId}`, updates);
-      const data = await res.json();
-      console.log(`[handleSave] Response ${clipId}`, data.clip);
-      if (!res.ok) throw new Error(data.error || 'Failed to save');
-
-      // CRITICAL: Notify store of a write to invalidate pending polls
-      notifyWrite();
-
-      // Update local state
-      // Prefer server-returned clip which has authoritative image resolution
-      if (data.success && data.clip) {
-        // Destructure relational fields that should use the server's authoritative version
-        const { modelInputSlots: _misFromUpdates, ...safeUpdates } = updates as any;
-
-        setClips(prev => prev.map(c => c.id === clipId ? {
-          ...c,
-          ...data.clip,
-          ...safeUpdates, // FORCE USER UPDATES (Prevent Stale Revert) — excludes relational fields
-          mediaReferences: data.clip.mediaReferences || c.mediaReferences || [],
-          modelInputSlots: data.clip.modelInputSlots || c.modelInputSlots || []
-        } : c).map(c => {
-          // Post-Update Re-Resolution (Success Path)
-          // Ensure derived fields are updated immediately using the fresh data
-          if (c.id === clipId) {
-            return c;
-          }
-          return c;
-        }));
-      } else {
-        // Fallback: Optimistic update with robust trimming
-        setClips(prev => prev.map(c => {
-          if (c.id !== clipId) return c;
-
-          const merged = { ...c, ...updates };
-
-          return merged;
-        }));
-      }
-
-      setEditingId(null);
-      setEditValues({});
-
+      await updateClip(clipId, updates);
     } catch (err: any) {
       console.error('Save error:', err);
-      // alert(`Failed to save changes: ${err.message || err}`); // Let the caller handle alerts if needed, or keep it.
-      // Re-throw so components can revert optimistic updates
       throw err;
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -601,22 +523,6 @@ export default function Home() {
     onLibrarySave: handleLibrarySave,
     setPlayingVideoUrl
   });
-
-  const handleCancelEdit = useCallback(() => {
-    setEditingId(null);
-    setEditValues({});
-  }, []);
-
-  // Global ESC Handler for inline editing
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && editingId) {
-        handleCancelEdit();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editingId, handleCancelEdit]);
 
   // --- Episode Logic ---
   // Group clips by their explicit 'episode' field.
@@ -708,29 +614,6 @@ export default function Home() {
     cameras: Array.from(new Set(allSeriesAssets.filter(i => i.type === 'LIB_CAMERA').map(i => i.name))).sort(),
   };
 
-  // --- Auto-Set Model from Episode Settings ---
-  useEffect(() => {
-    if (loading) return;
-    // Find current episode object
-    const currentEpObj = allEpisodes.find(e => e.series === currentSeriesId && e.id === currentEpKey);
-    const currentSeries = seriesList.find(s => s.id === currentSeriesId);
-
-    // Hierarchy: Episode Override > Series Default > Global Default
-    const targetModel = currentEpObj?.model || currentSeries?.defaultModel || 'veo-fast';
-
-    // console.log('[ModelSelect] Calc:', {
-    //   epModel: currentEpObj?.model,
-    //   seriesDefault: currentSeries?.defaultModel,
-    //   target: targetModel,
-    //   currentSelected: selectedModel
-    // });
-
-    // Only update if different to avoid loops (though strict equality check handles it)
-    if (targetModel !== selectedModel) {
-      // console.log('[ModelSelect] UPDATING to', targetModel);
-      setSelectedModel(targetModel);
-    }
-  }, [currentEpisode, currentSeriesId, activeClips, allEpisodes, currentEpKey, seriesList, loading]); // Added seriesList dependency
 
   // --- Selection Logic via Hooks ---
   // --- Selection Logic (DB Persisted) ---
@@ -795,339 +678,7 @@ export default function Home() {
   } = useSharedSelection(activeClips, 'episode_selection');
   */
 
-  // --- Library Selection Logic ---
-  // Determine displayed library items
-  const currentLibraryItems = allSeriesAssets.filter(item => item.episode === currentEpKey && !deletedLibraryIds.has(item.id));
 
-  const {
-    selectedIds: selectedLibraryIds,
-    setSelectedIds: setSelectedLibraryIds,
-    toggleSelect: toggleLibrarySelect,
-    toggleSelectAll: toggleLibrarySelectAll
-  } = useSharedSelection(currentLibraryItems);
-
-  // --- Robustness: Reset State on Series Change ---
-  useEffect(() => {
-    setCurrentEpisode(1);
-    setCurrentEpisode(1);
-    // selectedIds is derived from activeClips, so it updates automatically.
-    setSelectedLibraryIds(new Set());
-  }, [currentSeriesId, setSelectedLibraryIds]);
-
-  const [generatingLibraryItems, setGeneratingLibraryItems] = useState<Set<string>>(new Set());
-  // Store extras (like startFrame) pending confirmation
-  const [pendingGenerateExtras, setPendingGenerateExtras] = useState<any>(null);
-
-
-  const { persistMedia } = useMediaPersistence();
-
-  // --- Actions ---
-  const handleGenerateSelected = async (extras?: any) => {
-    // Check if any selected
-    const toGen = activeClips.filter(c => selectedIds.has(c.id));
-    if (toGen.length === 0) return;
-
-    // Traffic Light Check: Exclude 'Do Not Generate' (Pending/Red) clips
-    // User rule: "Default red = do not generate". Red = 'Pending' or undefined.
-    const validToGen = toGen.filter(c => c.status !== 'Pending' && c.status !== undefined && c.status !== null && c.status !== '');
-
-    if (validToGen.length === 0) {
-      // If selection exists but all are Red, warn user
-      if (toGen.length > 0) {
-        alert("No clips ready for generation.\n\nAll selected clips are marked as 'Red' (Pending/Do Not Generate).\nPlease edit clips or manually set them to 'Ready' (Orange) to proceed.");
-        return;
-      }
-      return;
-    }
-
-    // --- Validation (v0.17.4) ---
-    // Check Model Requirements driven by `models.ts`
-    const config = getModelConfig(selectedModel);
-    if (config?.validation?.explicitReference) {
-      // Find invalid clips
-      const invalidClips = validToGen.filter(c => {
-        // Media Table References (Source of Truth)
-        const hasMediaRefs = c.mediaReferences && c.mediaReferences.length > 0;
-        return !hasMediaRefs;
-      });
-
-      if (invalidClips.length > 0) {
-        const names = invalidClips.map(c => `${c.scene} ${c.title || 'Untitled'}`).slice(0, 5).join('\n');
-        const suffix = invalidClips.length > 5 ? `\n...and ${invalidClips.length - 5} more` : '';
-        alert(`Validation Error: The selected model '${config.label}' requires a Manual Reference Image for every clip.\n\nThe following clips are missing a reference:\n\n${names}${suffix}\n\nPlease sideload or paste an image URL for these clips.`);
-        return;
-      }
-    }
-
-    // Store extras for execution
-    setPendingGenerateExtras(extras);
-
-    // Show Confirmation Dialog (Restored)
-    setShowClipConfirm(true);
-  };
-
-  // --- Single Clip Generate (Row button + BEM button) ---
-  const handleGenerateSingle = (clip: Clip) => {
-    // Model validation (same as batch)
-    const config = getModelConfig(selectedModel);
-    if (config?.validation?.explicitReference) {
-      const hasMediaRefs = clip.mediaReferences && clip.mediaReferences.length > 0;
-      if (!hasMediaRefs) {
-        alert(`Validation Error: Model '${config.label}' requires a Reference Image.\n\nPlease add one before generating.`);
-        return;
-      }
-    }
-    setPendingGenerateClip(clip);
-    setShowClipConfirm(true);
-  };
-
-  const executeClipGeneration = async () => {
-    setShowClipConfirm(false); // Close Dialog
-
-    // === SINGLE CLIP MODE ===
-    if (pendingGenerateClip) {
-      const clip = pendingGenerateClip;
-      setPendingGenerateClip(null);
-      const index = clips.findIndex(c => c.id === clip.id);
-      if (index < 0) return;
-
-      setCopyMessage(`Generating clip ${clip.scene || clip.title}...`);
-      setTimeout(() => setCopyMessage(null), 3000);
-
-      handleSave(clip.id, { status: 'Generating', isPersisted: false }).catch(console.error);
-      await handleGenerate(clip, index, pendingGenerateExtras);
-      setPendingGenerateExtras(null);
-      return;
-    }
-
-    // === BATCH MODE (existing logic) ===
-    // Re-filter just in case (though selectedIds matches)
-    const rawToGen = activeClips.filter(c => selectedIds.has(c.id));
-    // Apply Traffic Light Filter
-    const toGen = rawToGen.filter(c => c.status !== 'Pending' && c.status !== undefined && c.status !== null && c.status !== '');
-
-    // Non-blocking notification
-    setCopyMessage(`Generating ${toGen.length} clips...`);
-    setTimeout(() => setCopyMessage(null), 3000);
-
-    const extras = pendingGenerateExtras; // Snap current state
-
-    for (const clip of toGen) {
-      // Find original index in full list for API
-      const index = clips.findIndex(c => c.id === clip.id);
-
-      // Update Traffic Light to Green (Generating)
-      // "On generate: change to Green"
-      // We do this optimistically and persist so Batch Modal sees it
-      handleSave(clip.id, { status: 'Generating', isPersisted: false }).catch(console.error);
-
-      await handleGenerate(clip, index, extras);
-    }
-    setPendingGenerateExtras(null); // Cleanup
-  };
-
-  const handleDownloadSelected = async () => {
-    const toDownload = activeClips.filter(c => selectedIds.has(c.id) && c.resultUrl);
-    if (toDownload.length === 0) return alert("No completed clips selected.");
-
-    let successCount = 0;
-    setCopyMessage(`Downloading ${toDownload.length} clips...`);
-
-    // Sequential download ensures order and avoids overwhelming the server/browser
-    for (const clip of toDownload) {
-      if (!clip.resultUrl) continue;
-
-      const cleanUrl = clip.resultUrl.split(',')[0].trim();
-      const isVideo = cleanUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i);
-
-      try {
-        if (isVideo) {
-          const epId = clip.episodeId || clip.episode;
-          if (epId) {
-            const result = await persistMedia({ clipId: clip.id, episodeId: epId });
-            if (result.success) {
-              successCount++;
-              // Explicitly clear traffic light status on success
-              await handleSave(clip.id, { isPersisted: true, status: '' });
-            }
-          }
-        } else {
-          // Fallback: Browser Download (Images or Missing Context)
-          const seriesTitle = seriesList.find(s => s.id === currentSeriesId)?.title || "Unknown_Series";
-          const filename = getClipFilename(clip, seriesTitle);
-          const success = await downloadFile(cleanUrl, filename);
-
-          if (success) {
-            successCount++;
-            await handleSave(clip.id, { status: '' });
-          }
-          await new Promise(r => setTimeout(r, 500)); // Delay between browser downloads
-        }
-      } catch (err) {
-        console.error(`Failed to download ${clip.title}:`, err);
-      }
-    }
-
-    setTimeout(() => setCopyMessage(null), 3000);
-    alert(`Successfully processed ${successCount} of ${toDownload.length} clips.`);
-  };
-
-  const generateLibraryItem = async (item: LibraryItem) => {
-    const rowIndex = parseInt(item.id);
-    // Optimistic set generating
-    setGeneratingLibraryItems(prev => new Set(prev).add(item.id));
-
-    // Use Episode Style if available
-    // Note: 'currentEpKey' might not be available here as this function is used in loops.
-    // However, Library items HAVE an 'episode' field. We should look up the style for THAT episode.
-    const epKey = item.episode || '1';
-    const styleToUse = allEpisodes.find(e => e.series === currentSeriesId && e.id === epKey)?.style || '';
-
-    // DIRECT RESOLUTION: Solve Stale State Issue
-    // Look up the series model directly from the source of truth
-    const currentSeriesDirect = seriesList.find(s => s.id === currentSeriesId);
-    // Priority: Studio Item Override > Series Default > Global Fallback
-    const resolvedModel = item.model || currentSeriesDirect?.defaultModel || 'flux-2/flex-image-to-image';
-
-    try {
-      const res = await fetch('/api/generate-library', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          item,
-          rowIndex,
-          style: styleToUse,
-          styleStrength: currentGuidance, // Pass persistent guidance
-          // refStrength removed
-          seed: currentSeed ?? undefined,
-          aspectRatio: currentAspectRatio, // Pass persistent aspect ratio
-          model: resolvedModel // Use resolved model
-        })
-      });
-      const data = await res.json();
-      console.log('Library Generate Result:', data);
-
-      // If we got a Task ID (or URL), update the item locally so polling picks it up
-      // The API should have updated the sheet, but local state needs to match
-      // If we got a Task ID (or STATUS), update the item locally so polling picks it up
-      // The API should have updated the DB, but local state needs to match immediately
-      if (data.status === 'GENERATING' || data.resultUrl) {
-        setLibraryItems(prev => prev.map(i => {
-          if (i.id === item.id) {
-            return {
-              ...i,
-              status: data.status || i.status,
-              taskId: data.taskId || i.taskId,
-              refImageUrl: data.resultUrl || i.refImageUrl
-            };
-          }
-          return i;
-        }));
-      }
-
-    } catch (e) {
-      console.error(e);
-      alert("Generation failed: " + e);
-    } finally {
-      // We only remove from 'generating' set if it failed or if we want to rely solely on refImageUrl
-      // Let's remove it to let the 'TASK:' detection take over
-      setGeneratingLibraryItems(prev => {
-        const next = new Set(prev);
-        next.delete(item.id);
-        return next;
-      });
-    }
-  }
-
-  // --- Studio Model Logic ---
-  const handleStudioModelChange = async (modelId: string) => {
-    // 1. Update Persistent State
-    setStudioSelectedModel(modelId);
-    localStorage.setItem('studioSelectedModel', modelId);
-
-    if (selectedLibraryIds.size === 0) return; // Keep existing guard for batch updates
-
-    // Clean value: 'default' -> null (remove override)
-    const val = modelId === 'default' ? null : modelId;
-
-    setCopyMessage(`Updating ${selectedLibraryIds.size} items...`);
-
-    // Batch Update Loop
-    const promises = Array.from(selectedLibraryIds).map(id =>
-      handleLibrarySave(id, { model: val })
-    );
-
-    await Promise.all(promises);
-    setCopyMessage(null);
-  };
-
-  // derived model for toolbar
-  // If selection empty -> Series Default
-  // If selection exists -> Show model if consistent, else return 'mixed' (handled by toolbar as null/mixed)
-  const studioToolbarModel = useMemo(() => {
-    if (selectedLibraryIds.size === 0) {
-      const series = seriesList.find(s => s.id === currentSeriesId);
-      return series?.defaultModel || 'flux-2/flex-image-to-image';
-    }
-
-    // Check consistency
-    const items = currentLibraryItems.filter(i => selectedLibraryIds.has(i.id));
-    if (items.length === 0) return 'flux-2/flex-image-to-image';
-
-    // Check if models are null (default) or set
-    // If null, it means it's using series default, but explicitly stored as null.
-    // For toolbar "Mixed" check, we treat null as 'default'.
-
-    const first = items[0].model;
-    const allSame = items.every(i => i.model === first);
-
-    return allSame ? (first || 'default') : 'mixed';
-  }, [selectedLibraryIds, currentLibraryItems, seriesList, currentSeriesId]);
-
-  // --- Studio Generation Confirmation ---
-  const [showStudioConfirm, setShowStudioConfirm] = useState(false);
-  // --- Clip Generation Confirmation (Restored) ---
-  const [showClipConfirm, setShowClipConfirm] = useState(false);
-  const [pendingGenerateClip, setPendingGenerateClip] = useState<Clip | null>(null);
-
-  const handleOpenStudioConfirm = () => {
-    if (selectedLibraryIds.size === 0) return;
-    setShowStudioConfirm(true);
-  };
-
-  const executeStudioGeneration = async () => {
-    setShowStudioConfirm(false); // Close first
-    const toGen = currentLibraryItems.filter(item => selectedLibraryIds.has(item.id));
-    setCopyMessage(`Generating ${toGen.length} library items...`);
-    setTimeout(() => setCopyMessage(null), 3000);
-
-    for (const item of toGen) {
-      await generateLibraryItem(item);
-    }
-  };
-
-  const handleLibraryGenerate = async (item: LibraryItem) => {
-    await generateLibraryItem(item);
-  };
-
-  const handleLibraryDownloadSelected = async () => {
-    const toDownload = currentLibraryItems.filter(item => selectedLibraryIds.has(item.id) && item.refImageUrl);
-    if (toDownload.length === 0) return alert("No completed items selected.");
-
-    // Sequential download to prevent browser blocking
-    for (const item of toDownload) {
-      if (!item.refImageUrl) continue;
-      const ext = item.refImageUrl.split('.').pop()?.split('?')[0] || 'png';
-      const filename = `${item.name}.${ext}`;
-      await downloadFile(item.refImageUrl, filename);
-      // Small delay to help browser manager
-      await new Promise(r => setTimeout(r, 200));
-    }
-  };
-
-  const handleDeleteLibraryItem = (id: string) => {
-    markLibraryItemDeleted(id);
-  };
 
   // --- Studio Asset Viewer Integration ---
   const fetchStudioAsset = async (name: string, type: 'CHARACTER' | 'LOCATION') => {
@@ -1339,232 +890,8 @@ export default function Home() {
     notifyWrite();
   };
 
-  const handleDeleteClip = (id: string) => {
-    markClipDeleted(id);
-  };
-
-  // --- Polling Logic ---
-  // (Maintained by usePolling hook)
-  usePolling({
-    clips: clips,
-    libraryItems: libraryItems,
-    refreshData: refreshData,
-    intervalMs: 3000 // 3s polling (Hyper Aggressive for Nano)
-  });
-
-
-  // --- Duplicate Logic ---
-  const handleDuplicateClip = async (id: string) => {
-    // Determine active list for proper contextual insertion
-    const currentList = activeClips.length > 0 ? activeClips : clips.filter(c => c.series === currentSeriesId);
-
-    // 1. Find the clip and its index in the CONTEXTUAL list
-    const visualIndex = currentList.findIndex(c => c.id === id);
-    if (visualIndex === -1) return;
-
-    const parentClip = currentList[visualIndex];
-    const prevClip = currentList[visualIndex];
-    const nextClip = currentList[visualIndex + 1];
-
-    // 2. Scene Number Logic: STRICTLY NUMERIC
-    const sceneNum = parseFloat(parentClip.scene);
-    if (isNaN(sceneNum)) {
-      alert("Cannot duplicate: Scene number must be numeric (e.g. '1.0').");
-      return;
-    }
-
-    // Smart Increment: 1.0 -> 1.1, 1.9 -> 2.0
-    const newScene = (sceneNum + 0.1).toFixed(1).replace(/\.0$/, '');
-
-    // 3. Sort Order Logic: Collision Detection & Rebalancing
-    const parentOrder = parentClip.sortOrder || 0;
-    const nextOrder = nextClip ? (nextClip.sortOrder || (parentOrder + 20)) : (parentOrder + 20);
-
-    // Calculate naive midpoint
-    let newSortOrder = Math.round((parentOrder + nextOrder) / 2);
-
-    // Collision Threshold: If gap is too small, we risk integer collisions or unstable sorts
-    const gap = nextOrder - parentOrder;
-    const needsRebalance = gap <= 1 || newSortOrder === parentOrder || newSortOrder === nextOrder;
-
-    let rebalanceUpdates: { id: string | number; sortOrder: number }[] = [];
-
-    if (needsRebalance) {
-      console.log(`[Duplicate] Collision Detected (Gap: ${gap}). Rebalancing list...`);
-      // Strategy: Shift everything below insertion point down by 10 to clear space
-      // We re-calculate sort orders for the ENTIRE active list to ensure clean 10-step intervals
-      // Insertion index is visualIndex + 1
-
-      const insertAt = visualIndex + 1;
-
-      // Calculate new order for the NEW clip
-      newSortOrder = (insertAt + 1) * 10;
-
-      // Re-map existing clips to new robust orders
-      // We skip the slot for the new clip
-      currentList.forEach((c, i) => {
-        // If index is before insertion, keep stable or normalize? 
-        // Normalize entire list for max stability.
-        const baseIndex = i < insertAt ? i : i + 1; // Shift indices after insertion
-        const robustOrder = (baseIndex + 1) * 10;
-
-        // Only update if changed
-        if (c.sortOrder !== robustOrder) {
-          rebalanceUpdates.push({ id: c.id, sortOrder: robustOrder });
-        }
-      });
-    }
-
-    // 4. Create New Clip Object
-    const tempId = `temp-${Date.now()}`;
-
-    const newClip: Clip = {
-      ...parentClip,
-      id: tempId,
-      scene: newScene,
-      sortOrder: newSortOrder,
-      status: 'Ready',
-      resultUrl: parentClip.resultUrl, // Fix: Copy result logic
-      thumbnailPath: parentClip.thumbnailPath, // Fix: Copy thumbnail path
-      taskId: '',
-      mediaReferences: parentClip.mediaReferences || [] // Copy media references
-    };
-
-    // 5. Optimistic Update (Global List)
-    const globalIndex = clips.findIndex(c => c.id === id); // Find in master list
-    const updatedClips = [...clips];
-    updatedClips.splice(globalIndex + 1, 0, newClip);
-
-    // Apply rebalance updates locally if any
-    if (rebalanceUpdates.length > 0) {
-      const updateMap = new Map(rebalanceUpdates.map(u => [u.id.toString(), u.sortOrder]));
-      updatedClips.forEach(c => {
-        if (updateMap.has(c.id)) {
-          c.sortOrder = updateMap.get(c.id)!;
-        }
-      });
-    }
-
-    setClips(updatedClips);
-
-    try {
-      // 6. API Call - Rebalance First (if needed) to prevent unique constraint issues (rare) or just clean state
-      if (rebalanceUpdates.length > 0) {
-        await fetch('/api/sort', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ updates: rebalanceUpdates })
-        });
-      }
-
-      // 7. Create Clip (with sourceClipId for reference image duplication)
-      const res = await fetch('/api/clips', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clip: newClip,
-          sourceClipId: id  // Enable backend to copy reference Media records
-        })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || 'Creation failed');
-      notifyWrite();
-
-      // 8. Update Real ID
-      setClips(prev => prev.map(c => {
-        if (c.id === tempId) {
-          return {
-            ...c,
-            id: data.clip.id,
-            episode: data.clip.episode
-          };
-        }
-        return c;
-      }));
-
-    } catch (e: any) {
-      console.error("Duplicate failed", e);
-      alert(`Failed to duplicate clip: ${e.message}`);
-      // Revert is complex here due to rebalance; simple revert:
-      // Just reload data? Or filter out tempId and ignore sort drifts (harmless)
-      setClips(prev => prev.filter(c => c.id !== tempId));
-      refreshData();
-    }
-  };
-
-  const handleAddClip = async () => {
-    if (!currentSeriesId) {
-      alert("Please select a series first.");
-      return;
-    }
-
-    // 1. Calculate Next Scene Number
-    let nextScene = "1";
-    let newSortOrder = 0;
-
-    if (activeClips.length > 0) {
-      const lastClip = activeClips[activeClips.length - 1];
-      // Logic: SCN default is now 0 as per request.
-      // Auto-increment logic removed/ignored for now.
-
-      // Sort Order: Add 10 to the last one
-      newSortOrder = (lastClip.sortOrder || 0) + 10;
-    } else {
-      // Empty list logic
-      newSortOrder = 10;
-    }
-
-    // 2. Create Clip Object
-    const tempId = `temp-${Date.now()}`;
-    const newClip: Clip = {
-      id: tempId,
-      scene: "0",
-      sortOrder: newSortOrder,
-      status: 'Ready',
-      resultUrl: '',
-      taskId: '',
-      episode: currentEpKey,
-      series: currentSeriesId,
-      // Optional Fields
-      title: 'New Clip',
-      character: '',
-      location: '',
-      action: '',
-      camera: '',
-      style: '',
-      dialog: ''
-    };
-
-    // 3. Optimistic Update
-    // 3. Optimistic Update
-    setClips(prev => [newClip, ...prev]); // Prepend to top
-
-    // 5. API Call
-    try {
-      const res = await fetch('/api/clips', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clip: newClip })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Creation failed');
-      notifyWrite();
-
-      // Update Real ID
-      setClips(prev => prev.map(c => {
-        if (c.id === tempId) {
-          return { ...c, id: data.clip.id, episode: data.clip.episode };
-        }
-        return c;
-      }));
-    } catch (e: any) {
-      console.error("Add Clip Failed", e);
-      alert("Failed to create clip: " + e.message);
-      setClips(prev => prev.filter(c => c.id !== tempId));
-    }
-  };
+  // --- Handlers Moved to Zustand Store ---
+  // duplicateClip, addClip, deleteClip are now atomic useDataStore actions.
 
 
 
@@ -1686,119 +1013,6 @@ export default function Home() {
     }
   };
 
-  const handleGenerate = async (clip: Clip, index: number, extras?: any) => {
-    try {
-      // Optimistic update
-      const newClips = [...clips];
-      // CRITICAL: Clear Result/TaskId to prevents Poller from seeing old 'Done' task
-      newClips[index] = { ...newClips[index], status: 'Generating', resultUrl: '', taskId: '', isPersisted: false };
-      setClips(newClips);
-
-      // Use Episode Style if available, otherwise fallback to clip style (which might be empty now)
-      // Actually, user said "Make clip render function reference episode STYLE for all clips of the Ep"
-      // So we override the clip's style with the Episode Style.
-      // Use Episode Style if available. LEGACY FALLBACK REMOVED.
-      // We no longer fallback to clip.style to prevent confusion with old sheet data.
-      const styleToUse = currentStyle || "";
-
-      // UNIFIED ENDPOINT: Use /api/generate for ALL models (Flux, Nano, Veo, Kling).
-      // The backend GenerateManager handles dispatch logic.
-      const endpoint = '/api/generate';
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clip: { ...clip, style: styleToUse, duration: clipDuration }, // Override style & duration
-          library: allSeriesAssets, // Use filtered library
-          model: clip.model || selectedModel || 'flux', // Use clip's specific model (from BEM) or fallback to Toolbar
-          aspectRatio: currentAspectRatio, // Use Episode's Aspect Ratio (not stale local state)
-          sound: audioEnabled, // Pass Audio Toggle
-          seed: currentSeed ?? undefined, // Pass Persistent Seed
-          startFrame: extras?.startFrame, // Pass Start Frame Toggle
-          rowIndex: parseInt(clip.id) // Use immutable ID (Sheet Row Index)
-        }),
-      });
-
-      const data = await res.json();
-      console.log('Backend Response:', data);
-
-      if (!res.ok) throw new Error(data.error);
-      console.log('Task started:', data.taskId);
-
-      // Update local state with Task ID in resultUrl (so poller can find it)
-      // Use resultUrl (Flux) or taskId (Veo)
-      // Clone item to ensure React update
-      newClips[index] = {
-        ...newClips[index],
-        taskId: data.taskId || newClips[index].taskId, // Crucial: Set TaskID so polling sees it
-        resultUrl: data.resultUrl || '', // Only set resultUrl if actual URL returned
-        model: selectedModel || 'flux' // Save model so polling knows what to check
-      };
-      setClips(newClips);
-
-    } catch (error: any) {
-      console.error('Generate failed:', error);
-      alert(`Generation failed for clip ${clip.id}: ${error.message}`);
-      // Revert status on error
-      const newClips = [...clips];
-      newClips[index].status = 'Error';
-      setClips(newClips);
-    }
-  };
-
-  const [playlist, setPlaylist] = useState<string[]>([]);
-  const [currentPlayIndex, setCurrentPlayIndex] = useState<number>(-1);
-
-  const handlePlayAll = () => {
-    const validClips = activeClips.filter(c => c.status === 'Done' && c.resultUrl && c.resultUrl.startsWith('http'));
-    if (validClips.length === 0) return;
-
-    const urls = validClips.map(c => c.resultUrl as string);
-    setPlaylist(urls);
-    setCurrentPlayIndex(0);
-    setPlayingVideoUrl(urls[0]);
-  };
-
-  const handleVideoEnded = () => {
-    if (currentPlayIndex >= 0 && currentPlayIndex < playlist.length - 1) {
-      const nextIndex = currentPlayIndex + 1;
-      setCurrentPlayIndex(nextIndex);
-      setPlayingVideoUrl(playlist[nextIndex]);
-    } else {
-      // End of playlist
-      setPlaylist([]);
-      setCurrentPlayIndex(-1);
-      setPlayingVideoUrl(null);
-    }
-  };
-
-  const handleMoveSelected = async (targetEp: number) => {
-    try {
-      const clipIds = Array.from(selectedIds);
-      if (clipIds.length === 0) return;
-
-      const res = await fetch('/api/move-clips', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clipIds,
-          targetEpisodeNumber: targetEp,
-          currentSeriesId
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Move failed');
-
-      // Refresh to reflect changes
-      window.location.reload();
-
-    } catch (e: any) {
-      console.error("Move Clips Error", e);
-      alert(`Failed to move clips: ${e.message}`);
-    }
-  };
 
 
   const handleIngest = async (json: string) => {
@@ -2050,10 +1264,7 @@ export default function Home() {
         error={error}
         onViewChange={(view: string) => {
           if (view === 'settings') {
-            const savedVideo = localStorage.getItem("videoPromptTemplate")
-            const savedImage = localStorage.getItem("imagePromptTemplate")
-            setVideoPromptTemplate(savedVideo || DEFAULT_VIDEO_PROMPT)
-            setImagePromptTemplate(savedImage || DEFAULT_IMAGE_PROMPT)
+
           }
 
           // Handle 'media' specially -> Navigate away
@@ -2076,7 +1287,7 @@ export default function Home() {
               episodeKeys={sortedEpKeys}
               currentEpisode={currentEpisode}
               episodeTitles={seriesEpisodeTitles}
-              onEpisodeChange={(ep) => { setCurrentEpisode(ep); setSelectedLibraryIds(new Set()); }}
+              onEpisodeChange={(ep) => setCurrentEpisode(ep)}
             />
           )}
 
@@ -2226,96 +1437,12 @@ export default function Home() {
                 </div>
               </div>
             )}
+
             {currentView === 'clips' && (
-              <ActionToolbar
-                currentEpKey={currentEpKey}
-                episodeUuid={currentEpObj?.uuid} // NEW: Pass UUID
-                onMoveSelected={handleMoveSelected}
-                totalClips={activeClips.length}
-                readyClips={activeClips.filter(c => c.status === 'Done').length}
-                selectedCount={activeClips.filter(c => selectedIds.has(c.id)).length}
-                onGenerateSelected={handleGenerateSelected}
-                onDownloadSelected={handleDownloadSelected}
-                selectedModel={selectedModel}
-                onModelChange={async (model) => {
-                  setSelectedModel(model);
-                  localStorage.setItem("selectedModel", model);
-                  // Fix: Persist to Episode to prevent revert
-                  updateEpisodeSetting({ model });
-
-                  // Audio/Duration Reset Logic (Defensive UI)
-                  const newConfig = getModelConfig(model);
-                  if (!newConfig.hasAudio) {
-                    setAudioEnabled(false);
-                    setClipDuration("5");
-                  }
-
-                  // Persist to Episode
-                  try {
-                    await fetch('/api/update_episode', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        seriesId: currentSeriesId,
-                        episodeId: currentEpKey,
-                        updates: { model }
-                      })
-                    });
-
-                    // Update local state to prevent "flicker" on next refresh or switch
-                    setAllEpisodes(prev => prev.map(e =>
-                      (e.series === currentSeriesId && e.id === currentEpKey)
-                        ? { ...e, model }
-                        : e
-                    ));
-
-                  } catch (e) {
-                    console.error("Failed to save episode model", e);
-                  }
-                }}
-                currentStyle={currentStyle}
-                onStyleChange={(style) => updateEpisodeSetting({ style })}
-                availableStyles={uniqueValues.styles}
-                aspectRatio={currentAspectRatio}
-                onAspectRatioChange={(ratio) => updateEpisodeSetting({ aspectRatio: ratio })}
-                onAddClip={handleAddClip}
-                clips={activeClips}
-                enableAudio={audioEnabled}
-                onEnableAudioChange={setAudioEnabled}
-                duration={clipDuration}
-                onDurationChange={setClipDuration}
-                seed={currentSeed}
-                onSeedChange={(val) => updateEpisodeSetting({ seed: val })}
-                onSaveClip={handleSave}
-                onDataRefresh={refreshData}
-                onGenerateSingle={handleGenerateSingle}
-                onRegisterBEMOpener={(opener) => { bemOpenerRef.current = opener; }}
-              />
+              <div id="clips-action-toolbar-portal" className="flex flex-1 items-center justify-end" />
             )}
             {currentView === 'library' && (
-              <div className="flex items-center">
-                {/* Reusing Action Toolbar style via pure component would be best, but LibraryActionToolbar is specific */}
-                <LibraryActionToolbar
-                  totalItems={activeLibraryItems.length}
-                  selectedCount={selectedLibraryIds.size}
-                  onGenerateSelected={handleOpenStudioConfirm}
-                  onDownloadSelected={handleLibraryDownloadSelected}
-                  currentStyle={currentStyle}
-                  onStyleChange={(style) => updateEpisodeSetting({ style })}
-                  availableStyles={uniqueValues.styles}
-                  onAddItem={handleAddLibraryItem}
-                  styleStrength={currentGuidance}
-                  onStyleStrengthChange={(val) => updateEpisodeSetting({ guidance: val })}
-                  // refStrength removed
-                  seed={currentSeed}
-                  onSeedChange={(val) => updateEpisodeSetting({ seed: val })}
-                  aspectRatio={currentAspectRatio}
-                  onAspectRatioChange={(ratio) => updateEpisodeSetting({ aspectRatio: ratio })}
-                  // Model Control
-                  selectedModel={studioSelectedModel}
-                  onModelChange={handleStudioModelChange}
-                />
-              </div>
+              <div className="flex items-center" />
             )}
             {currentView === 'storyboard' && (
               <div className="flex items-center gap-4 print:hidden">
@@ -2405,23 +1532,7 @@ export default function Home() {
         ) : (
           <div className="rounded-lg border border-border/40 bg-card/50 shadow-sm backdrop-blur-sm h-full flex flex-col">
             {currentView === 'series' ? (
-              <SeriesPage
-                seriesList={seriesList}
-                currentSeriesId={currentSeriesId}
-                onSeriesChange={setCurrentSeriesId}
-                onNavigateToEpisode={(sid, eid) => {
-                  setCurrentSeriesId(sid);
-                  setCurrentEpisode(parseInt(eid) || 1);
-                  handleViewChange('clips');
-                }}
-                clips={seriesClips}
-                episodes={seriesEpisodeList}
-                libraryItems={libraryItems} // Pass all library items, filtering happens inside or we pass filtered
-                videoPromptTemplate={videoPromptTemplate}
-                imagePromptTemplate={imagePromptTemplate}
-                onRefresh={refreshData}
-                onUpdateSeries={handleSeriesUpdate}
-              />
+              <SeriesView />
             ) : currentView === 'settings' ? (
               <SettingsPage onBack={() => handleViewChange('series')} />
             ) : currentView === 'script' ? (
@@ -2432,35 +1543,15 @@ export default function Home() {
                 onIngest={handleIngest}
               />
             ) : currentView === 'library' ? (
-              <LibraryTable
-                key={`library-${currentSeriesId}-${currentEpKey}`}
-                items={currentLibraryItems}
-                onSave={handleLibrarySave}
-                selectedItems={selectedLibraryIds}
-                onSelect={toggleLibrarySelect}
-                onSelectAll={toggleLibrarySelectAll}
-                onGenerate={handleLibraryGenerate}
-                isGenerating={(id) => generatingLibraryItems.has(id)}
-                onPlay={(url, contextPlaylist) => {
-                  setPlayingVideoUrl(url);
-                  if (contextPlaylist && contextPlaylist.length > 0) {
-                    setPlaylist(contextPlaylist);
-                    // Handle Rich Playlist (UniversalMediaItem[])
-                    if (typeof contextPlaylist[0] === 'object') {
-                      const index = contextPlaylist.findIndex((p: any) => p.url === url);
-                      setCurrentPlayIndex(index !== -1 ? index : 0);
-                    } else {
-                      // Legacy String[] Fallback
-                      setCurrentPlayIndex(contextPlaylist.indexOf(url));
-                    }
-                  } else {
-                    setPlaylist([url]);
-                    setCurrentPlayIndex(0);
-                  }
-                }}
-                onDelete={handleDeleteLibraryItem}
-                onDuplicate={handleDuplicateLibraryItem}
-                onArchive={archiveMedia}
+              <LibraryView
+                currentSeriesId={currentSeriesId}
+                currentEpKey={currentEpKey}
+                currentStyle={currentStyle}
+                currentGuidance={currentGuidance}
+                currentAspectRatio={currentAspectRatio}
+                currentSeed={currentSeed}
+                archiveMedia={archiveMedia}
+                updateEpisodeSetting={updateEpisodeSetting}
               />
             ) : currentView === 'storyboard' ? (
               <StoryboardView
@@ -2472,50 +1563,7 @@ export default function Home() {
                 episodeNumber={currentEpKey}
               />
             ) : (
-              <ClipTable
-                clips={activeClips}
-                selectedIds={selectedIds}
-                editingId={editingId}
-                saving={saving}
-                onSelect={handleClipSelect}
-                onSelectMultiple={handleClipSelectMultiple}
-                onSelectAll={handleClipSelectAll}
-                onEdit={startEditing}
-                onSave={handleSave}
-                onCancelEdit={handleCancelEdit}
-                onGenerate={(clip) => handleGenerateSingle(clip)}
-                onPlay={(url, contextPlaylist) => {
-                  if (!url) {
-                    console.log('Play clicked but no URL');
-                    return;
-                  }
-                  console.log('Play clicked with URL:', url);
-
-                  setPlayingVideoUrl(url);
-                  if (contextPlaylist && contextPlaylist.length > 0) {
-                    setPlaylist(contextPlaylist);
-                    // Handle Rich Playlist (UniversalMediaItem[])
-                    if (typeof contextPlaylist[0] === 'object') {
-                      const index = contextPlaylist.findIndex((p: any) => p.url === url);
-                      setCurrentPlayIndex(index !== -1 ? index : 0);
-                    } else {
-                      setCurrentPlayIndex(contextPlaylist.indexOf(url));
-                    }
-                  } else {
-                    setPlaylist([url]);
-                    setCurrentPlayIndex(0);
-                  }
-                }}
-                uniqueValues={uniqueValues}
-                onDelete={handleDeleteClip}
-                onDuplicate={handleDuplicateClip}
-                onStudioAssetClick={handleStudioAssetView}
-                onResolveImage={resolveImage}
-                onAddReference={handleAddReference}
-                seriesTitle={seriesList.find(s => s.id === currentSeriesId)?.title || 'Series'}
-                activeModel={selectedModel}
-                onOpenBEM={(clipId) => bemOpenerRef.current?.(clipId)}
-              />
+              <ClipsView bemOpenerRef={bemOpenerRef} />
             )}
           </div>
         )}
@@ -2528,27 +1576,9 @@ export default function Home() {
         onCreateEpisode={handleCreateNewEpisode}
       />
 
-      <StudioConfirmDialog
-        open={showStudioConfirm}
-        onOpenChange={setShowStudioConfirm}
-        count={selectedLibraryIds.size}
-        onConfirm={executeStudioGeneration}
-        model={studioSelectedModel}
-        style={currentStyle}
-        aspectRatio={currentAspectRatio}
-        guidance={currentGuidance}
-        seed={currentSeed}
-      />
 
-      <ClipConfirmDialog
-        open={showClipConfirm}
-        onOpenChange={setShowClipConfirm}
-        count={pendingGenerateClip ? 1 : activeClips.filter(c => selectedIds.has(c.id)).length}
-        onConfirm={executeClipGeneration}
-        model={selectedModel}
-        style={currentStyle}
-        aspectRatio={currentAspectRatio}
-      />
+
+
 
 
 

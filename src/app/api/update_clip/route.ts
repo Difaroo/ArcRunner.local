@@ -139,6 +139,10 @@ export async function POST(request: Request) {
             where: { id: updatedClip.id },
             select: {
                 episode: { select: { number: true } },
+                resultUrl: true,
+                status: true,
+                thumbnailPath: true,
+                isPersisted: true,
                 mediaReferences: { orderBy: { refImageSort: 'desc' } },
                 modelInputSlots: {
                     include: {

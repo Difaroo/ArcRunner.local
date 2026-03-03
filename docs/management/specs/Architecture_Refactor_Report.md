@@ -26,6 +26,7 @@ Focused review of the ArcRunner frontend implementation, evaluating structure, m
 
 ### State Management & Data Flow
 *   **Analysis**: `useAppStore` is a misnomer. It is currently a custom React Hook returning local state, not a singleton or global store. This means every time `page.tsx` uses it, it re-initializes. Since `page.tsx` is the only consumer, it works effectively as a "Container" state, but it causes the *entire* page tree to re-render whenever *any* single piece of data changes (e.g., just one clip updating causes the Series list to reconcile).
+*   **Race Conditions (UI vs DB)**: Because `page.tsx` relies heavily on optimistic UI updates followed by background database refreshes (`refreshData(true)`), network latency on generation calls (e.g., Kie task creation) can cause the background refresh to fetch stale database records and silently overwrite the optimistic UI state before the generation payload returns.
 *   **Data Fetching**: Data fetching is client-side (`useEffect` + `fetch`). This negates some benefits of Next.js Server Components, though it might be necessary for this highly interactive, local-first dashboard dashboard.
 
 ### TypeScript & Type Safety

@@ -41,6 +41,8 @@ import { getComputedClipStatus } from "@/lib/clip-status"
 import React from "react"
 import { resolveManifest, LibraryContext } from '@/lib/structural-manifest'
 import { getModelConfig } from "@/lib/models"
+import { ClipRowEditCells } from './ClipRowEditCells'
+import { ClipRowDisplayCells } from './ClipRowDisplayCells'
 
 interface ClipRowProps {
     clip: Clip
@@ -645,376 +647,36 @@ export function ClipRow({
                     onCheckedChange={() => onSelect(clip.id)}
                 />
             </TableCell>
-            <TableCell className={`align-top font-sans font-extralight text-stone-500 text-xs w-[35px] px-1 py-3`}>
-                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-stone-500">
-                    {isEditing ? (
-                        <Input
-                            value={editValues.scene || ''}
-                            onChange={(e) => handleChange('scene', e.target.value)}
-                            className="h-8 w-full text-xs px-1 text-center bg-stone-900 border-stone-700 text-stone-500 font-sans disabled:opacity-50"
-                        />
-                    ) : (
-                        clip.scene
-                    )}
-                </EditableCell>
-            </TableCell>
-
-            {/* ... [Title/Char/Loc/Cam/Action/Dialog Cells Omitted for Brevity - Keeping same Logic] ... 
-                Actually, multi_replace_file_content would be better if I could target chunks.
-                But since I'm doing a full file replace to ensure imports are clean, I must include EVERYTHING.
-                I will copy the standard cells from the view.
-            */}
-
-            <TableCell className={`align-top w-[160px] py-3`}>
-                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="font-medium text-white block">
-                    {isEditing ? (
-                        <Input
-                            value={editValues.title || ''}
-                            onChange={(e) => handleChange('title', e.target.value)}
-                            className="h-8 w-full text-xs bg-stone-900 border-stone-700 text-white font-normal px-2 placeholder:text-stone-600"
-                        />
-                    ) : (
-                        <span className="text-xs text-white leading-tight font-sans font-medium -translate-y-[5px] inline-block">{clip.title || '+'}</span>
-                    )}
-                </EditableCell>
-            </TableCell>
-            <TableCell className={`align-top w-[170px] py-3`} data-testid="cell-character">
-                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white whitespace-pre-line text-xs font-sans font-extralight">
-                    {isEditing ? (
-                        <div className="w-full">
-                            <div className="relative w-full flex items-center gap-1">
-                                <Input
-                                    value={editValues.character || ''}
-                                    onChange={(e) => handleChange('character', e.target.value)}
-                                    className="h-full min-h-[32px] w-full text-xs"
-                                    placeholder="Characters..."
-                                />
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                                            <span className="material-symbols-outlined !text-sm">expand_more</span>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
-                                        {uniqueValues.characters.map((char) => (
-                                            <DropdownMenuCheckboxItem
-                                                key={char}
-                                                checked={parseStringList(editValues.character || "").includes(char)}
-                                                onCheckedChange={() => toggleCharacter(char)}
-                                                onSelect={(e) => e.preventDefault()}
-                                                className="focus:bg-stone-800 focus:text-white"
-                                            >
-                                                {char}
-                                            </DropdownMenuCheckboxItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                            {/* Edit Mode Preview - Live Updates using editValues */}
-                            {isEditing && onResolveImage ? (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                    {(editValues.character ? parseStringList(editValues.character) : []).map((char, i) => {
-                                        const url = onResolveImage?.(char);
-                                        if (!url) return null;
-                                        return (
-                                            <img
-                                                key={`${char}-${i}`}
-                                                src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                                alt={char}
-                                                className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm cursor-pointer hover:opacity-75 transition-opacity"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onStudioAssetClick?.(char, 'CHARACTER');
-                                                }}
-                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                title={char}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                /* Fallback to existing static Preview if no resolver */
-                                clip.characterImageUrls && clip.characterImageUrls.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-1 opacity-50">
-                                        {clip.characterImageUrls.map((url, i) => (
-                                            <img
-                                                key={i}
-                                                src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                                alt="Char Prev"
-                                                className="w-[32px] h-[32px] object-cover rounded border border-white/10 shadow-sm"
-                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                            />
-                                        ))}
-                                    </div>
-                                )
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-2 max-h-[70px] overflow-hidden">
-                            {clip.character
-                                ? clip.character.split(',').map((char, i, arr) => (
-                                    <div key={i} className="leading-tight truncate" title={char.trim()}>{char.trim()}{i < arr.length - 1 ? ',' : ''}</div>
-                                ))
-                                : <span className="text-stone-500 italic">+</span>
-                            }
-                            {clip.characterImageUrls && clip.characterImageUrls.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                    {clip.characterImageUrls.map((url, i) => {
-                                        // Get character name from URL index
-                                        const chars = parseStringList(clip.character || "");
-                                        const charName = chars[i] || chars[0]; // Fallback to first if index mismatch
-                                        return (
-                                            <img
-                                                key={i}
-                                                src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                                alt="Char Ref"
-                                                className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm cursor-pointer hover:opacity-75 transition-opacity"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (charName) {
-                                                        onStudioAssetClick?.(charName, 'CHARACTER');
-                                                    }
-                                                }}
-                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                title={charName}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </EditableCell>
-            </TableCell>
-            <TableCell className={`align-top w-[170px] py-3`}>
-                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
-                    {isEditing ? (
-                        <div className="w-full">
-                            <div className="relative w-full flex items-center gap-1">
-                                <Input
-                                    value={editValues.location || ''}
-                                    onChange={(e) => handleChange('location', e.target.value)}
-                                    className="h-8 w-full text-xs"
-                                    placeholder="Location..."
-                                />
-                                {uniqueValues.locations.length > 0 && (
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                                                <span className="material-symbols-outlined !text-sm">expand_more</span>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
-                                            {uniqueValues.locations.map((loc) => (
-                                                <DropdownMenuItem
-                                                    key={loc}
-                                                    onClick={() => handleChange('location', loc)}
-                                                    className="focus:bg-stone-800 focus:text-white cursor-pointer"
-                                                >
-                                                    {loc}
-                                                </DropdownMenuItem>
-                                            ))}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                )}
-                            </div>
-                            {/* Edit Mode Preview - Location Thumb (Live Update) */}
-                            {isEditing && onResolveImage && (editValues.location || "").trim().length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                    {(() => {
-                                        const locName = (editValues.location || "").trim();
-                                        const url = onResolveImage(locName);
-                                        if (!url) return null;
-                                        return (
-                                            <img
-                                                key={locName}
-                                                src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                                alt={locName}
-                                                className="w-[32px] h-[32px] object-cover rounded border border-white/10 shadow-sm opacity-50"
-                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                title={locName}
-                                            />
-                                        );
-                                    })()}
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-2 max-h-[70px] overflow-hidden">
-                            <span className="text-xs text-white leading-tight font-sans font-extralight truncate block" title={clip.location || ''}>{clip.location || '+'}</span>
-                            {clip.locationImageUrls && clip.locationImageUrls.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                    {clip.locationImageUrls.map((url, i) => (
-                                        <img
-                                            key={i}
-                                            src={url.startsWith('/') || url.startsWith('http') ? url : `/api/proxy-image?url=${encodeURIComponent(url)}`}
-                                            alt={"Loc Ref"}
-                                            className="w-[40px] h-[40px] object-cover rounded border border-white/10 shadow-sm cursor-pointer hover:opacity-75 transition-opacity"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                const locationName = clip.location?.trim();
-                                                if (locationName) {
-                                                    onStudioAssetClick?.(locationName, 'LOCATION');
-                                                }
-                                            }}
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </EditableCell>
-            </TableCell>
-            <TableCell className={`align-top text-white text-xs w-[140px] py-3`}>
-                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit}>
-                    {isEditing ? (
-                        <div className="flex flex-col gap-2">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 w-full justify-start text-xs text-left truncate">
-                                        {editValues.camera || "Select..."}
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-48 max-h-60 overflow-y-auto bg-stone-900 border-stone-800 text-white">
-                                    {uniqueValues.cameras.map((opt) => (
-                                        <DropdownMenuItem
-                                            key={opt}
-                                            onClick={() => handleChange('camera', opt)}
-                                            className="focus:bg-stone-800 focus:text-white"
-                                        >
-                                            {opt}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            {/* NEGATIVE PROMPT (NEGATE) */}
-                            <div className="space-y-1">
-                                <span className="text-[10px] text-zinc-500 font-medium tracking-wider uppercase">NEGATE</span>
-                                <AutoResizeTextarea
-                                    value={editValues.negativePrompt || ''}
-                                    onChange={(e) => handleChange('negativePrompt', e.target.value)}
-                                    className="min-h-[40px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-normal leading-relaxed placeholder:text-zinc-600"
-                                    placeholder="No blur, distortions..."
-                                />
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-1 w-full h-full max-h-[70px] overflow-hidden">
-                            <span className="text-xs text-white leading-tight font-sans font-extralight truncate block">{clip.camera || '+'}</span>
-                            {clip.negativePrompt ? (
-                                <div className="flex flex-col gap-0 mt-2">
-                                    <span className="font-medium text-stone-500 text-[10px] tracking-wider uppercase">NEGATE</span>
-                                    <span className="text-xs text-white leading-tight font-sans font-extralight line-clamp-2" title={clip.negativePrompt}>{clip.negativePrompt}</span>
-                                </div>
-                            ) : null}
-                        </div>
-                    )}
-                </EditableCell>
-            </TableCell>
-            <TableCell className={`align-top text-white w-[15%] py-3`}>
-                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="leading-relaxed">
-                    {isEditing ? (
-                        <AutoResizeTextarea
-                            value={editValues.action || ''}
-                            onChange={(e) => handleChange('action', e.target.value)}
-                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-thin leading-relaxed"
-                        />
-                    ) : (
-                        <span className="text-xs text-white leading-tight font-sans font-thin line-clamp-3 text-ellipsis overflow-hidden whitespace-pre-wrap break-words" title={clip.action || ''}>{clip.action || '+'}</span>
-                    )}
-                </EditableCell>
-            </TableCell>
-            <TableCell className={`align-top text-white w-[15%] py-3`}>
-                <EditableCell isEditing={isEditing} onStartEdit={handleStartEdit} className="text-white">
-                    {isEditing ? (
-                        <AutoResizeTextarea
-                            value={editValues.dialog || ''}
-                            onChange={(e) => handleChange('dialog', e.target.value)}
-                            className="min-h-[80px] text-xs bg-stone-900 border-stone-700 text-white w-full font-sans font-thin leading-relaxed"
-                        />
-                    ) : (
-                        <span className="text-xs text-white leading-tight font-sans font-thin line-clamp-3 text-ellipsis overflow-hidden whitespace-pre-wrap break-words" title={clip.dialog || ''}>{clip.dialog || '+'}</span>
-                    )}
-                </EditableCell>
-            </TableCell>
-            <TableCell className="align-top py-3 w-[80px] text-right">
-                {isEditing ? (
-                    <div className="flex flex-col gap-2 w-full">
-                        <ImageUploadCell
-                            value={getEffectiveRefs().join(',')}
-                            onChange={(url) => {
-                                if (onAddReference) onAddReference(clip.id, url, 'IMAGE');
-                            }}
-                            onRemove={(url) => handleRefUnlink(url)}
-                            isEditing={true}
-                            autoOpen={autoOpenUpload}
-                            onAutoOpenComplete={() => setAutoOpenUpload(false)}
-                            episode={clip.episode}
-                        />
-                    </div>
-                ) : (
-                    <div
-                        className={`flex flex-wrap gap-1 w-full justify-end content-start rounded transition-colors ${isRefDragOver ? 'bg-stone-800 ring-2 ring-stone-600' : ''}`}
-                        onClick={handleStartEdit}
-                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(true); }}
-                        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsRefDragOver(false); }}
-                        onDrop={handleRefDropRef}
-                    >
-                        {getEffectiveRefs().length > 0 ? (
-                            getEffectiveRefs().slice(0, 9).map((url: string, i: number) => {
-                                if (!url) return null;
-                                const slot = (clip.modelInputSlots || []).find((s: any) => getMISSlotUrl(s) === url);
-                                const label = slot?.studioItem?.name || slot?.media?.studioItem?.name || 'Reference';
-                                return (
-                                    <div key={`mis-${i}`} className="w-[24px] h-[24px]">
-                                        <MediaDisplay
-                                            url={url}
-                                            title={label}
-                                            className="w-full h-full object-cover rounded shadow-sm hover:opacity-80 transition-opacity"
-                                            isReference={true}
-                                            contentType="auto"
-                                            onUnlink={() => handleRefUnlink(url)}
-                                            onPlay={(clickedUrl) => {
-                                                const allUrls = getEffectiveRefs();
-                                                const resultUrls = parseStringList(clip.resultUrl || '');
-                                                const refItems = allUrls.map((u: string, idx: number) => ({
-                                                    id: u,
-                                                    url: u,
-                                                    type: (u.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'video' : 'image') as 'video' | 'image',
-                                                    title: 'Reference',
-                                                    isReference: true,
-                                                    ownerClipId: clip.id.toString()
-                                                }));
-
-                                                let fullPlaylist = [...refItems];
-                                                if (resultUrls.length > 0) {
-                                                    const resultItems = resultUrls.map((resUrl, idx) => ({
-                                                        id: `result-${clip.id}-${idx}`,
-                                                        url: resUrl,
-                                                        type: (resUrl.match(/\.(mp4|mov|webm|mkv)($|\?)/i) ? 'video' : 'image') as 'video' | 'image',
-                                                        title: idx === 0 ? 'Latest Result' : `History ${idx}`,
-                                                        isReference: false,
-                                                        ownerClipId: clip.id.toString()
-                                                    }));
-                                                    fullPlaylist = [...resultItems, ...refItems];
-                                                }
-
-                                                onPlay(clickedUrl, fullPlaylist);
-                                            }}
-                                        />
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-end text-stone-600 text-[10px] px-2 opacity-50 group-hover:opacity-100">
-                                Drop Refs
-                            </div>
-                        )}
-                    </div>
-                )}
-            </TableCell >
+            {isEditing ? (
+                <ClipRowEditCells
+                    clip={clip}
+                    editValues={editValues}
+                    handleChange={handleChange}
+                    uniqueValues={uniqueValues}
+                    toggleCharacter={toggleCharacter}
+                    onResolveImage={onResolveImage}
+                    onStudioAssetClick={onStudioAssetClick}
+                    getEffectiveRefs={getEffectiveRefs}
+                    onAddReference={onAddReference}
+                    handleRefUnlink={handleRefUnlink}
+                    autoOpenUpload={autoOpenUpload}
+                    setAutoOpenUpload={setAutoOpenUpload}
+                    handleStartEdit={handleStartEdit}
+                />
+            ) : (
+                <ClipRowDisplayCells
+                    clip={clip}
+                    handleStartEdit={handleStartEdit}
+                    onResolveImage={onResolveImage}
+                    onStudioAssetClick={onStudioAssetClick}
+                    getEffectiveRefs={getEffectiveRefs}
+                    isRefDragOver={isRefDragOver}
+                    setIsRefDragOver={setIsRefDragOver}
+                    handleRefDropRef={handleRefDropRef}
+                    handleRefUnlink={handleRefUnlink}
+                    onPlay={onPlay}
+                />
+            )}
 
             {/* --- REFACTOR START: SHARED COMPONENTS --- */}
 

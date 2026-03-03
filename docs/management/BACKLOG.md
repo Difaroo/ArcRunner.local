@@ -10,6 +10,12 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.33.3 (Stability & BEM Hotfixes)
+- [x] **Veo S2E Spinner Freeze**: Fixed UI state race condition in `ClipsView.tsx` where background auto-saves overwrote the optimistic 'Generating' status before Kie remote `taskId` returned.
+- [x] **BEM Pool Unlinking Cascade**: Fixed bug where unlinking an image from the BEM Asset Pool wiped the main clip's actively displaying video result by hardcoding `isResult=false`.
+- [x] **ActionToolbar Layout Restoration**: Restored layout consistency spanning Episode, Sideload, and View modes.
+- [x] **BEM Viewport Context**: Fixed rendering visibility bugs for the Latest Result viewer in the BEM via precise `viewportContext` conditionals.
+
 ## 🚀 Released v0.33.2 (Veo S2E Payload & BEM Fixes)
 - [x] **Veo Start-to-End Generation**: Fixed silent timeout and infinite spinner by removing the legacy `base64` payload override and coercing the `first_and_last_frames_2_video` API type for compliance.
 - [x] **Universal Viewer Playlist**: Fixed bug where S2E videos loaded as broken image plates due to extension-less Google Cloud URLs. Enforced model-flag deterministic typing.

@@ -1,5 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { Clip, Series, Episode, LibraryItem } from '@/types';
+import { clipsApi } from '@/services/api';
 
 interface AppState {
     // State
@@ -31,6 +32,13 @@ interface AppState {
     markClipDeleted: (id: string) => void;
     notifyWrite: () => void;
     refreshData: (silent?: boolean) => Promise<void>;
+
+    // Core Data Mutations
+    updateClip: (id: string, updates: Partial<Clip>) => Promise<void>;
+    updateSeries: (id: string, updates: Partial<Series>) => Promise<void>;
+    addClip: () => Promise<void>;
+    duplicateClip: (id: string) => Promise<void>;
+    deleteClip: (id: string) => Promise<void>;
 
     // Media Player State
     playingClipId: string | null;
@@ -83,13 +91,172 @@ const createStore: StateCreator<AppState> = (set, get) => ({
     // Concurrency Control
     notifyWrite: () => set({ lastWriteTime: Date.now() }),
 
+    // --- Core Data Mutations ---
+    updateSeries: async (id: string, updates: Partial<Series>) => {
+        const { setSeriesList, notifyWrite, refreshData } = get();
+        // 1. Optimistic Update
+        setSeriesList(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+        notifyWrite();
+
+        try {
+            // 2. API Call
+            const payload = { seriesId: id, ...updates };
+            const res = await fetch('/api/update_series', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error("Update failed");
+        } catch (e) {
+            console.error("Series update failed", e);
+            refreshData(); // Revert/Refresh on error
+            throw e;
+        }
+    },
+
+    updateClip: async (clipId: string, updates: Partial<Clip>) => {
+        const { clips, notifyWrite } = get();
+        try {
+            const data = await clipsApi.update(parseInt(clipId), updates);
+            if (!data.success) throw new Error(data.error || 'Failed to parse save');
+
+            notifyWrite();
+
+            set((state) => {
+                const newClips = state.clips.map(c => c.id === clipId ? {
+                    ...c,
+                    ...(data.clip || {}),
+                    ...updates, // optimistically apply updates
+                    mediaReferences: data.clip?.mediaReferences || c.mediaReferences || [],
+                    modelInputSlots: data.clip?.modelInputSlots || c.modelInputSlots || []
+                } : c);
+                return { clips: newClips };
+            });
+        } catch (err) {
+            console.error('Save error:', err);
+            throw err;
+        }
+    },
+
+    addClip: async () => {
+        const { clips, currentSeriesId, currentEpisode, allEpisodes, notifyWrite } = get();
+        if (!currentSeriesId) throw new Error("Please select a series first.");
+
+        const currentEpKey = allEpisodes.find(e => e.series === currentSeriesId && e.id === currentEpisode.toString())?.id || '1';
+        const activeClips = clips.filter(c => c.episode === currentEpKey && c.series === currentSeriesId);
+
+        let newSortOrder = activeClips.length > 0 ? (activeClips[activeClips.length - 1].sortOrder || 0) + 10 : 10;
+        const tempId = `temp-${Date.now()}`;
+        const newClip: Clip = {
+            id: tempId, scene: "0", sortOrder: newSortOrder, status: 'Ready',
+            resultUrl: '', taskId: '', episode: currentEpKey, series: currentSeriesId,
+            title: 'New Clip', character: '', location: '', action: '', camera: '', style: '', dialog: ''
+        };
+
+        set((state) => ({ clips: [newClip, ...state.clips] }));
+
+        try {
+            const data = await clipsApi.create({ clip: newClip });
+            if (!data.success) throw new Error(data.error || 'Creation failed');
+            notifyWrite();
+
+            set((state) => ({
+                clips: state.clips.map(c => c.id === tempId ? { ...c, id: data.clip.id, episode: data.clip.episode } : c)
+            }));
+        } catch (err) {
+            console.error("Add Clip Failed", err);
+            set((state) => ({ clips: state.clips.filter(c => c.id !== tempId) }));
+            throw err;
+        }
+    },
+
+    duplicateClip: async (id: string) => {
+        const { clips, currentSeriesId, notifyWrite, refreshData } = get();
+        const visualIndex = clips.findIndex(c => c.id === id);
+        if (visualIndex === -1) return;
+
+        const parentClip = clips[visualIndex];
+        const sceneNum = parseFloat(parentClip.scene);
+        if (isNaN(sceneNum)) throw new Error("Cannot duplicate: Scene number must be numeric (e.g. '1.0').");
+
+        const newScene = (sceneNum + 0.1).toFixed(1).replace(/\.0$/, '');
+        const currentList = clips.filter(c => c.series === currentSeriesId);
+        const parentVisualIndex = currentList.findIndex(c => c.id === id);
+        const nextClip = currentList[parentVisualIndex + 1];
+
+        const parentOrder = parentClip.sortOrder || 0;
+        const nextOrder = nextClip ? (nextClip.sortOrder || (parentOrder + 20)) : (parentOrder + 20);
+        let newSortOrder = Math.round((parentOrder + nextOrder) / 2);
+
+        const gap = nextOrder - parentOrder;
+        const needsRebalance = gap <= 1 || newSortOrder === parentOrder || newSortOrder === nextOrder;
+
+        let rebalanceUpdates: { id: string | number; sortOrder: number }[] = [];
+        if (needsRebalance) {
+            const insertAt = parentVisualIndex + 1;
+            newSortOrder = (insertAt + 1) * 10;
+            currentList.forEach((c, i) => {
+                const baseIndex = i < insertAt ? i : i + 1;
+                const robustOrder = (baseIndex + 1) * 10;
+                if (c.sortOrder !== robustOrder) rebalanceUpdates.push({ id: c.id, sortOrder: robustOrder });
+            });
+        }
+
+        const tempId = `temp-${Date.now()}`;
+        const newClip: Clip = {
+            ...parentClip, id: tempId, scene: newScene, sortOrder: newSortOrder,
+            status: 'Ready', taskId: '', mediaReferences: parentClip.mediaReferences || []
+        };
+
+        const updatedClips = [...clips];
+        updatedClips.splice(visualIndex + 1, 0, newClip);
+
+        if (rebalanceUpdates.length > 0) {
+            const updateMap = new Map(rebalanceUpdates.map(u => [u.id.toString(), u.sortOrder]));
+            updatedClips.forEach(c => { if (updateMap.has(c.id)) c.sortOrder = updateMap.get(c.id)!; });
+        }
+
+        set({ clips: updatedClips });
+
+        try {
+            if (rebalanceUpdates.length > 0) await clipsApi.sort(rebalanceUpdates as any);
+            const data = await clipsApi.create({ clip: newClip, sourceClipId: id });
+            if (!data.success) throw new Error(data.error || 'Creation failed');
+            notifyWrite();
+
+            set((state) => ({
+                clips: state.clips.map(c => c.id === tempId ? { ...c, id: data.clip.id, episode: data.clip.episode } : c)
+            }));
+        } catch (err) {
+            console.error("Duplicate failed", err);
+            set((state) => ({ clips: state.clips.filter(c => c.id !== tempId) }));
+            refreshData();
+            throw err;
+        }
+    },
+
+    deleteClip: async (id: string) => {
+        const { clips, notifyWrite, markClipDeleted } = get();
+        const clip = clips.find(c => c.id === id);
+        if (!clip) return;
+
+        try {
+            await clipsApi.delete(parseInt(id), clip.episode || '1');
+            markClipDeleted(id);
+            set((state) => ({ clips: state.clips.filter(c => c.id !== id) }));
+            notifyWrite();
+        } catch (err) {
+            console.error("Delete Failed", err);
+            throw err;
+        }
+    },
+
     refreshData: async (silent = false) => {
         const startTime = Date.now();
         if (!silent) set({ loading: true });
 
         try {
-            const res = await fetch('/api/clips', { cache: 'no-store' });
-            const data = await res.json();
+            const data = await clipsApi.getAll();
 
             if (data.error) throw new Error(data.error);
 
