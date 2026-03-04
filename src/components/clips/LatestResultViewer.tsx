@@ -13,6 +13,7 @@ interface LatestResultViewerProps {
     onPersistMedia: (args: any) => Promise<{ success: boolean }>;
     onDataRefresh?: () => void;
     onAddToSlot: (item: any) => Promise<void>;
+    onClearResult?: () => void;
     onFieldChange: (field: 'action' | 'dialog', value: string) => void;
 }
 
@@ -24,6 +25,7 @@ export function LatestResultViewer({
     onPersistMedia,
     onDataRefresh,
     onAddToSlot,
+    onClearResult,
     onFieldChange
 }: LatestResultViewerProps) {
     return (
@@ -40,10 +42,10 @@ export function LatestResultViewer({
                                         variant="ghost"
                                         size="icon"
                                         className="h-6 w-6 !text-orange-500 hover:!text-orange-400 hover:bg-orange-500/10"
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                             e.stopPropagation();
                                             const resultUrl = clip.resultUrl!.split(',')[0].trim();
-                                            onAddToSlot({
+                                            await onAddToSlot({
                                                 id: `sideload-${Date.now()}`,
                                                 url: resultUrl,
                                                 thumbnailPath: clip.thumbnailPath || '',
@@ -51,6 +53,8 @@ export function LatestResultViewer({
                                                 category: 'REFERENCE',
                                                 name: `Result → Ref`
                                             });
+                                            // Clear the result from Latest Result viewer after sideloading to MIS
+                                            onClearResult?.();
                                         }}
                                     >
                                         <span className="material-symbols-outlined !text-[14px]">arrow_back</span>

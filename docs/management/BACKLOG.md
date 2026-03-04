@@ -10,6 +10,11 @@
 - [ ] **Multi-Delete**: Select multiple clips and delete in batch.
 - [ ] **Glitch**: "Save" button triggers other save buttons or UI states incorrectly.
 
+## 🚀 Released v0.33.4 (Phantom Video & Documentation)
+- [x] **Phantom Video Fix**: Cleared stale `resultUrl` for clip 334 (file deleted from disk, URL still referenced).
+- [x] **Sideload Duplication Fix**: `LatestResultViewer.tsx` sideload button now clears `resultUrl` after adding to MIS, preventing infinite phantom copies.
+- [x] **Playbook Refresh**: Updated tech stack, added DB sync protocol, fixed stale version references, updated Pre-Deploy Checklist.
+
 ## 🚀 Released v0.33.3 (Stability & BEM Hotfixes)
 - [x] **Veo S2E Spinner Freeze**: Fixed UI state race condition in `ClipsView.tsx` where background auto-saves overwrote the optimistic 'Generating' status before Kie remote `taskId` returned.
 - [x] **BEM Pool Unlinking Cascade**: Fixed bug where unlinking an image from the BEM Asset Pool wiped the main clip's actively displaying video result by hardcoding `isResult=false`.

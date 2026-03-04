@@ -665,6 +665,10 @@ function BatchEditContent({ clip, seriesId, episodeId, onSave, isSaving, onNavig
                         onPersistMedia={persistMedia}
                         onDataRefresh={onDataRefresh}
                         onAddToSlot={handleAddToSlot}
+                        onClearResult={async () => {
+                            await onSave({ resultUrl: '', thumbnailPath: '', isPersisted: false });
+                            onDataRefresh?.();
+                        }}
                         onFieldChange={handleFieldChange}
                     />
                 </div>

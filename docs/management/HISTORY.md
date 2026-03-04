@@ -2,6 +2,28 @@
 
 This document serves as a rolling historical record of what was implemented, why it was implemented, and the architectural decisions behind it.
 
+## 2026-03-04: v0.33.4 - Kestrel Update (Phantom Video & Documentation)
+
+### Context
+A targeted patch addressing the phantom video rendering bug in the Batch Edit Modal, the sideload duplication logic flaw, and a comprehensive documentation refresh.
+
+### Fixes
+- **Phantom Video (Clip 334)**:
+  - **Root Cause**: Clip 334's `resultUrl` pointed to `/api/storage/334_1772042157300.mp4` but the physical file had been deleted from disk. `LatestResultViewer` rendered a broken `<MediaDisplay>` because the URL string was truthy despite the file being gone.
+  - **Fix**: Cleaned the stale `resultUrl` from the database. Audited all clips — only clip 334 was affected.
+- **Sideload Infinite Duplication**:
+  - **Root Cause**: The "← sideload to MIS" button in `LatestResultViewer.tsx` called `onAddToSlot()` without clearing `clip.resultUrl`, allowing infinite phantom copies to be added to the Model Input Slots.
+  - **Fix**: Added `onClearResult` callback that calls `onSave({ resultUrl: '', thumbnailPath: '', isPersisted: false })` after sideloading, clearing both Zustand state and the database.
+
+### Documentation
+- **Playbook**: Updated tech stack (Zustand, Kling, Nano), added DB sync protocol, fixed stale Next.js version reference, updated Pre-Deploy Checklist.
+- **Architecture Refactor Report**: Added race condition observation about UI optimistic state vs database background syncs.
+
+### Version Bump
+- **Patch**: 0.33.3 -> 0.33.4.
+
+---
+
 ## 2026-03-03: v0.33.3 - Kestrel Update (Stability & BEM Hotfixes)
 
 ### Context

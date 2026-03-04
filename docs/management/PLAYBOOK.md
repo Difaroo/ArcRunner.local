@@ -54,6 +54,11 @@ Choose the right mode based on **risk level**:
     ./scripts/restart-stack.sh
     ```
     This script performs: `Stop Processes` -> `npm run build` -> `Start Production (Background)`.
+*   **DB Sync (Dev -> Prod)**: To push the Dev database to Production:
+    ```bash
+    ./scripts/sync-db.sh dev-to-prod
+    ```
+    This backs up Prod, then copies `dev.db` -> `prod_v2.db`.
 *   **Manual Restart**: If script fails, use: `npm run prod`.
 *   **Logs**: `tail -f production.log` (if started via script) or check active terminal.
 
@@ -62,10 +67,11 @@ Choose the right mode based on **risk level**:
 *   **Database**: `prisma/dev.db`
 
 ### 🏗️ Tech Stack
-*   **Frontend**: Next.js 14 (App Router), TailwindCSS, Radix UI.
-*   **Backend**: Next.js API Routes, GenerateManager.
-*   **Database**: SQLite (`dev.db`, `prod.db`) via Prisma.
-*   **AI**: Kie.ai (Flux/Veo), OpenAI (Assistants).
+*   **Frontend**: Next.js 13.5.6 (App Router), TailwindCSS, Radix UI.
+*   **State**: Zustand (atomic store, migrated from legacy `useAppStore`).
+*   **Backend**: Next.js API Routes, GenerateManager, Kie Strategies.
+*   **Database**: SQLite (`dev.db`, `prod_v2.db`) via Prisma.
+*   **AI Models**: Kie.ai (Flux, Veo, Veo S2E, Kling, Nano), OpenAI (Assistants).
 
 ---
 
@@ -195,3 +201,5 @@ Before any production deploy:
 - [ ] `npm run build` succeeds
 - [ ] Local test of changed feature
 - [ ] Commit with descriptive message
+- [ ] `./scripts/sync-db.sh dev-to-prod` (if DB data changed)
+- [ ] `./scripts/restart-stack.sh` (rebuild + restart prod)
